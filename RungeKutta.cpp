@@ -3,9 +3,8 @@
 #include <cmath>
 #include "Merson.h"
 
-Merson::Merson()
+RungeKutta::RungeKutta()
 {
-   adaptivity = 1.0e-6;
    k1 = 0;
    k2 = 0;
    k3 = 0;
@@ -14,7 +13,7 @@ Merson::Merson()
    aux = 0;
 }
 
-bool Merson::setup( int degreesOfFreedom )
+bool RungeKutta::setup( int degreesOfFreedom )
 {
    k1 = new double[ degreesOfFreedom ];
    k2 = new double[ degreesOfFreedom ];
@@ -27,12 +26,7 @@ bool Merson::setup( int degreesOfFreedom )
    return true;
 }
 
-void Merson::setAdaptivity( const double& adaptivity )
-{
-   this->adaptivity = adaptivity;
-}
-
-bool Merson::solve( const double integrationTimeStep,
+bool RungeKutta::solve( const double integrationTimeStep,
                     const double stopTime,
                     double* time,
                     ODEProblem* problem,
@@ -86,23 +80,16 @@ bool Merson::solve( const double integrationTimeStep,
          eps = std::max( eps, err );
       }
 
-      /***
-       *
-       */
-      if( this->adaptivity == 0.0 || eps < this->adaptivity )
+      for( int i = 0; i < dofs; i++ )
+         u[ i ] += tau / 6.0 * ( k1[ i ] + 4.0 * k4[ i ] + k5[ i ] );
+      *time += tau;
+      iteration++;
+      if( iteration > 100000 )
       {
-         for( int i = 0; i < dofs; i++ )
-            u[ i ] += tau / 6.0 * ( k1[ i ] + 4.0 * k4[ i ] + k5[ i ] );
-         *time += tau;
-         iteration++;
-         if( iteration > 100000 )
-         {
-            std::cerr << "The solver has reached the maximum number of iterations. " << std::endl;
-            return false;
-         }
+         std::cerr << "The solver has reached the maximum number of iterations. " << std::endl;
+         return false;
       }
-      if( this->adaptivity )
-         tau *= 0.8 * std::pow( this->adaptivity / eps, 0.2 );
+      
       tau = std::min( tau, stopTime - *time );
       std::cout << "ITER: " << iteration << " \t tau = " << tau << " \t time= " << *time << "         \r " << std::flush;
    }
@@ -110,7 +97,7 @@ bool Merson::solve( const double integrationTimeStep,
    return true;
 }
 
-Merson::~Merson()
+RungeKutta::~RungeKutta()
 {
    if( k1 ) delete[] k1;
    if( k2 ) delete[] k2;

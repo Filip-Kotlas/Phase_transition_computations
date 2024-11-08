@@ -1,26 +1,27 @@
 #include <cstdlib>
 #include "ode-solve.h"
-#include "Merson.h"
+#include "RungeKutta.h"
+#include "Euler.h"
 #include "ODEProblem.h"
 #include "ODESolver.h"
 #include "ACEProblem.h"
+#include <cassert>
 
 int main(int argc, char** argv)
 {
     const double initialTime( 0.0 );
-    const double finalTime( 0.05 );
+    const double finalTime( 0.1 );
     const double timeStep( 0.0001 );
-    const double integrationTimeStep( 0.0001 );
-    const double adaptivity( 0 );
-    const int sizeX( 100 );
-    const int sizeY( 100 );
-    const double alpha( 0.1 );
-    const double sigma( 0.1 );
-    const double ksi ( 0.01 );
+    const double integrationTimeStep( 0.00001 );
+    const int sizeX( 101 );
+    const int sizeY( 101 );
+    const double alpha( 3 );
+    const double sigma( 1 );
+    const double ksi ( 0.25 );
     
-    ACEProblem problem(sizeX, sizeY, alpha, sigma, ksi);
-    Merson integrator;
-    integrator.setAdaptivity( adaptivity );
+    ACEProblem problem = ACEProblem(sizeX, sizeY, alpha, sigma, ksi);
+    RungeKutta integrator;
+    //integrator.setAdaptivity( adaptivity );
 
     double* u = new double[ problem.getDegreesOfFreedom() ];
     problem.setInitialCondition( u );

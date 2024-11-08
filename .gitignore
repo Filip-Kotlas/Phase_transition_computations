@@ -31,4 +31,11 @@
 *.out
 *.app
 
+# Pictures
+*.png
+*.jpg
+*.jpeg
+*.gif
+
 Results/
+.vscode/

@@ -6,6 +6,8 @@
 #include<vector>
 #include<sstream>
 #include<iomanip>
+#include <filesystem>
+#include <unistd.h>
 
 #include "ODEProblem.h"
 
