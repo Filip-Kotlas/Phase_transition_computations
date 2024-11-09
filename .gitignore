@@ -31,11 +31,14 @@
 *.out
 *.app
 
-# Pictures
+# Visualizations
 *.png
 *.jpg
 *.jpeg
 *.gif
 
-Results/
+# Text files
+*.txt
+
+Results*/
 .vscode/
