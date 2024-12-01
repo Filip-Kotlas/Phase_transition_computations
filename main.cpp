@@ -10,11 +10,11 @@
 int main(int argc, char** argv)
 {
     const double initialTime( 0.0 );
-    const double finalTime( 0.75 );
+    const double finalTime( 0.30 );
     const double timeStep( 0.001 );
-    const double integrationTimeStep( 0.000001 );
-    const int sizeX( 500 );
-    const int sizeY( 500 );
+    const double integrationTimeStep( 0.0001 );
+    const int sizeX( 100 );
+    const int sizeY( 100 );
     const double alpha( 3 );
     const double sigma( 1 );
     const double ksi ( 0.25 );

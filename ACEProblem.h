@@ -16,7 +16,7 @@ class ACEProblem : public ODEProblem
 {
    public:
 
-    ACEProblem( int sizeX, int sizeY, double alpha, double sigma, double ksi);
+    ACEProblem( int sizeX, int sizeY, double alpha, double sigma, double ksi, double T);
       
     int getDegreesOfFreedom();
       
@@ -26,6 +26,11 @@ class ACEProblem : public ODEProblem
 
     void setInitialCondition( double* u );
 
+    double laplaceD(double *u, int i, int j);
+
+    double f_0(double *_u, int i, int j);
+
+    double F(double *_u, int i, int j);
 
     protected:
 
@@ -34,7 +39,13 @@ class ACEProblem : public ODEProblem
     double hx;
     double hy;
 
-    double alpha;
-    double sigma;
-    double ksi;
+    const double alpha;
+    const double sigma;
+    const double ksi;
+    const double T;
+
+    //parameters
+    static const double delta_0 = 5e-9;
+    static const double b = 3.23e-10;
+    
 };

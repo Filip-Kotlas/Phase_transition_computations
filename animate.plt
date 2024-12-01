@@ -26,7 +26,7 @@ do for [i=0:frame]{
     set title sprintf("ACE-equation - Frame %d", i)
     if(interface) {
         splot filename using 1:2:3 with pm3d notitle,\
-              filename using 1:2:(($3 > 0.499 && $3 < 0.501) ? 0.5 : 1/0) with points pointtype 7 pointsize 0.5 linecolor "black" notitle
+              filename using 1:2:(($3 > 0.49 && $3 < 0.51) ? 0.5 : 1/0) with points pointtype 7 pointsize 0.5 linecolor "black" notitle
 
     } else {
         splot filename using 1:2:3 with pm3d notitle
