@@ -1,13 +1,14 @@
 #include "ACEProblem.h"
 
-ACEProblem::ACEProblem(int sizeX, int sizeY, double alpha, double sigma, double ksi)
+ACEProblem::ACEProblem(int sizeX, int sizeY, double alpha, double sigma, double ksi, double T)
 :  sizeX(sizeX),
    sizeY(sizeY),
    hx(1.0/(sizeX-1)),
    hy(1.0/(sizeY-1)),
    alpha(alpha),
    sigma(sigma),
-   ksi(ksi)
+   ksi(ksi),
+   T(T)
 {
 }
 
@@ -22,21 +23,7 @@ void ACEProblem::getRightHandSide(const double &t, double *_u, double *fu)
    {
       for(int j = 0; j < this->sizeY; j++)
       {
-         int I_shift = 0;
-         int J_shift = 0;
-
-         if(i == 0)
-            I_shift = 1;
-         if(i == sizeX-1)
-            I_shift = -1;
-         if(j == 0)
-            J_shift = 1;
-         if(j == sizeY-1)
-            J_shift = -1;
-
-         fu[j*sizeX + i] = sigma/alpha*( (_u[j*sizeX + i - 1 + I_shift] - 2*_u[j*sizeX + i + I_shift] + _u[j*sizeX + i + 1 + I_shift])/hx/hx +
-                                         (_u[(j-1+J_shift)*sizeX + i] - 2*_u[(j+J_shift)*sizeX + i] + _u[(j+1+J_shift)*sizeX + i])/hy/hy )
-                           + 1/ksi/ksi/alpha*_u[j*sizeX + i]*(1 - _u[j*sizeX + i])*(_u[j*sizeX + i] - 1.0/2.0);
+         fu[j*sizeX + i] = sigma/alpha*laplaceD(_u, i, j) + 1/ksi/ksi/alpha*f_0(_u, i, j);
       }
    }
 }
@@ -107,4 +94,38 @@ void ACEProblem::setInitialCondition(double *u)
          */
       }
    }
+}
+
+double ACEProblem::laplaceD(double *_u, int i, int j)
+{
+   //shift to accomodate boundary, boundary is free
+   int I_shift = 0;
+   int J_shift = 0;
+
+   if(i == 0)
+      I_shift = 1;
+   if(i == sizeX-1)
+      I_shift = -1;
+   if(j == 0)
+      J_shift = 1;
+   if(j == sizeY-1)
+      J_shift = -1;
+
+   return (_u[j*sizeX + i - 1 + I_shift] - 2*_u[j*sizeX + i + I_shift] + _u[j*sizeX + i + 1 + I_shift])/hx/hx +
+          (_u[(j-1+J_shift)*sizeX + i] - 2*_u[(j+J_shift)*sizeX + i] + _u[(j+1+J_shift)*sizeX + i])/hy/hy;
+}
+
+double ACEProblem::f_0(double *_u, int i, int j)
+{
+   return _u[j*sizeX + i]*(1 - _u[j*sizeX + i])*(_u[j*sizeX + i] - 1.0/2.0);
+}
+
+double ACEProblem::F(double *_u, int i, int j)
+{
+   return 1/(sqrt(pow(i-0.5, 2) + pow(j-0.5, 2)));
+}
+
+double get_M()
+{
+   
 }
