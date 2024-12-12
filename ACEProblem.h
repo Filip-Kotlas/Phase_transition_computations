@@ -11,12 +11,19 @@
 
 #include "ODEProblem.h"
 
+struct Domain
+{
+    double x_left;
+    double x_right;
+    double y_left;
+    double y_right;
+};
 
 class ACEProblem : public ODEProblem
 {
    public:
 
-    ACEProblem( int sizeX, int sizeY, double alpha, double sigma, double ksi, double T);
+    ACEProblem( int sizeX, int sizeY, Domain domain, double alpha, double sigma, double ksi);
       
     int getDegreesOfFreedom();
       
@@ -26,7 +33,9 @@ class ACEProblem : public ODEProblem
 
     void setInitialCondition( double* u );
 
-    double laplaceD(double *u, int i, int j);
+    void set_dirichlet_boundary(double* _u, double* fu);
+
+    double laplace(double *u, int i, int j);
 
     double f_0(double *_u, int i, int j);
 
@@ -36,16 +45,11 @@ class ACEProblem : public ODEProblem
 
     const int sizeX;
     const int sizeY;
+    Domain domain;
     double hx;
     double hy;
 
     const double alpha;
     const double sigma;
-    const double ksi;
-    const double T;
-
-    //parameters
-    static const double delta_0 = 5e-9;
-    static const double b = 3.23e-10;
-    
+    const double ksi;    
 };
