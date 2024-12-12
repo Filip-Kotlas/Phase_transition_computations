@@ -65,19 +65,20 @@ bool ACEProblem::writeSolution(const double &t, int step, const double *u)
 
 void ACEProblem::setInitialCondition(double *u)
 {
-   double r1 = 0.20;
-   double r2 = 0.30;
-   for(int i = 0; i < this->sizeX; i++)
+   double r1 = 0.2;
+   double r2 = 0.21;
+   for(int i = 0; i < sizeX; i++)
    {
-      for(int j = 0; j < this->sizeY; j++)
+      for(int j = 0; j < sizeY; j++)
       {
          // Tangenc hyperbolický
-         double radius = sqrt( pow(i - this->sizeX/2, 2) + pow(j - this->sizeY/2, 2)) / std::min(sizeX, sizeY);
-         u[j*this->sizeX + i] = 1.0/2 * tanh(- 20 * (radius - 0.25)) + 1.0/2;
-         //std::cout << i << ", " << j << "= " << tanh(- 20 * (radius - 0.25)) << std::endl;
-
-
          /*
+         double radius = sqrt( pow(i - sizeX/2, 2) + pow(j - sizeY/2, 2)) / std::min(sizeX, sizeY);
+         u[j*sizeX + i] = 1.0/2 * tanh(- 20 * (radius - 0.25)) + 1.0/2;
+         //std::cout << i << ", " << j << "= " << tanh(- 20 * (radius - 0.25)) << std::endl;
+         */
+
+         
          //Lineární po částech.
          double radius = sqrt( pow(i - this->sizeX/2, 2) + pow(j - this->sizeY/2, 2)) / std::min(sizeX, sizeY);
          if( radius < r1 )
@@ -92,7 +93,7 @@ void ACEProblem::setInitialCondition(double *u)
          {
             u[j*this->sizeX + i] = 0;
          }
-         */
+         
       }
    }
 }
