@@ -10,16 +10,17 @@
 int main(int argc, char** argv)
 {
     const double initialTime( 0.0 );
-    const double finalTime( 0.30 );
+    const double finalTime( 0.15 );
     const double timeStep( 0.001 );
-    const double integrationTimeStep( 0.0001 );
-    const int sizeX( 100 );
-    const int sizeY( 100 );
-    const double alpha( 3 );
+    const double integrationTimeStep( 0.00002 );
+    const Domain domain = {-1, 1, -1, 1};
+    const int sizeX = 200;
+    const int sizeY = 200;
+    const double alpha( 1 );
     const double sigma( 1 );
-    const double ksi ( 0.25 );
+    const double ksi ( 0.01 );
     
-    ACEProblem problem = ACEProblem(sizeX, sizeY, alpha, sigma, ksi);
+    ACEProblem problem = ACEProblem(sizeX, sizeY, domain, alpha, sigma, ksi);
     RungeKutta integrator;
     //integrator.setAdaptivity( adaptivity );
 
