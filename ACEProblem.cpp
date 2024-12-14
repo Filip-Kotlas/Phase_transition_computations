@@ -55,7 +55,7 @@ bool ACEProblem::writeSolution(const double &t, int step, const double *u)
    {
       for( int i = 0; i < sizeX; i++ )
       {
-         file << i * hx << " " << j * hy << " " << u[ j * sizeX + i ];
+         file << domain.x_left + i * hx << " " << domain.y_left + j * hy << " " << u[ j * sizeX + i ];
          file << std::endl;
       }
       file << std::endl;
@@ -65,35 +65,47 @@ bool ACEProblem::writeSolution(const double &t, int step, const double *u)
 
 void ACEProblem::setInitialCondition(double *u)
 {
-   double r1 = 0.2;
-   double r2 = 0.21;
+   #define VERSION 1
+
+   double r1 = 0.5;
+   double r2 = r1 + ksi;
    for(int i = 0; i < sizeX; i++)
    {
       for(int j = 0; j < sizeY; j++)
       {
-         // Tangenc hyperbolický
-         /*
-         double radius = sqrt( pow(i - sizeX/2, 2) + pow(j - sizeY/2, 2)) / std::min(sizeX, sizeY);
-         u[j*sizeX + i] = 1.0/2 * tanh(- 20 * (radius - 0.25)) + 1.0/2;
-         //std::cout << i << ", " << j << "= " << tanh(- 20 * (radius - 0.25)) << std::endl;
-         */
+         double radius = sqrt(pow(i*hx - (domain.x_right - domain.x_left)/2, 2) + pow(j*hy - (domain.y_right-domain.y_left)/2, 2));
 
-         
-         //Lineární po částech.
-         double radius = sqrt( pow(i - this->sizeX/2, 2) + pow(j - this->sizeY/2, 2)) / std::min(sizeX, sizeY);
+         #if VERSION == 0
+         //Hyperbolic tangent
+         u[j*sizeX + i] = 1.0/2 * tanh(-3/ksi*(radius - r1)) + 1.0/2;
+
+         #elif VERSION == 1
+         //Linear by parts
          if( radius < r1 )
          {
-            u[j*this->sizeX + i] = 1;
+            u[j*sizeX + i] = 1;
          }
          else if( radius < r2 )
          {
-            u[j*this->sizeX + i] = 1 - (radius - r1) / (r2 - r1);
+            u[j*sizeX + i] = 1 - (radius - r1) / (r2 - r1);
          }
          else
          {
-            u[j*this->sizeX + i] = 0;
+            u[j*sizeX + i] = 0;
          }
          
+         #elif VERSION == 2
+         //Constant by parts
+         if( radius < r1 )
+         {
+            u[j*sizeX + i] = 1;
+         }
+         else
+         {
+            u[j*sizeX + i] = 0;
+         }
+
+         #endif
       }
    }
 }

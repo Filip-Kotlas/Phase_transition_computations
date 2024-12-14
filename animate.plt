@@ -3,7 +3,7 @@ if (!exists("fixed_color_range")) fixed_color_range = 1
 if (!exists("interface")) interface = 1
 if (!exists("folder")) folder = "Results"
 
-set terminal gif animate delay 1000 / frame optimize size 800,600
+set terminal gif animate optimize size 800,600
 set output 'ACE-equation.gif'
 
 # Nastavení titulku a popisků os
