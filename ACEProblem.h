@@ -22,9 +22,9 @@ struct Domain
 
 enum class MODEL
 {
-    MODEL_1,
-    MODEL_2,
-    MODEL_3
+    MODEL_1 = 1,
+    MODEL_2 = 2,
+    MODEL_3 = 3
 };
 
 class ACEProblem : public ODEProblem
