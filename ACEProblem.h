@@ -8,6 +8,7 @@
 #include<iomanip>
 #include <filesystem>
 #include <unistd.h>
+#include <cassert>
 
 #include "ODEProblem.h"
 
@@ -19,11 +20,19 @@ struct Domain
     double y_right;
 };
 
+enum class MODEL
+{
+    MODEL_1,
+    MODEL_2,
+    MODEL_3
+};
+
 class ACEProblem : public ODEProblem
 {
    public:
 
-    ACEProblem( int sizeX, int sizeY, Domain domain, double alpha, double sigma, double ksi);
+    ACEProblem(int sizeX,
+        int sizeY, Domain domain, double alpha, double beta, double par_a, double ksi, MODEL model);
       
     int getDegreesOfFreedom();
       
@@ -35,7 +44,9 @@ class ACEProblem : public ODEProblem
 
     void set_dirichlet_boundary(double* _u, double* fu);
 
+    double right_hand_side_at(double* _u, int i, int j);
     double laplace(double *u, int i, int j);
+    double grad_norm(double *_u, int i, int j);
 
     double f_0(double *_u, int i, int j);
 
@@ -50,6 +61,9 @@ class ACEProblem : public ODEProblem
     double hy;
 
     const double alpha;
-    const double sigma;
-    const double ksi;    
+    const double par_a;
+    const double beta;
+    const double ksi;
+
+    const MODEL model;
 };
