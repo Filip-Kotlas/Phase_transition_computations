@@ -7,7 +7,8 @@ ACEProblem::ACEProblem(int sizeX,
                        double beta,
                        double par_a,
                        double ksi,
-                       MODEL model)
+                       MODEL model,
+                       std::string output_folder)
 :  sizeX(sizeX),
    sizeY(sizeY),
    domain(domain),
@@ -17,7 +18,8 @@ ACEProblem::ACEProblem(int sizeX,
    beta(beta),
    par_a(par_a),
    ksi(ksi),
-   model(model)
+   model(model),
+   output_folder(output_folder)
 {
 }
 
@@ -44,7 +46,7 @@ bool ACEProblem::writeSolution(const double &t, int step, const double *u)
     * Filename with step index
     */
    std::stringstream str;
-   str << "Results\\ACE-equation-" << std::setw( 5 ) << std::setfill( '0' ) << step << ".txt";
+   str << output_folder << "\\calculations\\ACE-equation-" << std::setw( 5 ) << std::setfill( '0' ) << step << ".txt";
    
    /****
     * Open file

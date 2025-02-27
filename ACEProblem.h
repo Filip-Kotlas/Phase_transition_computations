@@ -32,7 +32,14 @@ class ACEProblem : public ODEProblem
    public:
 
     ACEProblem(int sizeX,
-        int sizeY, Domain domain, double alpha, double beta, double par_a, double ksi, MODEL model);
+               int sizeY,
+               Domain domain,
+               double alpha,
+               double beta,
+               double par_a,
+               double ksi,
+               MODEL model,
+               std::string output_folder);
       
     int getDegreesOfFreedom();
       
@@ -66,4 +73,6 @@ class ACEProblem : public ODEProblem
     const double ksi;
 
     const MODEL model;
+    
+    const std::string output_folder;
 };

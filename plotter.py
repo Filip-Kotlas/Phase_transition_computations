@@ -7,17 +7,22 @@ from matplotlib import animation
 
 class Plotter():
     """Parent class of specialized plotters."""
+    #TODO: Arrange that the output plots are named according to the plotter used.
 
     def __init__(self, folder_path: str,
                  draw_function: bool=False,
                  draw_num_boundary: bool=True,
                  draw_anal_boundary: bool=False):
         self.folder = folder_path
-        self.file_paths = sorted([os.path.join(self.folder, f) for f in os.listdir(folder_path) if f.endswith('.txt')])
+        self.file_paths = sorted([os.path.join(self.folder, "calculations", f)
+                                  for f
+                                  in os.listdir(os.path.join(folder_path, "calculations"))
+                                  if f.endswith('.txt')])
         self.fig = None
         self.draw_function = draw_function
         self.draw_num_boundary = draw_num_boundary
-        self.draw_anal_boundary = draw_anal_boundary
+        self.draw_analit_boundary = draw_anal_boundary
+        self.output_name_tag = None
 
     def _load_data(self, file_path: str) -> Tuple[List[float], List[float], List[float]]:
         """
@@ -43,9 +48,9 @@ class Plotter():
                             draw_anal_boundary: bool=False):
         self.draw_function = draw_function
         self.draw_num_boundary = draw_num_boundary
-        self.draw_anal_boundary = draw_anal_boundary
+        self.draw_analit_boundary = draw_anal_boundary
 
-    def check_for_visualisation_folder(self):
+    def check_for_info_folder(self):
         path_to_visual = os.path.join(self.folder, "info")
         if not os.path.exists(path_to_visual):
             os.makedirs(path_to_visual)
@@ -55,17 +60,17 @@ class Plotter():
         pass
 
     def save_animation(self) -> None:
-        self.check_for_visualisation_folder()
+        self.check_for_info_folder()
         num_frames = len(self.file_paths)
         ani = animation.FuncAnimation(self.fig, self.update, frames=num_frames, blit=True)
-        output_file = os.path.join(self.folder, "info", "ACE.gif")
+        output_file = os.path.join(self.folder, "info", "ACE" + self.output_name_tag + ".gif")
         ani.save(output_file, writer='pillow', fps=max(num_frames/10, 10))
         print("Finished the animation. Saved at:", output_file)
 
     def save_frame(self, frame: int) -> None:
-        self.check_for_visualisation_folder()
+        self.check_for_info_folder()
         self.update(frame)
-        output_file = os.path.join(self.folder, "info", f"Frame_{frame:05d}.jpg")
+        output_file = os.path.join(self.folder, "info", "ACE" + self.output_name_tag + f"_{frame:05d}.jpg")
         self.fig.savefig(output_file, dpi=300)
         print(f"Saved the frame {frame} at:", output_file)
 
@@ -75,11 +80,11 @@ class ScatterPlotter2D(Plotter):
                  folder_path: str,
                  draw_function: bool=False,
                  draw_num_boundary: bool=True,
-                 draw_anal_boundary: bool=False):
+                 draw_analit_boundary: bool=False):
         super().__init__(folder_path,
                          draw_function,
                          draw_num_boundary,
-                         draw_anal_boundary)
+                         draw_analit_boundary)
 
         x, y, _ = self._load_data(self.file_paths[0])
         self.fig, self.ax = plt.subplots()
@@ -87,14 +92,18 @@ class ScatterPlotter2D(Plotter):
         self.ax.set_ylim(y.min(), y.max())
         self.ax.set_aspect('equal')
         self.title = self.ax.set_title("Frame: 0")
+        self.output_name_tag = "_2D_"
 
         if self.draw_function:
             self.function_sc = self.ax.scatter([], [], c=[], cmap='viridis', s=1)
             self.function_sc.set_offsets(np.column_stack((x, y)))
+            self.output_name_tag = self.output_name_tag + "f"
         if self.draw_num_boundary:
             self.num_bound_sc = self.ax.scatter([], [], color='red', s=1, label='Num. sol.')
-        if self.draw_anal_boundary:
+            self.output_name_tag = self.output_name_tag + "n"
+        if self.draw_analit_boundary:
             self.anal_bound_sc = self.ax.scatter([], [], color='green', s=1, label='Anal. sol.')
+            self.output_name_tag = self.output_name_tag + "a"
 
         self.ax.legend()
 
@@ -113,7 +122,7 @@ class ScatterPlotter2D(Plotter):
             self.num_bound_sc.set_offsets(np.column_stack((num_boundary_x, num_boundary_y)))
             artist.append(self.num_bound_sc)
 
-        if self.draw_anal_boundary:
+        if self.draw_analit_boundary:
             analytic_boundary_x, analytic_boundary_y = self.get_analytic_solution(x, y, 0.5, frame*0.001, (x[1]-x[0])/2)
             self.anal_bound_sc.set_offsets(np.column_stack((analytic_boundary_x, analytic_boundary_y)))
             artist.append(self.anal_bound_sc)
@@ -165,3 +174,53 @@ class ScatterPlotter2D(Plotter):
                 analytic_boundary_y.append(yi)
 
         return np.array(analytic_boundary_x), np.array(analytic_boundary_y)
+
+class SurfacePlotter(Plotter):
+    """Plotter of graph of a function of two variables."""
+    #TODO: Add scatter plot of boundary at the height 1
+    def __init__(self,
+                 folder_path,
+                 draw_function = False,
+                 draw_num_boundary = True,
+                 draw_analit_boundary = False):
+        super().__init__(folder_path, draw_function, draw_num_boundary, draw_analit_boundary)
+
+        x, y, values = self._load_data(self.file_paths[0])
+        x_grid, y_grid = np.meshgrid(np.unique(x), np.unique(y))
+        val_grid = values.reshape(x_grid.shape)
+
+        self.fig = plt.figure()
+        self.ax = self.fig.add_subplot(111, projection='3d')
+        self.surf = self.ax.plot_surface(x_grid, y_grid, val_grid, cmap='viridis')
+
+        self.ax.set_xlim(x.min(), x.max())
+        self.ax.set_ylim(y.min(), y.max())
+        self.ax.set_zlim(0, 2)
+        self.ax.set_xlabel("x")
+        self.ax.set_ylabel("y")
+        self.ax.set_zlabel("p")
+        self.title = self.ax.set_title("Frame: 0")
+        self.output_name_tag = "_3D_"
+
+        if self.draw_function:
+            self.output_name_tag = self.output_name_tag + "f"
+        if self.draw_num_boundary:
+            self.output_name_tag = self.output_name_tag + "n"
+        if self.draw_analit_boundary:
+            self.output_name_tag = self.output_name_tag + "a"
+
+    def update(self, frame: int):
+        x, y, values = self._load_data(self.file_paths[frame])
+        x_grid, y_grid = np.meshgrid(np.unique(x), np.unique(y))
+        val_grid = values.reshape(x_grid.shape)
+
+        self.title.set_text(f"Frame: {frame}")
+        print("Updating frame: ", frame)
+        artist = []
+
+        if self.draw_function:
+            self.surf.remove()
+            self.surf = self.ax.plot_surface(x_grid, y_grid, val_grid, cmap='viridis')
+
+        artist.append(self.title)
+        return artist
