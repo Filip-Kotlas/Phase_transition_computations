@@ -34,25 +34,33 @@ int main(int argc, char** argv)
     const double ksi( 0.01 );
     const MODEL model(MODEL::MODEL_1);
 
-
     std::string result_path = "Results";
+    if(argc == 2)
+        result_path = argv[1];
     std::string info_path = result_path + "\\info";
     std::string setup_path = info_path + "\\setup.txt";
+    std::string calc_path = result_path + "\\calculations";
 
     if (!directoryExists(result_path)) {
         if (createDirectory(result_path)) {
             std::cout << "Created folder: " << result_path << std::endl;
         } else {
-            std::cerr << "Error: Could not create folder!" << std::endl;
+            std::cout << "Error: Could not create folder" << result_path << "!" << std::endl;
         }
     }
     if (!directoryExists(info_path)) {
         if (createDirectory(info_path)) {
             std::cout << "Created folder: " << info_path << std::endl;
         } else {
-            std::cerr << "Error: Could not create folder!" << std::endl;
+            std::cout << "Error: Could not create folder" << info_path << "!" << std::endl;
         }
     }
+    if (!directoryExists(calc_path)) {
+        if (createDirectory(calc_path)) {
+            std::cout << "Created folder: " << calc_path << std::endl;
+        } else {
+            std::cout << "Error: Could not create folder" << calc_path << "!" << std::endl;
+        }    }
 
     
     std::fstream file;
@@ -97,7 +105,7 @@ int main(int argc, char** argv)
     }
     */
 
-    ACEProblem problem = ACEProblem(sizeX, sizeY, domain, alpha, beta, par_a, ksi, model);
+    ACEProblem problem = ACEProblem(sizeX, sizeY, domain, alpha, beta, par_a, ksi, model, result_path);
     RungeKutta integrator;
     //integrator.setAdaptivity( adaptivity );
 
@@ -105,13 +113,13 @@ int main(int argc, char** argv)
     problem.setInitialCondition( u );
     problem.writeSolution( 0.0, 0, u );
    
-    if( ! solve( initialTime,
-            finalTime,
-            timeStep,
-            integrationTimeStep,
-            &problem,
-            &integrator,
-            u ) )
+    if( ! solve(initialTime,
+                finalTime,
+                timeStep,
+                integrationTimeStep,
+                &problem,
+                &integrator,
+                u))
     {
         delete[] u;
         return EXIT_FAILURE;
