@@ -7,18 +7,19 @@ from matplotlib import animation
 
 class Plotter():
     """Parent class of specialized plotters."""
-    #TODO: Arrange that the output plots are named according to the plotter used.
+    #TODO: Přidat možnost pouze snímky prohlížet.
 
     def __init__(self, folder_path: str,
                  draw_function: bool=False,
                  draw_num_boundary: bool=True,
-                 draw_anal_boundary: bool=False):
+                 draw_anal_boundary: bool=False) -> None:
         self.folder = folder_path
         self.file_paths = sorted([os.path.join(self.folder, "calculations", f)
                                   for f
                                   in os.listdir(os.path.join(folder_path, "calculations"))
                                   if f.endswith('.txt')])
         self.fig = None
+        self.ax = None
         self.draw_function = draw_function
         self.draw_num_boundary = draw_num_boundary
         self.draw_analit_boundary = draw_anal_boundary
@@ -45,92 +46,18 @@ class Plotter():
     def reset_draw_settings(self,
                             draw_function: bool=False,
                             draw_num_boundary: bool=True,
-                            draw_anal_boundary: bool=False):
+                            draw_anal_boundary: bool=False) -> None:
         self.draw_function = draw_function
         self.draw_num_boundary = draw_num_boundary
         self.draw_analit_boundary = draw_anal_boundary
 
-    def check_for_info_folder(self):
+    def check_for_info_folder(self) -> None:
         path_to_visual = os.path.join(self.folder, "info")
         if not os.path.exists(path_to_visual):
             os.makedirs(path_to_visual)
             print("Creating folder \"info\" in ", self.folder)
 
-    def update(self, frame: int):
-        pass
-
-    def save_animation(self) -> None:
-        self.check_for_info_folder()
-        num_frames = len(self.file_paths)
-        ani = animation.FuncAnimation(self.fig, self.update, frames=num_frames, blit=True)
-        output_file = os.path.join(self.folder, "info", "ACE" + self.output_name_tag + ".gif")
-        ani.save(output_file, writer='pillow', fps=max(num_frames/10, 10))
-        print("Finished the animation. Saved at:", output_file)
-
-    def save_frame(self, frame: int) -> None:
-        self.check_for_info_folder()
-        self.update(frame)
-        output_file = os.path.join(self.folder, "info", "ACE" + self.output_name_tag + f"_{frame:05d}.jpg")
-        self.fig.savefig(output_file, dpi=300)
-        print(f"Saved the frame {frame} at:", output_file)
-
-class ScatterPlotter2D(Plotter):
-    """Plotter of 2D scatter plot."""
-    def __init__(self,
-                 folder_path: str,
-                 draw_function: bool=False,
-                 draw_num_boundary: bool=True,
-                 draw_analit_boundary: bool=False):
-        super().__init__(folder_path,
-                         draw_function,
-                         draw_num_boundary,
-                         draw_analit_boundary)
-
-        x, y, _ = self._load_data(self.file_paths[0])
-        self.fig, self.ax = plt.subplots()
-        self.ax.set_xlim(x.min(), x.max())
-        self.ax.set_ylim(y.min(), y.max())
-        self.ax.set_aspect('equal')
-        self.title = self.ax.set_title("Frame: 0")
-        self.output_name_tag = "_2D_"
-
-        if self.draw_function:
-            self.function_sc = self.ax.scatter([], [], c=[], cmap='viridis', s=1)
-            self.function_sc.set_offsets(np.column_stack((x, y)))
-            self.output_name_tag = self.output_name_tag + "f"
-        if self.draw_num_boundary:
-            self.num_bound_sc = self.ax.scatter([], [], color='red', s=1, label='Num. sol.')
-            self.output_name_tag = self.output_name_tag + "n"
-        if self.draw_analit_boundary:
-            self.anal_bound_sc = self.ax.scatter([], [], color='green', s=1, label='Anal. sol.')
-            self.output_name_tag = self.output_name_tag + "a"
-
-        self.ax.legend()
-
-    def update(self, frame: int):
-        x, y, values = self._load_data(self.file_paths[frame])
-        self.title.set_text(f"Frame: {frame}")
-        print("Updating frame: ", frame)
-        artist = []
-
-        if self.draw_function:
-            self.function_sc.set_array(values)
-            artist.append(self.function_sc)
-
-        if self.draw_num_boundary:
-            num_boundary_x, num_boundary_y = self._find_boundary(x, y, values, threshold=0.5)
-            self.num_bound_sc.set_offsets(np.column_stack((num_boundary_x, num_boundary_y)))
-            artist.append(self.num_bound_sc)
-
-        if self.draw_analit_boundary:
-            analytic_boundary_x, analytic_boundary_y = self.get_analytic_solution(x, y, 0.5, frame*0.001, (x[1]-x[0])/2)
-            self.anal_bound_sc.set_offsets(np.column_stack((analytic_boundary_x, analytic_boundary_y)))
-            artist.append(self.anal_bound_sc)
-
-        artist.append(self.title)
-        return artist
-
-    def _find_boundary(self, x, y, values, threshold=0.5):
+    def _find_boundary(self, x, y, values, threshold=0.5) -> Tuple[np.array, np.array]:
         # Předpokládáme, že body jsou na mřížce (nebo téměř na mřížce)
         grid_shape = (len(np.unique(x)), len(np.unique(y)))
 
@@ -159,7 +86,7 @@ class ScatterPlotter2D(Plotter):
 
         return np.array(boundary_x), np.array(boundary_y)
 
-    def get_analytic_solution(self, x, y, r0, t, eps):
+    def get_analytic_solution(self, x, y, r0, t, eps) -> Tuple[np.array, np.array]:
         # There is no circle.
         if r0**2 + 2*t < 0:
             return np.array([]), np.array([])
@@ -175,9 +102,95 @@ class ScatterPlotter2D(Plotter):
 
         return np.array(analytic_boundary_x), np.array(analytic_boundary_y)
 
+    def update(self, frame: int):
+        pass
+
+    def save_animation(self) -> None:
+        self.check_for_info_folder()
+        num_frames = len(self.file_paths)
+        ani = animation.FuncAnimation(self.fig, self.update, frames=num_frames, blit=True)
+        output_file = os.path.join(self.folder, "info", "ACE" + self.output_name_tag + ".gif")
+        ani.save(output_file, writer='pillow', fps=max(num_frames/10, 10))
+        print("Finished the animation. Saved at:", output_file)
+
+    def save_frame(self, frame: int) -> None:
+        if frame >= len(self.file_paths):
+            print(f"Frame {frame} is unavailable.")
+            return
+        self.check_for_info_folder()
+        self.update(frame)
+        output_file = os.path.join(self.folder, "info", "ACE" + self.output_name_tag + f"_{frame:05d}.jpg")
+        self.fig.savefig(output_file, dpi=300)
+        print(f"Frame {frame} saved at:", output_file)
+
+    def show_frame(self, frame: int) -> None:
+        if frame >= len(self.file_paths):
+            print(f"Frame {frame} is unavailable.")
+            return
+        self.update(frame)
+        self.ax.axis("off")
+        plt.show()
+
+
+class ScatterPlotter2D(Plotter):
+    """Plotter of a 2D scatter plot."""
+    def __init__(self,
+                 folder_path: str,
+                 draw_function: bool=False,
+                 draw_num_boundary: bool=True,
+                 draw_analit_boundary: bool=False):
+        super().__init__(folder_path,
+                         draw_function,
+                         draw_num_boundary,
+                         draw_analit_boundary)
+
+        x, y, _ = self._load_data(self.file_paths[0])
+        self.fig, self.ax = plt.subplots()
+        self.ax.set_xlim(x.min(), x.max())
+        self.ax.set_ylim(y.min(), y.max())
+        self.ax.set_aspect('equal')
+        self.title = self.ax.set_title("Frame: 0")
+        self.output_name_tag = "_2D_"
+
+        if self.draw_function:
+            self.function_sc = self.ax.scatter([], [], c=[], cmap='viridis', s=1)
+            self.function_sc.set_offsets(np.column_stack((x, y)))
+            self.output_name_tag = self.output_name_tag + "f"
+        if self.draw_num_boundary:
+            self.num_bound_sc = self.ax.scatter([], [], color='red', s=0.5, label='Num. sol.')
+            self.output_name_tag = self.output_name_tag + "n"
+        if self.draw_analit_boundary:
+            self.anal_bound_sc = self.ax.scatter([], [], color='green', s=0.5, label='Anal. sol.')
+            self.output_name_tag = self.output_name_tag + "a"
+
+        self.ax.legend()
+
+    def update(self, frame: int):
+        x, y, values = self._load_data(self.file_paths[frame])
+        self.title.set_text(f"Frame: {frame}")
+        print("Updating frame: ", frame)
+        artist = []
+
+        if self.draw_function:
+            self.function_sc.set_array(values)
+            artist.append(self.function_sc)
+
+        if self.draw_num_boundary:
+            num_boundary_x, num_boundary_y = self._find_boundary(x, y, values, threshold=0.5)
+            self.num_bound_sc.set_offsets(np.column_stack((num_boundary_x, num_boundary_y)))
+            artist.append(self.num_bound_sc)
+
+        if self.draw_analit_boundary:
+            analytic_boundary_x, analytic_boundary_y = self.get_analytic_solution(x, y, 0.5, frame*0.001, (x[1]-x[0])/2)
+            self.anal_bound_sc.set_offsets(np.column_stack((analytic_boundary_x, analytic_boundary_y)))
+            artist.append(self.anal_bound_sc)
+
+        artist.append(self.title)
+        return artist
+
 class SurfacePlotter(Plotter):
     """Plotter of graph of a function of two variables."""
-    #TODO: Add scatter plot of boundary at the height 1
+
     def __init__(self,
                  folder_path,
                  draw_function = False,
@@ -185,13 +198,12 @@ class SurfacePlotter(Plotter):
                  draw_analit_boundary = False):
         super().__init__(folder_path, draw_function, draw_num_boundary, draw_analit_boundary)
 
+        self.fig = plt.figure()
+        self.ax = self.fig.add_subplot(111, projection='3d')
+
         x, y, values = self._load_data(self.file_paths[0])
         x_grid, y_grid = np.meshgrid(np.unique(x), np.unique(y))
         val_grid = values.reshape(x_grid.shape)
-
-        self.fig = plt.figure()
-        self.ax = self.fig.add_subplot(111, projection='3d')
-        self.surf = self.ax.plot_surface(x_grid, y_grid, val_grid, cmap='viridis')
 
         self.ax.set_xlim(x.min(), x.max())
         self.ax.set_ylim(y.min(), y.max())
@@ -203,10 +215,13 @@ class SurfacePlotter(Plotter):
         self.output_name_tag = "_3D_"
 
         if self.draw_function:
+            self.function_surf = self.ax.plot_surface(x_grid, y_grid, val_grid, color='white', edgecolors="black", linewidth=0.25)
             self.output_name_tag = self.output_name_tag + "f"
         if self.draw_num_boundary:
+            self.num_bound_sc = self.ax.scatter([], [], [], color='red', s=1, label='Num. sol.')
             self.output_name_tag = self.output_name_tag + "n"
         if self.draw_analit_boundary:
+            self.anal_bound_sc = self.ax.scatter([], [], [], color='green', s=1, label='Ana. sol.')
             self.output_name_tag = self.output_name_tag + "a"
 
     def update(self, frame: int):
@@ -218,9 +233,45 @@ class SurfacePlotter(Plotter):
         print("Updating frame: ", frame)
         artist = []
 
+        alpha = 1
+
+        if self.draw_num_boundary:
+            num_boundary_x, num_boundary_y = self._find_boundary(x, y, values, threshold=0.5)
+            self.num_bound_sc.remove()
+            self.num_bound_sc = self.ax.scatter(num_boundary_x,
+                                                num_boundary_y,
+                                                np.full(len(num_boundary_x), 0.5),
+                                                color='red',
+                                                s=1,
+                                                label='Num. sol.')
+            artist.append(self.num_bound_sc)
+            alpha = 0.5
+
+        if self.draw_analit_boundary:
+            analytic_boundary_x, analytic_boundary_y = self.get_analytic_solution(x,
+                                                                                  y,
+                                                                                  0.5,
+                                                                                  frame*0.001,
+                                                                                  (x[1]-x[0])/2)
+            self.anal_bound_sc.remove()
+            self.anal_bound_sc= self.ax.scatter(analytic_boundary_x,
+                                                analytic_boundary_y,
+                                                np.full(len(analytic_boundary_x), 0.5),
+                                                color='green',
+                                                s=1,
+                                                label='Ana. sol.')
+            artist.append(self.anal_bound_sc)
+            alpha = 0.5
+
         if self.draw_function:
-            self.surf.remove()
-            self.surf = self.ax.plot_surface(x_grid, y_grid, val_grid, cmap='viridis')
+            self.function_surf.remove()
+            self.function_surf = self.ax.plot_surface(x_grid,
+                                                      y_grid,
+                                                      val_grid,
+                                                      color='white',
+                                                      edgecolors="black",
+                                                      linewidth=0.25,
+                                                      alpha=alpha)
 
         artist.append(self.title)
         return artist
