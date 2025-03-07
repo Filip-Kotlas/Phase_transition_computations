@@ -7,8 +7,8 @@
 
 #pragma once
 
-#include "ODESolver.h"
-#include "ODEProblem.h"
+#include "ODESolver.hpp"
+#include "ODEProblem.hpp"
 
 class RungeKutta : public ODESolver
 {
