@@ -10,8 +10,8 @@
 #include <cmath>
 #include <chrono>
 #include <iomanip>
-#include "ODEProblem.h"
-#include "ODESolver.h"
+#include "ODEProblem.hpp"
+#include "ODESolver.hpp"
 
 bool solve( const double initialTime,
             const double finalTime,

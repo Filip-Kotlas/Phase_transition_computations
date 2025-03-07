@@ -1,7 +1,7 @@
 #include <algorithm>
 #include <iostream>
 #include <cmath>
-#include "RungeKutta.h"
+#include "RungeKutta.hpp"
 
 RungeKutta::RungeKutta()
 {

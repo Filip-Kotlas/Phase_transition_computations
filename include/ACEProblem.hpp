@@ -10,7 +10,7 @@
 #include <unistd.h>
 #include <cassert>
 
-#include "ODEProblem.h"
+#include "ODEProblem.hpp"
 
 struct Domain
 {
@@ -26,6 +26,22 @@ enum class MODEL
     MODEL_2 = 2,
     MODEL_3 = 3
 };
+
+struct Parameters{
+    double initial_time;
+    double final_time;
+    Domain domain;
+    int sizeX;
+    int sizeY;
+    double timeStep;
+    double integrationTimeStep;
+    double alpha;
+    double beta;
+    double par_a;
+    double ksi;
+    MODEL model;
+};
+
 
 class ACEProblem : public ODEProblem
 {

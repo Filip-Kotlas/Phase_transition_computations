@@ -1,4 +1,4 @@
-#include "ACEProblem.h"
+#include "ACEProblem.hpp"
 
 ACEProblem::ACEProblem(int sizeX,
                        int sizeY,
@@ -46,7 +46,7 @@ bool ACEProblem::writeSolution(const double &t, int step, const double *u)
     * Filename with step index
     */
    std::stringstream str;
-   str << output_folder << "\\calculations\\ACE-equation-" << std::setw( 5 ) << std::setfill( '0' ) << step << ".txt";
+   str << output_folder << "\\ACE-equation-" << std::setw( 5 ) << std::setfill( '0' ) << step << ".txt";
    
    /****
     * Open file

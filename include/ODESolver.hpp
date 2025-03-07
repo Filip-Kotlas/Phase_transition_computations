@@ -7,7 +7,7 @@
 
 #pragma once
 
-#include "ODEProblem.h"
+#include "ODEProblem.hpp"
 
 class ODESolver
 {

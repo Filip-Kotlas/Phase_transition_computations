@@ -40,8 +40,8 @@
 # Text files
 *.txt
 
-Results*/
+results/
+build/
 .vscode/
-
-__pycache__
+__pycache__/
 test
