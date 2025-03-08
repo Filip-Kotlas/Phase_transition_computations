@@ -150,8 +150,7 @@ double ACEProblem::right_hand_side_at(double* _u, int i, int j)
       else if(model == MODEL::MODEL_2)
       {
          rhs = 1.0/alpha*laplace(_u, i, j)
-               + 1.0/ksi/ksi/alpha*f_0(_u, i, j)
-               + 1.0/alpha*grad_norm(_u, i, j)*F(_u, i, j); // TODO:: Fix this
+               + 1.0/ksi/ksi/alpha*f_0(_u, i, j); // TODO:: Fix this
       }
       else if(model == MODEL::MODEL_3)
       {
@@ -193,5 +192,6 @@ double ACEProblem::f_0(double *_u, int i, int j)
 
 double ACEProblem::F(double *_u, int i, int j)
 {
-   return 2/(sqrt(pow(i*hx + domain.x_left, 2) + pow(j*hy + domain.y_left, 2)));
+   double r = sqrt(pow(i*hx + domain.x_left, 2) + pow(j*hy + domain.y_left, 2));
+   return 2/(std::max(r, 0.1));
 }

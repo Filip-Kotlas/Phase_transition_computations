@@ -21,7 +21,7 @@ bool createDirectory(const std::string& path) {
 Parameters get_parameters() {
     Parameters par;
     par.initial_time = 0.0;
-    par.final_time = 0.0030;
+    par.final_time = 0.30;
     par.domain = {-1, 1, -1, 1};
     par.sizeX = 200;
     par.sizeY = 200;
@@ -34,10 +34,10 @@ Parameters get_parameters() {
                                                    /(par.sizeY-1)),
                                          2)/4;
     par.alpha = 1;
-    par.beta = 4;
+    par.beta = 1;
     par.par_a = 1;
     par.ksi = 0.01;
-    par.model = MODEL::MODEL_1;
+    par.model = MODEL::MODEL_3;
 
     return par;
 }
