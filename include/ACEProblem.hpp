@@ -9,6 +9,7 @@
 #include <filesystem>
 #include <unistd.h>
 #include <cassert>
+#include <algorithm>
 
 #include "ODEProblem.hpp"
 
