@@ -58,23 +58,45 @@ class ACEProblem : public ODEProblem
                MODEL model,
                std::string output_folder);
       
-    int getDegreesOfFreedom();
-      
-    void getRightHandSide( const double& t, double* _u, double* fu );
-      
+    int getDegreesOfFreedom();           
     bool writeSolution( const double& t, int step, const double* u );
 
+    /*
+    * RHS computations
+    */
+    void getRightHandSide( const double& t, double* _u, double* fu );
+    double get_rhs_phase_at(double* _u, int i, int j);
+    double get_rhs_concentration_at(double* _u, int i, int j);
+    
+    /*
+    * Initial conditions
+    */
     void setInitialCondition( double* u );
+    void set_phase_initial_condition( double* u);
+    void set_concentration_initial_condition( double* u);
 
-    void set_dirichlet_boundary(double* _u, double* fu);
+    /*
+    * Boundary conditions
+    */
+    void apply_boundary_condition(double* _u, double* fu);
+    void apply_phase_boundary_condition(double* _u, double* fu);
+    void apply_concentration_boundary_condition(double* _u, double* fu);
 
-    double right_hand_side_at(double* _u, int i, int j);
     double laplace(double *u, int i, int j);
     double grad_norm(double *_u, int i, int j);
 
     double f_0(double *_u, int i, int j);
 
     double F(double *_u, int i, int j);
+
+    double get_M_phi_tilde();
+    double get_epsilon_phi_tilde();
+    double get_G_alpha_tilde(const double *_u, int i, int j);
+    double get_G_beta_tilde(const double *_u, int i, int j);
+    double get_w_tilde();
+    
+    double get_p_prime(double *_u, int i, int j);
+    double get_q_prime(double *_u, int i, int j);
 
     protected:
 
@@ -88,6 +110,8 @@ class ACEProblem : public ODEProblem
     const double par_a;
     const double beta;
     const double ksi;
+    
+    const int T = 1200;
 
     const MODEL model;
     

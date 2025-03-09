@@ -15,7 +15,7 @@ SRC := $(wildcard $(SRC_DIR)/*.cpp)
 INCLUDE := $(wildcard $(INCLUDE_DIR)/*.hpp)
 
 $(BUILD_DIR)./$(TARGET_NAME): $(SRC) $(INCLUDE)
-	$(CXX) $(CXXFLAGS) $(WARNINGS) -o $(BUILD_DIR)./$(TARGET_NAME) $(SRC)
+	$(CXX) $(CXXFLAGS) -o $(BUILD_DIR)./$(TARGET_NAME) $(SRC)
 
 .PHONY:run
 run: $(BUILD_DIR)./$(TARGET_NAME)
