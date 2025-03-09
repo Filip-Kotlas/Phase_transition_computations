@@ -25,7 +25,7 @@ class Plotter():
         self.draw_analit_boundary = draw_anal_boundary
         self.output_name_tag = None
 
-    def _load_data(self, file_path: str) -> Tuple[List[float], List[float], List[float]]:
+    def _load_data(self, file_path: str) -> Tuple[List[float], List[float], List[float], List[float]]:
         """
         Loads data from a file.
         
@@ -35,13 +35,15 @@ class Plotter():
         Returns:
             x: List of "x" coordinates of the data.
             y: List of "y" coordinates of the data.
-            values: List of values of the data.
+            phase: List of phase values of the data.
+            concentration: List of concentration values of the data.
         """
         data = np.loadtxt(file_path)
         x = data[:, 0]
         y = data[:, 1]
-        values = data[:, 2]
-        return x, y, values
+        phase = data[:, 2]
+        concentration = data[:, 3]
+        return x, y, phase, concentration
 
     def reset_draw_settings(self,
                             draw_function: bool=False,
@@ -57,14 +59,14 @@ class Plotter():
             os.makedirs(path_to_visual)
             print("Creating folder \"info\" in ", self.folder)
 
-    def _find_boundary(self, x, y, values, threshold=0.5) -> Tuple[np.array, np.array]:
+    def _find_boundary(self, x, y, phase_values, threshold=0.5) -> Tuple[np.array, np.array]:
         # Předpokládáme, že body jsou na mřížce (nebo téměř na mřížce)
         grid_shape = (len(np.unique(x)), len(np.unique(y)))
 
         # Převod na matici (2D mřížku)
         grid_x = x.reshape(grid_shape)
         grid_y = y.reshape(grid_shape)
-        grid_values = values.reshape(grid_shape)
+        grid_values = phase_values.reshape(grid_shape)
 
         # Vyhledání bodů na hranici
         boundary_x, boundary_y = [], []
@@ -144,7 +146,7 @@ class ScatterPlotter2D(Plotter):
                          draw_num_boundary,
                          draw_analit_boundary)
 
-        x, y, _ = self._load_data(self.file_paths[0])
+        x, y, _, _ = self._load_data(self.file_paths[0])
         self.fig, self.ax = plt.subplots()
         self.ax.set_xlim(x.min(), x.max())
         self.ax.set_ylim(y.min(), y.max())
@@ -166,17 +168,17 @@ class ScatterPlotter2D(Plotter):
         self.ax.legend()
 
     def update(self, frame: int):
-        x, y, values = self._load_data(self.file_paths[frame])
+        x, y, phase, concentration = self._load_data(self.file_paths[frame])
         self.title.set_text(f"Frame: {frame}")
         print("Updating frame: ", frame)
         artist = []
 
         if self.draw_function:
-            self.function_sc.set_array(values)
+            self.function_sc.set_array(concentration)
             artist.append(self.function_sc)
 
         if self.draw_num_boundary:
-            num_boundary_x, num_boundary_y = self._find_boundary(x, y, values, threshold=0.5)
+            num_boundary_x, num_boundary_y = self._find_boundary(x, y, concentration, threshold=0.5)
             self.num_bound_sc.set_offsets(np.column_stack((num_boundary_x, num_boundary_y)))
             artist.append(self.num_bound_sc)
 
@@ -201,9 +203,9 @@ class SurfacePlotter(Plotter):
         self.fig = plt.figure()
         self.ax = self.fig.add_subplot(111, projection='3d')
 
-        x, y, values = self._load_data(self.file_paths[0])
+        x, y, phase, concentration = self._load_data(self.file_paths[0])
         x_grid, y_grid = np.meshgrid(np.unique(x), np.unique(y))
-        val_grid = values.reshape(x_grid.shape)
+        val_grid = concentration.reshape(x_grid.shape)
 
         self.ax.set_xlim(x.min(), x.max())
         self.ax.set_ylim(y.min(), y.max())
@@ -225,9 +227,9 @@ class SurfacePlotter(Plotter):
             self.output_name_tag = self.output_name_tag + "a"
 
     def update(self, frame: int):
-        x, y, values = self._load_data(self.file_paths[frame])
+        x, y, phase, concentration = self._load_data(self.file_paths[frame])
         x_grid, y_grid = np.meshgrid(np.unique(x), np.unique(y))
-        val_grid = values.reshape(x_grid.shape)
+        val_grid = phase.reshape(x_grid.shape)
 
         self.title.set_text(f"Frame: {frame}")
         print("Updating frame: ", frame)
@@ -236,7 +238,7 @@ class SurfacePlotter(Plotter):
         alpha = 1
 
         if self.draw_num_boundary:
-            num_boundary_x, num_boundary_y = self._find_boundary(x, y, values, threshold=0.5)
+            num_boundary_x, num_boundary_y = self._find_boundary(x, y, phase, threshold=0.5)
             self.num_bound_sc.remove()
             self.num_bound_sc = self.ax.scatter(num_boundary_x,
                                                 num_boundary_y,

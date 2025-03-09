@@ -25,7 +25,7 @@ ACEProblem::ACEProblem(int sizeX,
 
 int ACEProblem::getDegreesOfFreedom()
 {
-    return this->sizeX * this->sizeY;
+    return 2 * this->sizeX * this->sizeY;
 }
 
 void ACEProblem::getRightHandSide(const double &t, double *_u, double *fu)
@@ -34,10 +34,19 @@ void ACEProblem::getRightHandSide(const double &t, double *_u, double *fu)
    {
       for(int j = 1; j < this->sizeY-1; j++)
       {
-         fu[j*sizeX + i] = right_hand_side_at(_u, i, j);
+         fu[j*sizeX + i] = get_rhs_phase_at(_u, i, j);
       }
    }
-   set_dirichlet_boundary(_u, fu);
+   
+   for(int i = 1; i < this->sizeX-1; i++)
+   {
+      for(int j = 1; j < this->sizeY-1; j++)
+      {
+         fu[j*sizeX + i] = get_rhs_concentration_at(_u, i, j);
+      }
+   }
+   apply_boundary_condition(_u, fu);
+
 }
 
 bool ACEProblem::writeSolution(const double &t, int step, const double *u)
@@ -66,8 +75,13 @@ bool ACEProblem::writeSolution(const double &t, int step, const double *u)
    {
       for( int i = 0; i < sizeX; i++ )
       {
-         file << domain.x_left + i * hx << " " << domain.y_left + j * hy << " " << u[ j * sizeX + i ];
+         file << domain.x_left + i * hx << " " << domain.y_left + j * hy << " "
+              << u[ j * sizeX + i ] << " " << u[ sizeX * sizeY + j * sizeX + i];
          file << std::endl;
+
+         std::cout << std::setprecision(30) << "Var: " << get_w_tilde() << std::endl;
+         //std::cout << std::setprecision(30) << "Var: " << get_G_beta_tilde(u, i, j) << ", "
+         //          << get_G_alpha_tilde(u, i, j) << ", " << get_G_beta_tilde(u, i, j) - get_G_alpha_tilde(u, i, j) << std::endl;
       }
       file << std::endl;
    }
@@ -75,6 +89,12 @@ bool ACEProblem::writeSolution(const double &t, int step, const double *u)
 }
 
 void ACEProblem::setInitialCondition(double *u)
+{
+   set_phase_initial_condition(u);
+   set_concentration_initial_condition(u);
+}
+
+void ACEProblem::set_phase_initial_condition(double *u)
 {
    #define VERSION 1
 
@@ -121,7 +141,25 @@ void ACEProblem::setInitialCondition(double *u)
    }
 }
 
-void ACEProblem::set_dirichlet_boundary(double* _u, double* fu)
+void ACEProblem::set_concentration_initial_condition(double *u)
+{
+   int offset = sizeX * sizeY;
+   for(int i = 0; i < sizeX; i++)
+   {
+      for(int j = 0; j < sizeY; j++)
+      {
+         u[offset + j*sizeX + i] = 0.025;
+      }
+   }
+}
+
+void ACEProblem::apply_boundary_condition(double *_u, double *fu)
+{
+   apply_phase_boundary_condition(_u, fu);
+   apply_concentration_boundary_condition(_u, fu);
+}
+
+void ACEProblem::apply_phase_boundary_condition(double *_u, double *fu)
 {
    for(int i = 0; i < this->sizeX; i++)
    {
@@ -135,41 +173,32 @@ void ACEProblem::set_dirichlet_boundary(double* _u, double* fu)
    }
 }
 
-double ACEProblem::right_hand_side_at(double* _u, int i, int j)
+void ACEProblem::apply_concentration_boundary_condition(double *_u, double *fu)
 {
-   try
+   int offset = sizeY * sizeX;
+   for(int i = 0; i < this->sizeX; i++)
    {
-      double rhs = 0;
-      if(model == MODEL::MODEL_1)
-      {
-         double b = 1.0/6*sqrt(par_a/2);
-         rhs = 1.0/alpha*laplace(_u, i, j)
-               + 1.0/ksi/ksi/alpha*f_0(_u, i, j)
-               + b*beta/ksi/alpha*F(_u, i, j); // TODO: Add physical condition.
-      }
-      else if(model == MODEL::MODEL_2)
-      {
-         rhs = 1.0/alpha*laplace(_u, i, j)
-               + 1.0/ksi/ksi/alpha*f_0(_u, i, j); // TODO:: Fix this
-      }
-      else if(model == MODEL::MODEL_3)
-      {
-         rhs = 1.0/alpha*laplace(_u, i, j)
-               + 1.0/ksi/ksi/alpha*f_0(_u, i, j)
-               + beta/alpha*grad_norm(_u, i, j)*F(_u, i, j);
-      }
-      else
-      {
-         throw model;
-      }
-      return rhs;
+      fu[offset + i] = 0;
+      fu[offset + (sizeY-1)*sizeX + i] = 0.025;
    }
-   catch (MODEL model)
+   for(int j = 1; j < this->sizeY-1; j++)
    {
-      std::cout << "Unrecognized model. The model: " << int(model) << std::endl;
-      assert(true);
-      return 0;
+      fu[offset + j*sizeX] = 0;
+      fu[offset + (j+1)*sizeX - 1] = 0.025;
    }
+}
+
+double ACEProblem::get_rhs_phase_at(double* _u, int i, int j)
+{
+   double rhs = get_M_phi_tilde()*(get_epsilon_phi_tilde() * laplace(_u, i, j)
+                                   - get_w_tilde()*get_q_prime(_u, i, j)
+                                   + (get_G_alpha_tilde(_u, i, j) - get_G_beta_tilde(_u, i, j))*get_p_prime(_u, i, j));
+   return rhs;
+}
+
+double ACEProblem::get_rhs_concentration_at(double *_u, int i, int j)
+{
+    return 0.025;
 }
 
 double ACEProblem::laplace(double *_u, int i, int j)
@@ -194,4 +223,72 @@ double ACEProblem::F(double *_u, int i, int j)
 {
    double r = sqrt(pow(i*hx + domain.x_left, 2) + pow(j*hy + domain.y_left, 2));
    return 2/(std::max(r, 0.1));
+}
+
+double ACEProblem::get_M_phi_tilde()
+{
+   double l = 0.9*5e-9;
+   double b = 3.23e-10;
+   double D_nb_alpha = 6.6e-10*exp(-15851.4/T);
+   double D_nb_beta = 9e-9*pow(T/1136, 18.1)*exp(-(25100+35.5*(T-1136))/(1.98*T));
+   double D_eff = pow(sqrt(D_nb_alpha) + sqrt(D_nb_beta), 2);
+   double M_phi = l*l*0.0235*D_eff/(D_nb_alpha*b*b);
+   return M_phi;
+}
+
+double ACEProblem::get_epsilon_phi_tilde()
+{
+   double delta_0 = 5e-9;
+   double l = 0.9 * delta_0;
+   double sigma_0 = 0.3;
+   double R = 8.31446261815324;
+   double V_m = 1.4060e-5;
+   double epsilon = sqrt(6*sigma_0*delta_0);
+   double epsilon_tilde = epsilon/(l*sqrt(R*T/V_m));
+   return epsilon_tilde;
+}
+
+double ACEProblem::get_G_alpha_tilde(const double *_u, int i, int j)
+{  
+   double c = _u[sizeX*sizeY + j*sizeX + i];
+   double R = 8.31446261815324;
+   double G_0_zr_alpha = -7827.595 + 125.64905*T - 24.1618*T*log(T) - 4.37791e-3*T*T + 34971/T;
+   double G_0_nb_alpha = 1480.647 + 144.445475*T - 26.4711*T*log(T) + 2.03475e-4*T*T - 3.5012e-7*T*T*T + 93399/T;
+   double L_0_alpha = 24411;
+
+   double G_alpha = c*G_0_nb_alpha + (1 - c)*G_0_zr_alpha + R*T*c*log(c) + R*T*(1-c)*log(1-c) + c*(1-c)*L_0_alpha;
+   return G_alpha/T/R;
+}
+
+double ACEProblem::get_G_beta_tilde(const double *_u, int i, int j)
+{
+   double c = _u[sizeX*sizeY + j*sizeX + i];
+   double R = 8.31446261815324;
+   double G_0_zr_beta = -525.539 + 124.9457*T - 25.607406*T*log(T) - 3.40084E-4*T*T - 9.729e-9*T*T*T + 25233/T - 7.6143E-11*T*T*T*T;
+   double G_0_nb_beta = -8519.353 + 142.045475*T - 26.4711*T*log(T) + 2.03475e-4*T*T - 3.5012e-7*T*T*T + 93399/T;
+   double L_0_beta = 15911 + 3.35*T;
+   double L_0_i_beta = 3919 - 1.091*T;
+
+   double G_beta = c*G_0_nb_beta + (1 - c)*G_0_zr_beta + R*T*c*log(c) + R*T*(1-c)*log(1-c) + c*(1-c)*(L_0_beta + L_0_i_beta*(2*c-1));
+   return G_beta/T/R;
+}
+
+double ACEProblem::get_w_tilde()
+{
+   double sigma_0 = 0.3;
+   double delta_0 = 5e-9;
+   double R = 8.31446261815324;
+   double w = 3*sigma_0/delta_0;
+   return w/R/T;
+}
+
+double ACEProblem::get_p_prime(double *_u, int i, int j)
+{  
+   double q = pow(_u[j*sizeX + i], 2) - 2*pow(_u[j*sizeX + i], 3) + pow(_u[j*sizeX + i], 4);
+   return 30*q;
+}
+
+double ACEProblem::get_q_prime(double *_u, int i, int j)
+{
+   return 2*_u[j*sizeX + i] - 6*pow(_u[j*sizeX + i], 2) + 4*pow(_u[j*sizeX + i],3);
 }
