@@ -21,11 +21,11 @@ bool createDirectory(const std::string& path) {
 Parameters get_parameters() {
     Parameters par;
     par.initial_time = 0.0;
-    par.final_time = 300;
+    par.final_time = 0.3;
     par.domain = {-1, 1, -1, 1};
     par.sizeX = 200;
     par.sizeY = 200;
-    par.timeStep =  0.1;
+    par.timeStep =  0.001;
     par.integrationTimeStep = pow(std::min((par.domain.x_right
                                                    -par.domain.x_left)
                                                    /(par.sizeX-1),
@@ -33,7 +33,6 @@ Parameters get_parameters() {
                                                    -par.domain.y_left)
                                                    /(par.sizeY-1)),
                                          2)/4;
-    par.integrationTimeStep = 0.1;
     par.alpha = 1;
     par.beta = 1;
     par.par_a = 1;

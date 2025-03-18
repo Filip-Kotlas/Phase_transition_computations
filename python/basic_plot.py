@@ -14,8 +14,9 @@ args = parser.parse_args()
 results_path = Path()
 results_path = results_path.parent / "results" / args.name
 
-scatter_plotter = ScatterPlotter2D(results_path, False, True, False)
-surface_plotter = SurfacePlotter(results_path, True, False, False)
+scatter_plotter = ScatterPlotter2D(results_path, False, True, True, "phase")
+surface_plotter = SurfacePlotter(results_path, True, False, False, "phase")
+
 
 scatter_plotter.save_frame(0)
 scatter_plotter.save_frame(10)
@@ -27,5 +28,16 @@ surface_plotter.save_frame(10)
 surface_plotter.save_frame(100)
 surface_plotter.save_frame(300)
 
+surface_plotter = SurfacePlotter(results_path, True, False, False, "concentration")
+surface_plotter.save_frame(0)
+surface_plotter.save_frame(10)
+surface_plotter.save_frame(100)
+surface_plotter.save_frame(300)
+
 scatter_plotter.save_animation()
+
+surface_plotter = SurfacePlotter(results_path, True, False, False, "phase")
+surface_plotter.save_animation()
+
+surface_plotter = SurfacePlotter(results_path, True, False, False, "concentration")
 surface_plotter.save_animation()

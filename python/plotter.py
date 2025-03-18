@@ -12,7 +12,8 @@ class Plotter():
     def __init__(self, folder_path: str,
                  draw_function: bool=False,
                  draw_num_boundary: bool=True,
-                 draw_anal_boundary: bool=False) -> None:
+                 draw_anal_boundary: bool=False,
+                 data_drawn: str="phase") -> None:
         self.folder = folder_path
         self.file_paths = sorted([os.path.join(self.folder, "calculations", f)
                                   for f
@@ -23,9 +24,10 @@ class Plotter():
         self.draw_function = draw_function
         self.draw_num_boundary = draw_num_boundary
         self.draw_analit_boundary = draw_anal_boundary
+        self.data_drawn = data_drawn
         self.output_name_tag = None
 
-    def _load_data(self, file_path: str) -> Tuple[List[float], List[float], List[float], List[float]]:
+    def _load_data(self, file_path: str) -> Tuple[List[float], List[float], List[float]]:
         """
         Loads data from a file.
         
@@ -35,23 +37,36 @@ class Plotter():
         Returns:
             x: List of "x" coordinates of the data.
             y: List of "y" coordinates of the data.
-            phase: List of phase values of the data.
-            concentration: List of concentration values of the data.
+            value: List of values of the data based on the self.data_drawn variable.
         """
         data = np.loadtxt(file_path)
         x = data[:, 0]
         y = data[:, 1]
-        phase = data[:, 2]
-        concentration = data[:, 3]
-        return x, y, phase, concentration
+        if self.data_drawn == "phase":
+            value = data[:, 2]
+        elif self.data_drawn == "concentration":
+            value = data[:, 3]
+        else:
+            raise ValueError("Wrong value for data_drawn given.")
+        return x, y, value
 
     def reset_draw_settings(self,
                             draw_function: bool=False,
                             draw_num_boundary: bool=True,
-                            draw_anal_boundary: bool=False) -> None:
+                            draw_anal_boundary: bool=False,
+                            data_drawn: str="phase") -> None:
         self.draw_function = draw_function
         self.draw_num_boundary = draw_num_boundary
         self.draw_analit_boundary = draw_anal_boundary
+
+        self.data_drawn = data_drawn
+        self.output_name_tag = "_" + self.data_drawn + "_3D_"
+        if self.draw_function:
+            self.output_name_tag = self.output_name_tag + "f"
+        if self.draw_num_boundary:
+            self.output_name_tag = self.output_name_tag + "n"
+        if self.draw_analit_boundary:
+            self.output_name_tag = self.output_name_tag + "a"
 
     def check_for_info_folder(self) -> None:
         path_to_visual = os.path.join(self.folder, "info")
@@ -140,19 +155,21 @@ class ScatterPlotter2D(Plotter):
                  folder_path: str,
                  draw_function: bool=False,
                  draw_num_boundary: bool=True,
-                 draw_analit_boundary: bool=False):
+                 draw_analit_boundary: bool=False,
+                 data_drawn: str="phase"):
         super().__init__(folder_path,
                          draw_function,
                          draw_num_boundary,
-                         draw_analit_boundary)
+                         draw_analit_boundary,
+                         data_drawn)
 
-        x, y, _, _ = self._load_data(self.file_paths[0])
+        x, y, _ = self._load_data(self.file_paths[0])
         self.fig, self.ax = plt.subplots()
         self.ax.set_xlim(x.min(), x.max())
         self.ax.set_ylim(y.min(), y.max())
         self.ax.set_aspect('equal')
         self.title = self.ax.set_title("Frame: 0")
-        self.output_name_tag = "_2D_"
+        self.output_name_tag = "_" + self.data_drawn + "_2D_"
 
         if self.draw_function:
             self.function_sc = self.ax.scatter([], [], c=[], cmap='viridis', s=1)
@@ -168,17 +185,17 @@ class ScatterPlotter2D(Plotter):
         self.ax.legend()
 
     def update(self, frame: int):
-        x, y, phase, concentration = self._load_data(self.file_paths[frame])
+        x, y, value = self._load_data(self.file_paths[frame])
         self.title.set_text(f"Frame: {frame}")
         print("Updating frame: ", frame)
         artist = []
 
         if self.draw_function:
-            self.function_sc.set_array(concentration)
+            self.function_sc.set_array(value)
             artist.append(self.function_sc)
 
         if self.draw_num_boundary:
-            num_boundary_x, num_boundary_y = self._find_boundary(x, y, concentration, threshold=0.5)
+            num_boundary_x, num_boundary_y = self._find_boundary(x, y, value, threshold=0.5)
             self.num_bound_sc.set_offsets(np.column_stack((num_boundary_x, num_boundary_y)))
             artist.append(self.num_bound_sc)
 
@@ -197,24 +214,25 @@ class SurfacePlotter(Plotter):
                  folder_path,
                  draw_function = False,
                  draw_num_boundary = True,
-                 draw_analit_boundary = False):
-        super().__init__(folder_path, draw_function, draw_num_boundary, draw_analit_boundary)
+                 draw_analit_boundary = False,
+                 data_drawn: str="concentration"):
+        super().__init__(folder_path, draw_function, draw_num_boundary, draw_analit_boundary, data_drawn)
 
         self.fig = plt.figure()
         self.ax = self.fig.add_subplot(111, projection='3d')
 
-        x, y, phase, concentration = self._load_data(self.file_paths[0])
+        x, y, value = self._load_data(self.file_paths[0])
         x_grid, y_grid = np.meshgrid(np.unique(x), np.unique(y))
-        val_grid = concentration.reshape(x_grid.shape)
+        val_grid = value.reshape(x_grid.shape)
 
         self.ax.set_xlim(x.min(), x.max())
         self.ax.set_ylim(y.min(), y.max())
-        self.ax.set_zlim(0, 2)
+        self.ax.set_zlim(0, value.max()*2)
         self.ax.set_xlabel("x")
         self.ax.set_ylabel("y")
         self.ax.set_zlabel("p")
         self.title = self.ax.set_title("Frame: 0")
-        self.output_name_tag = "_3D_"
+        self.output_name_tag = "_" + self.data_drawn + "_3D_"
 
         if self.draw_function:
             self.function_surf = self.ax.plot_surface(x_grid, y_grid, val_grid, color='white', edgecolors="black", linewidth=0.25)
@@ -227,9 +245,9 @@ class SurfacePlotter(Plotter):
             self.output_name_tag = self.output_name_tag + "a"
 
     def update(self, frame: int):
-        x, y, phase, concentration = self._load_data(self.file_paths[frame])
+        x, y, value = self._load_data(self.file_paths[frame])
         x_grid, y_grid = np.meshgrid(np.unique(x), np.unique(y))
-        val_grid = phase.reshape(x_grid.shape)
+        val_grid = value.reshape(x_grid.shape)
 
         self.title.set_text(f"Frame: {frame}")
         print("Updating frame: ", frame)
@@ -238,7 +256,7 @@ class SurfacePlotter(Plotter):
         alpha = 1
 
         if self.draw_num_boundary:
-            num_boundary_x, num_boundary_y = self._find_boundary(x, y, phase, threshold=0.5)
+            num_boundary_x, num_boundary_y = self._find_boundary(x, y, value, threshold=0.5)
             self.num_bound_sc.remove()
             self.num_bound_sc = self.ax.scatter(num_boundary_x,
                                                 num_boundary_y,
