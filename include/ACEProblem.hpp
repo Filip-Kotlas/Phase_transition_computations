@@ -64,9 +64,9 @@ class ACEProblem : public ODEProblem
     /*
     * RHS computations
     */
-    void getRightHandSide( const double& t, double* _u, double* fu );
-    double get_rhs_phase_at(double* _u, int i, int j);
-    double get_rhs_concentration_at(double* _u, int i, int j);
+    void getRightHandSide( const double& t, double* u, double* fu );
+    double get_rhs_phase_at(double* u, int i, int j);
+    double get_rhs_concentration_at(double* u, int i, int j);
     
     /*
     * Initial conditions
@@ -84,10 +84,13 @@ class ACEProblem : public ODEProblem
 
     double laplace(double *u, int i, int j);
     double grad_norm(double *_u, int i, int j);
+    double div_D_grad_concentration(double *u, int i, int j);
+    double get_diffusion_coef(double *u, int i, int j);
 
     double f_0(double *_u, int i, int j);
 
-    double F(double *_u, int i, int j);
+    double F(double *u, int i, int j);
+    double G(double *u, int i, int j);
 
     double get_M_phi_tilde();
     double get_epsilon_phi_tilde();

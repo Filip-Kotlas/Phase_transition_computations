@@ -28,13 +28,13 @@ int ACEProblem::getDegreesOfFreedom()
     return 2 * this->sizeX * this->sizeY;
 }
 
-void ACEProblem::getRightHandSide(const double &t, double *_u, double *fu)
+void ACEProblem::getRightHandSide(const double &t, double *u, double *fu)
 {
    for(int i = 1; i < this->sizeX-1; i++)
    {
       for(int j = 1; j < this->sizeY-1; j++)
       {
-         fu[j*sizeX + i] = get_rhs_phase_at(_u, i, j);
+         fu[j*sizeX + i] = get_rhs_phase_at(u, i, j);
       }
    }
    
@@ -42,10 +42,10 @@ void ACEProblem::getRightHandSide(const double &t, double *_u, double *fu)
    {
       for(int j = 1; j < this->sizeY-1; j++)
       {
-         fu[j*sizeX + i] = get_rhs_concentration_at(_u, i, j);
+         fu[sizeX*sizeY + j*sizeX + i] = get_rhs_concentration_at(u, i, j);
       }
    }
-   apply_boundary_condition(_u, fu);
+   apply_boundary_condition(u, fu);
 
 }
 
@@ -78,10 +78,6 @@ bool ACEProblem::writeSolution(const double &t, int step, const double *u)
          file << domain.x_left + i * hx << " " << domain.y_left + j * hy << " "
               << u[ j * sizeX + i ] << " " << u[ sizeX * sizeY + j * sizeX + i];
          file << std::endl;
-
-         std::cout << std::setprecision(30) << "Var: " << get_w_tilde() << std::endl;
-         //std::cout << std::setprecision(30) << "Var: " << get_G_beta_tilde(u, i, j) << ", "
-         //          << get_G_alpha_tilde(u, i, j) << ", " << get_G_beta_tilde(u, i, j) - get_G_alpha_tilde(u, i, j) << std::endl;
       }
       file << std::endl;
    }
@@ -144,11 +140,27 @@ void ACEProblem::set_phase_initial_condition(double *u)
 void ACEProblem::set_concentration_initial_condition(double *u)
 {
    int offset = sizeX * sizeY;
+   double r1 = 0.5 - 0.5*ksi;
+   double r2 = r1 + ksi;
    for(int i = 0; i < sizeX; i++)
    {
       for(int j = 0; j < sizeY; j++)
       {
-         u[offset + j*sizeX + i] = 0.025;
+         double radius = sqrt(pow(i*hx - (domain.x_right - domain.x_left)/2, 2) + pow(j*hy - (domain.y_right-domain.y_left)/2, 2));
+         double init_conc = 0.025;
+
+         if( radius < r1 )
+         {
+            u[offset + j*sizeX + i] = init_conc;
+         }
+         else if( radius < r2 )
+         {
+            u[offset + j*sizeX + i] = init_conc - init_conc * (radius - r1) / (r2 - r1);
+         }
+         else
+         {
+            u[offset + j*sizeX + i] = 0;
+         }
       }
    }
 }
@@ -179,39 +191,58 @@ void ACEProblem::apply_concentration_boundary_condition(double *_u, double *fu)
    for(int i = 0; i < this->sizeX; i++)
    {
       fu[offset + i] = 0;
-      fu[offset + (sizeY-1)*sizeX + i] = 0.025;
+      fu[offset + (sizeY-1)*sizeX + i] = 0;
    }
    for(int j = 1; j < this->sizeY-1; j++)
    {
       fu[offset + j*sizeX] = 0;
-      fu[offset + (j+1)*sizeX - 1] = 0.025;
+      fu[offset + (j+1)*sizeX - 1] = 0;
    }
 }
 
-double ACEProblem::get_rhs_phase_at(double* _u, int i, int j)
+double ACEProblem::get_rhs_phase_at(double* u, int i, int j)
 {
+   double rhs = laplace(u, i, j) + f_0(u, i , j) / ksi / ksi + grad_norm(u, i, j)*F(u, i, j);
+   /*
    double rhs = get_M_phi_tilde()*(get_epsilon_phi_tilde() * laplace(_u, i, j)
                                    - get_w_tilde()*get_q_prime(_u, i, j)
                                    + (get_G_alpha_tilde(_u, i, j) - get_G_beta_tilde(_u, i, j))*get_p_prime(_u, i, j));
+   */
    return rhs;
 }
 
-double ACEProblem::get_rhs_concentration_at(double *_u, int i, int j)
+double ACEProblem::get_rhs_concentration_at(double *u, int i, int j)
 {
-    return 0.025;
+   double rhs = div_D_grad_concentration(u, i, j) + G(u, i, j);
+   return rhs;
 }
 
-double ACEProblem::laplace(double *_u, int i, int j)
+double ACEProblem::laplace(double *u, int i, int j)
 {
-   return (_u[j*sizeX + i - 1] - 2*_u[j*sizeX + i] + _u[j*sizeX + i + 1])/hx/hx +
-          (_u[(j-1)*sizeX + i] - 2*_u[j*sizeX + i] + _u[(j+1)*sizeX + i])/hy/hy;
+   return (u[j*sizeX + i - 1] - 2*u[j*sizeX + i] + u[j*sizeX + i + 1])/hx/hx +
+          (u[(j-1)*sizeX + i] - 2*u[j*sizeX + i] + u[(j+1)*sizeX + i])/hy/hy;
 }
 
-double ACEProblem::grad_norm(double *_u, int i, int j)
+double ACEProblem::grad_norm(double *u, int i, int j)
 {
-   double derivative_x = (_u[j*sizeX + i + 1] - _u[j*sizeX + i - 1])/(2*hx);
-   double derivative_y = (_u[(j+1)*sizeX + i] - _u[(j-1)*sizeX + i])/(2*hy);
+   double derivative_x = (u[j*sizeX + i + 1] - u[j*sizeX + i - 1])/(2*hx);
+   double derivative_y = (u[(j+1)*sizeX + i] - u[(j-1)*sizeX + i])/(2*hy);
    return sqrt(pow(derivative_x,2)+pow(derivative_y,2));
+}
+
+double ACEProblem::div_D_grad_concentration(double *u, int i, int j)
+{
+   int offset = sizeX * sizeY;
+   double x_direction = get_diffusion_coef(u, i + 1, j) * (u[offset + j*sizeX + i + 1] - u[offset + j*sizeX + i]) / hx
+                        + get_diffusion_coef(u, i, j) * (u[offset + j*sizeX + i] - u[offset + j*sizeX + i - 1]) / hx;
+   double y_direction = get_diffusion_coef(u, i, j + 1) * (u[offset + (j+1)*sizeX + i] - u[offset + j*sizeX + i]) / hy
+                        + get_diffusion_coef(u, i, j) * (u[offset + j*sizeX + i] - u[offset + (j-1)*sizeX + i]) / hy;
+   return x_direction / hx + y_direction / hy;
+}
+
+double ACEProblem::get_diffusion_coef(double *u, int i, int j)
+{
+    return 1;
 }
 
 double ACEProblem::f_0(double *_u, int i, int j)
@@ -219,10 +250,15 @@ double ACEProblem::f_0(double *_u, int i, int j)
    return par_a*_u[j*sizeX + i]*(1 - _u[j*sizeX + i])*(_u[j*sizeX + i] - 1.0/2.0);
 }
 
-double ACEProblem::F(double *_u, int i, int j)
+double ACEProblem::F(double *u, int i, int j)
 {
    double r = sqrt(pow(i*hx + domain.x_left, 2) + pow(j*hy + domain.y_left, 2));
    return 2/(std::max(r, 0.1));
+}
+
+double ACEProblem::G(double *u, int i, int j)
+{
+   return 0;
 }
 
 double ACEProblem::get_M_phi_tilde()
