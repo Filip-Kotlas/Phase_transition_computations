@@ -30,6 +30,8 @@ int ACEProblem::getDegreesOfFreedom()
 
 void ACEProblem::getRightHandSide(const double &t, double *u, double *fu)
 {
+   //#define PHASE
+   #ifdef PHASE
    for(int i = 1; i < this->sizeX-1; i++)
    {
       for(int j = 1; j < this->sizeY-1; j++)
@@ -37,7 +39,10 @@ void ACEProblem::getRightHandSide(const double &t, double *u, double *fu)
          fu[j*sizeX + i] = get_rhs_phase_at(u, i, j);
       }
    }
+   #endif
    
+   #define CONCENTRATION
+   #ifdef CONCENTRATION
    for(int i = 1; i < this->sizeX-1; i++)
    {
       for(int j = 1; j < this->sizeY-1; j++)
@@ -45,6 +50,7 @@ void ACEProblem::getRightHandSide(const double &t, double *u, double *fu)
          fu[sizeX*sizeY + j*sizeX + i] = get_rhs_concentration_at(u, i, j);
       }
    }
+   #endif
    apply_boundary_condition(u, fu);
 
 }
@@ -92,7 +98,7 @@ void ACEProblem::setInitialCondition(double *u)
 
 void ACEProblem::set_phase_initial_condition(double *u)
 {
-   #define VERSION 1
+   #define VERSION_P 1
 
    double r1 = 0.5 - 0.5*ksi;
    double r2 = r1 + ksi;
@@ -102,11 +108,11 @@ void ACEProblem::set_phase_initial_condition(double *u)
       {
          double radius = sqrt(pow(i*hx - (domain.x_right - domain.x_left)/2, 2) + pow(j*hy - (domain.y_right-domain.y_left)/2, 2));
 
-         #if VERSION == 0
+         #if VERSION_P == 0
          //Hyperbolic tangent
          u[j*sizeX + i] = 1.0/2 * tanh(-3/ksi*(radius - r1)) + 1.0/2;
 
-         #elif VERSION == 1
+         #elif VERSION_P == 1
          //Linear by parts
          if( radius < r1 )
          {
@@ -121,7 +127,7 @@ void ACEProblem::set_phase_initial_condition(double *u)
             u[j*sizeX + i] = 0;
          }
          
-         #elif VERSION == 2
+         #elif VERSION_P == 2
          //Constant by parts
          if( radius < r1 )
          {
@@ -139,6 +145,7 @@ void ACEProblem::set_phase_initial_condition(double *u)
 
 void ACEProblem::set_concentration_initial_condition(double *u)
 {
+   #define VERSION_C 2
    int offset = sizeX * sizeY;
    double r1 = 0.5 - 0.5*ksi;
    double r2 = r1 + ksi;
@@ -146,32 +153,46 @@ void ACEProblem::set_concentration_initial_condition(double *u)
    {
       for(int j = 0; j < sizeY; j++)
       {
-         double radius = sqrt(pow(i*hx - (domain.x_right - domain.x_left)/2, 2) + pow(j*hy - (domain.y_right-domain.y_left)/2, 2));
          double init_conc = 0.025;
-
-         if( radius < r1 )
-         {
+         
+         #if VERSION_C == 0
+         double radius = sqrt(pow(i*hx - (domain.x_right - domain.x_left)/2, 2) + pow(j*hy - (domain.y_right-domain.y_left)/2, 2));
+         if(radius < r1)
             u[offset + j*sizeX + i] = init_conc;
-         }
-         else if( radius < r2 )
-         {
+         else if(radius < r2)
             u[offset + j*sizeX + i] = init_conc - init_conc * (radius - r1) / (r2 - r1);
-         }
          else
-         {
             u[offset + j*sizeX + i] = 0;
+
+         #elif VERSION_C == 1
+         double x_norm = abs(i*hx - (domain.x_right - domain.x_left)/2);
+         if(x_norm < r1)
+            u[offset + j*sizeX + i] = init_conc;
+         else if(x_norm < r2)
+            u[offset + j*sizeX + i] = init_conc - init_conc * (x_norm - r1) / (r2 - r1);
+         else
+            u[offset + j*sizeX + i] = 0;
+
+         #elif VERSION_C == 2
+         u[offset + j*sizeX + i] = 0;
+         for(int n = 1; n < 5; n++)
+         {
+            double C_n = pow(1.0/2, n);
+            double lambda_n = pow(n*M_PI/(domain.x_right-domain.x_left)*2, 2);
+            u[offset + j*sizeX + i] += C_n * sin(sqrt(lambda_n) * (i*hx - (domain.x_right - domain.x_left)/2));
          }
+         #endif
       }
    }
 }
 
-void ACEProblem::apply_boundary_condition(double *_u, double *fu)
+void ACEProblem::apply_boundary_condition(double *u, double *fu)
 {
-   apply_phase_boundary_condition(_u, fu);
-   apply_concentration_boundary_condition(_u, fu);
+   apply_phase_boundary_condition(u, fu);
+   apply_concentration_boundary_condition(u, fu);
 }
 
-void ACEProblem::apply_phase_boundary_condition(double *_u, double *fu)
+void ACEProblem::apply_phase_boundary_condition(double *u, double *fu)
 {
    for(int i = 0; i < this->sizeX; i++)
    {
@@ -185,16 +206,29 @@ void ACEProblem::apply_phase_boundary_condition(double *_u, double *fu)
    }
 }
 
-void ACEProblem::apply_concentration_boundary_condition(double *_u, double *fu)
+void ACEProblem::apply_concentration_boundary_condition(double *u, double *fu)
 {
    int offset = sizeY * sizeX;
+
+   #define VERSION_C_BOUND 1
    for(int i = 0; i < this->sizeX; i++)
    {
+      #if VERSION_C_BOUND == 0
+      u[offset + i] = 0;
+      u[offset + (sizeY-1)*sizeX + i] = 0;
       fu[offset + i] = 0;
       fu[offset + (sizeY-1)*sizeX + i] = 0;
+      #elif VERSION_C_BOUND == 1
+      u[offset + i] = u[offset + i + sizeX];
+      u[offset + (sizeY-1)*sizeX + i] = u[offset + (sizeY-2)*sizeX + i];
+      fu[offset + i] = 0;
+      fu[offset + (sizeY-1)*sizeX + i] = 0;
+      #endif
    }
-   for(int j = 1; j < this->sizeY-1; j++)
+   for(int j = 0; j < this->sizeY; j++)
    {
+      u[offset + j*sizeX] = 0;
+      u[offset + (j+1)*sizeX - 1] = 0;
       fu[offset + j*sizeX] = 0;
       fu[offset + (j+1)*sizeX - 1] = 0;
    }
@@ -234,9 +268,9 @@ double ACEProblem::div_D_grad_concentration(double *u, int i, int j)
 {
    int offset = sizeX * sizeY;
    double x_direction = get_diffusion_coef(u, i + 1, j) * (u[offset + j*sizeX + i + 1] - u[offset + j*sizeX + i]) / hx
-                        + get_diffusion_coef(u, i, j) * (u[offset + j*sizeX + i] - u[offset + j*sizeX + i - 1]) / hx;
+                        - get_diffusion_coef(u, i, j) * (u[offset + j*sizeX + i] - u[offset + j*sizeX + i - 1]) / hx;
    double y_direction = get_diffusion_coef(u, i, j + 1) * (u[offset + (j+1)*sizeX + i] - u[offset + j*sizeX + i]) / hy
-                        + get_diffusion_coef(u, i, j) * (u[offset + j*sizeX + i] - u[offset + (j-1)*sizeX + i]) / hy;
+                        - get_diffusion_coef(u, i, j) * (u[offset + j*sizeX + i] - u[offset + (j-1)*sizeX + i]) / hy;
    return x_direction / hx + y_direction / hy;
 }
 
