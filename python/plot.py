@@ -1,6 +1,6 @@
 from pathlib import Path
 import argparse
-from plotter import ScatterPlotter2D, SurfacePlotter
+from plotter import BoundaryPlotter2D, SurfacePlotter, CutPlotter
 
 parser = argparse.ArgumentParser(description="Plots a given frame of the computed results both in \
                                  2D and 3D.")
@@ -21,5 +21,5 @@ results_path = results_path.parent / "results" / args.name
 #plotter = ScatterPlotter2D(results_path, False, True, True)
 #plotter.show_frame(args.frame)
 
-plotter = SurfacePlotter(results_path, True, False, False)
+plotter = CutPlotter(results_path, "concentration", "x", 0.5, True)
 plotter.show_frame(args.frame)

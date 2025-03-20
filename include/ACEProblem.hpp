@@ -1,5 +1,6 @@
 #pragma once
 
+#define _USE_MATH_DEFINES
 #include<cmath>
 #include<iostream>
 #include<fstream>
@@ -78,10 +79,13 @@ class ACEProblem : public ODEProblem
     /*
     * Boundary conditions
     */
-    void apply_boundary_condition(double* _u, double* fu);
-    void apply_phase_boundary_condition(double* _u, double* fu);
-    void apply_concentration_boundary_condition(double* _u, double* fu);
+    void apply_boundary_condition(double* u, double* fu);
+    void apply_phase_boundary_condition(double* u, double* fu);
+    void apply_concentration_boundary_condition(double* u, double* fu);
 
+    /*
+    * Operators
+    */
     double laplace(double *u, int i, int j);
     double grad_norm(double *_u, int i, int j);
     double div_D_grad_concentration(double *u, int i, int j);
