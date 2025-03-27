@@ -1,13 +1,17 @@
 #include <cstdlib>
+#include <windows.h>
+#include <cassert>
+#include <iostream>
+#include <vector>
+
+#include <json.hpp>
+
 #include "ode-solve.hpp"
 #include "RungeKutta.hpp"
 #include "ODEProblem.hpp"
 #include "ODESolver.hpp"
 #include "ACEProblem.hpp"
-#include <windows.h>
-#include <cassert>
-#include <iostream>
-#include <vector>
+
 
 bool directoryExists(const std::string& path) {
     DWORD attribs = GetFileAttributesA(path.c_str());
@@ -20,24 +24,56 @@ bool createDirectory(const std::string& path) {
 
 Parameters get_parameters() {
     Parameters par;
-    par.initial_time = 0.0;
-    par.final_time = 0.15;
-    par.domain = {-1, 1, -1, 1};
-    par.sizeX = 200;
-    par.sizeY = 200;
-    par.timeStep =  0.001;
-    par.integrationTimeStep = pow(std::min((par.domain.x_right
-                                                   -par.domain.x_left)
-                                                   /(par.sizeX-1),
-                                                  (par.domain.y_right
-                                                   -par.domain.y_left)
-                                                   /(par.sizeY-1)),
-                                         2)/4;
-    par.alpha = 1;
-    par.beta = 1;
-    par.par_a = 1;
-    par.ksi = 0.01;
-    par.model = MODEL::MODEL_3;
+    std::ifstream file("config\\config.json");
+    if (!file) {
+        throw std::runtime_error("Nelze otevřít soubor config\\config.json");
+    }
+    nlohmann::json config;
+    file >> config;
+
+    try{
+        if (!config.contains("solver") || !config.contains("problem")) {
+            throw std::runtime_error("Chybí sekce 'solver' nebo 'problem' v JSON.");
+        }
+        nlohmann::json solver = config["solver"];
+        par.initial_time = solver.value("initial_time", 0.0);
+        par.final_time = solver.value("final_time", 0.30);
+        par.sizeX = solver.value("sizeX", 200);
+        par.sizeY = solver.value("sizeY", 200);
+        par.timeStep =  solver.value("time_step", 0.001);
+        
+        int model_value = solver.value("model", -1);
+        if( !(model_value == 1 || model_value == 2 || model_value == 3)) {
+            throw std::runtime_error("Neplatná hodnota 'model' v JSON.");
+        }
+        par.model = static_cast<MODEL>(model_value);
+        
+        if (!solver.contains("domain")) {
+            throw std::runtime_error("Chybí 'domain' v sekci 'solver'.");
+        }
+        
+        nlohmann::json domain = solver["domain"];
+        par.domain = {
+            domain.value("x_left", -1.0),
+            domain.value("x_right", 1.0),
+            domain.value("y_left", -1.0),
+            domain.value("y_right", 1.0)
+        };
+
+        par.integrationTimeStep = pow(std::min((par.domain.x_right - par.domain.x_left)/(par.sizeX-1),
+                                               (par.domain.y_right - par.domain.y_left)/(par.sizeY-1)),
+                                      2)/4;
+
+        nlohmann::json problem = config["problem"];
+        par.alpha = problem.value("alpha", 1.0);
+        par.beta = problem.value("beta", 1.0);
+        par.par_a = problem.value("a", 1.0);
+        par.ksi = problem.value("ksi", 0.01);
+    }
+    catch(const std::exception& e) {
+        std::cout << "Chyba při načítání JSON: " << e.what() << std::endl;
+        throw;
+    }
 
     return par;
 }
@@ -83,7 +119,27 @@ void save_parameters(std::string file_path, Parameters param) {
     file << std::left << std::setw(24) << "Par_a:"         << std::right << std::setw(28) << param.par_a << std::endl;
     file << std::left << std::setw(24) << "Ksi:"           << std::right << std::setw(28) << param.ksi << std::endl;
     file << std::left << std::setw(24) << "Model:"         << std::right << std::setw(28) << int(param.model);
+}
 
+void copy_config_file(std::string config_path, std::string output_path)
+{
+    std::fstream output_file;
+    output_file.open(output_path, std::fstream::out | std::fstream::trunc);
+    if(!output_file)
+    {
+       std::cout << "Unable to open the file " << output_path << std::endl;
+       return;
+    }
+
+    std::fstream input_file;
+    input_file.open(config_path, std::fstream::in);
+    if(!input_file)
+    {
+       std::cout << "Unable to open the file " << config_path << std::endl;
+       return;
+    }
+
+    output_file << input_file.rdbuf();
 }
 
 int main(int argc, char** argv)
@@ -94,11 +150,13 @@ int main(int argc, char** argv)
     if(argc == 2)
         result_path = argv[1];
     std::string info_path = result_path + "\\info";
-    std::string setup_path = info_path + "\\setup.txt";
+    std::string setup_path = info_path + "\\parameters.txt";
     std::string calc_path = result_path + "\\calculations";
+    std::string config_path = info_path + "\\config.json";
 
     create_folders({result_path, info_path, calc_path});
     save_parameters(setup_path, parameters);
+    copy_config_file("config\\config.json", config_path);
 
     ACEProblem problem = ACEProblem(parameters.sizeX,
                                     parameters.sizeY,

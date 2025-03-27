@@ -30,7 +30,7 @@ int ACEProblem::getDegreesOfFreedom()
 
 void ACEProblem::getRightHandSide(const double &t, double *u, double *fu)
 {
-   //#define PHASE
+   #define PHASE
    #ifdef PHASE
    for(int i = 1; i < this->sizeX-1; i++)
    {
