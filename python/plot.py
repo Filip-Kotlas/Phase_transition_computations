@@ -18,8 +18,8 @@ args = parser.parse_args()
 results_path = Path()
 results_path = results_path.parent / "results" / args.name
 
-#plotter = ScatterPlotter2D(results_path, False, True, True)
-#plotter.show_frame(args.frame)
-
-plotter = CutPlotter(results_path, "concentration", "x", 0.5, True)
+plotter = BoundaryPlotter2D(results_path, False, True, True)
 plotter.show_frame(args.frame)
+
+#plotter = CutPlotter(results_path, "concentration", "x", 0.5, True)
+#plotter.show_frame(args.frame)

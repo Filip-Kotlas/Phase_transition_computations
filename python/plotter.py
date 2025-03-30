@@ -1,6 +1,7 @@
 from typing import List, Tuple
-import os
+from pathlib import Path
 import math
+import json
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib import animation
@@ -11,14 +12,18 @@ class Plotter():
     def __init__(self, folder_path: str,
                  data_drawn: str="phase") -> None:
         self.folder = folder_path
-        self.file_paths = sorted([os.path.join(self.folder, "calculations", f)
-                                  for f
-                                  in os.listdir(os.path.join(folder_path, "calculations"))
-                                  if f.endswith('.txt')])
+        calc_folder = Path(self.folder) / "calculations"
+        if not calc_folder.exists():
+            raise FileNotFoundError(f"Složka {calc_folder} neexistuje!")
+        self.file_paths = sorted([f for f in calc_folder.iterdir()])
+
         self.fig = None
         self.ax = None
         self.data_drawn = data_drawn
         self.output_name_tag = None
+        self.configuration = None
+        config_path = Path(self.folder) / "info" / "config.json"
+        self._load_configuration(config_path)
 
     def _load_data(self, file_path: str) -> Tuple[List[float], List[float], List[float]]:
         """
@@ -43,10 +48,17 @@ class Plotter():
             raise ValueError("Wrong value for data_drawn given.")
         return x, y, value
 
+    def _load_configuration(self, file_path: Path):
+        if not file_path.exists():
+            raise FileNotFoundError(f"Soubor {file_path} neexistuje!")
+
+        with file_path.open("r", encoding="utf-8") as file:
+            self.configuration = json.load(file)
+
     def check_for_info_folder(self) -> None:
-        path_to_visual = os.path.join(self.folder, "info")
-        if not os.path.exists(path_to_visual):
-            os.makedirs(path_to_visual)
+        path_to_visual = Path(self.folder) / "info"
+        if not path_to_visual.exists():
+            path_to_visual.mkdir(parents=True, exist_ok=True)
             print("Creating folder \"info\" in ", self.folder)
 
     def update(self, frame: int):
@@ -56,7 +68,7 @@ class Plotter():
         self.check_for_info_folder()
         num_frames = len(self.file_paths)
         ani = animation.FuncAnimation(self.fig, self.update, frames=num_frames, blit=True)
-        output_file = os.path.join(self.folder, "info", "ACE" + self.output_name_tag + ".gif")
+        output_file = Path(self.folder) / "info" / ("ACE" + self.output_name_tag + ".gif")
         ani.save(output_file, writer='pillow', fps=max(num_frames/10, 10))
         print("Finished the animation. Saved at:", output_file)
 
@@ -66,7 +78,7 @@ class Plotter():
             return
         self.check_for_info_folder()
         self.update(frame)
-        output_file = os.path.join(self.folder, "info", "ACE" + self.output_name_tag + f"_{frame:05d}.jpg")
+        output_file = Path(self.folder) / "info" / ("ACE" + self.output_name_tag + f"_{frame:05d}.jpg")
         self.fig.savefig(output_file, dpi=300)
         print(f"Frame {frame} saved at:", output_file)
 
@@ -94,15 +106,18 @@ class BoundaryPlotter2D(Plotter):
         self.ax.set_xlim(x.min(), x.max())
         self.ax.set_ylim(y.min(), y.max())
         self.ax.set_aspect('equal')
-        self.title = self.ax.set_title("Frame: 0")
+        self.title = self.ax.set_title("Čas: 0")
         self.output_name_tag = "_" + self.data_drawn + "_2D_"
+
+        #self.ax.vlines(np.unique(x), x.min(), x.max(), colors='gray', alpha=0.6)
+        #self.ax.hlines(np.unique(y), y.min(), y.max(), colors='gray', alpha=0.6)
 
         self.draw_function = draw_function
         self.draw_num_boundary = draw_num_boundary
         self.draw_analit_boundary = draw_analit_boundary
 
         if self.draw_function:
-            self.function_sc = self.ax.scatter([], [], c=[], cmap='viridis', s=1)
+            self.function_sc = self.ax.scatter([], [], c=[], cmap='viridis', s=40)
             self.function_sc.set_offsets(np.column_stack((x, y)))
             self.output_name_tag = self.output_name_tag + "f"
         if self.draw_num_boundary:
@@ -116,7 +131,8 @@ class BoundaryPlotter2D(Plotter):
 
     def update(self, frame: int):
         x, y, value = self._load_data(self.file_paths[frame])
-        self.title.set_text(f"Frame: {frame}")
+        time_decimal_places = math.ceil(math.log(self.configuration["solver"]["time_step"], 0.1))
+        self.title.set_text(f"Čas: {self.configuration["solver"]["time_step"]*frame:.{time_decimal_places}f}")
         print("Updating frame: ", frame)
         artist = []
 
@@ -125,46 +141,124 @@ class BoundaryPlotter2D(Plotter):
             artist.append(self.function_sc)
 
         if self.draw_num_boundary:
-            num_boundary_x, num_boundary_y = self.find_boundary(x, y, value, threshold=0.5)
-            self.num_bound_sc.set_data(num_boundary_x, num_boundary_y)
+            num_boundary_x, num_boundary_y = self.find_boundary_points(x, y, value, threshold=0.5)
+            num_boundary_sorted_x, num_boundary_sorted_y = self.sort_boundary_points(num_boundary_x, num_boundary_y)
+            self.num_bound_sc.set_data(num_boundary_sorted_x, num_boundary_sorted_y)
             artist.append(self.num_bound_sc)
 
         if self.draw_analit_boundary:
-            analytic_boundary_x, analytic_boundary_y = self.get_analytic_solution(x, y, 0.5, frame*0.001, (x[1]-x[0])/2)
-            self.anal_bound_sc.set_data(analytic_boundary_x, analytic_boundary_y)
+            analytic_boundary_x, analytic_boundary_y = self.get_analytic_solution(0.5, frame*0.001)
+            analytic_sorted_x, analytic_sorted_y = self.sort_boundary_points(analytic_boundary_x, analytic_boundary_y)
+            self.anal_bound_sc.set_data(analytic_sorted_x, analytic_sorted_y)
             artist.append(self.anal_bound_sc)
 
         artist.append(self.title)
         return artist
 
-    def find_boundary(self, x, y, phase_values, threshold=0.5) -> Tuple[np.array, np.array]:
-        # Předpokládáme, že body jsou na mřížce (nebo téměř na mřížce)
-        grid_shape = (len(np.unique(x)), len(np.unique(y)))
-
-        # Převod na matici (2D mřížku)
+    def find_boundary_points(self, x, y, phase_values, threshold=0.5) -> Tuple[np.array, np.array]:
+        boundary_x = []
+        boundary_y = []
+        # Převod na mřížku
+        grid_shape = (self.configuration["solver"]["sizeX"],
+                      self.configuration["solver"]["sizeY"])
         grid_x = x.reshape(grid_shape)
         grid_y = y.reshape(grid_shape)
         grid_values = phase_values.reshape(grid_shape)
 
-        # Vyhledání bodů na hranici
-        boundary_x, boundary_y = [], []
-        offsets = [-1, 0, 1, 0]
-        for i in range(grid_values.shape[0] - 1):
-            for j in range(grid_values.shape[1] - 1):
-                # Kontrola hranic v obou osách
-                neighbour_over = False
-                neighbour_below = False
-                for k in range(4):
-                    if grid_values[i + offsets[k], j + offsets[(k+1)%4]] >= threshold:
-                        neighbour_over = True
-                    if grid_values[i + offsets[k], j + offsets[(k+1)%4]] <= threshold:
-                        neighbour_below = True
+        # Iterace přes buňky
+        has_over = False
+        has_bellow = False
+        offsets = [(0, 0), (0, 1), (1, 0), (1, 1)]
+        for i in range(0, grid_values.shape[0]-1):
+            for j in range(0, grid_values.shape[1]-1):
+                has_over = False
+                has_bellow = False
+                for offs in offsets:
+                    if grid_values[i + offs[0], j + offs[1]] < threshold:
+                        has_bellow = True
+                    else:
+                        has_over = True
 
-                if neighbour_over and neighbour_below and grid_values[i, j] >= threshold:
-                    boundary_x.append(grid_x[i, j])
-                    boundary_y.append(grid_y[i, j])
+                interpol_points = []
+                if has_over and has_bellow:
+                    if (grid_values[i, j] - threshold)*(grid_values[i, j+1] - threshold) < 0:
+                        interpol_x = (grid_x[i, j]
+                                      + (grid_x[i, j+1] - grid_x[i, j])
+                                      / (grid_values[i, j+1] - grid_values[i, j])
+                                      * (threshold - grid_values[i, j]))
+                        interpol_points.append((interpol_x, grid_y[i, j]))
+                    if (grid_values[i+1, j] - threshold)*(grid_values[i+1, j+1] - threshold) < 0:
+                        interpol_x = (grid_x[i+1, j]
+                                      + (grid_x[i+1, j+1] - grid_x[i+1, j])
+                                      / (grid_values[i+1, j+1] - grid_values[i+1, j])
+                                      * (threshold - grid_values[i+1, j]))
+                        interpol_points.append((interpol_x, grid_y[i+1, j]))
+                    if (grid_values[i, j] - threshold)*(grid_values[i+1, j] - threshold) < 0:
+                        interpol_y = (grid_y[i, j]
+                                      + (grid_y[i+1, j] - grid_y[i, j])
+                                      / (grid_values[i+1, j] - grid_values[i, j])
+                                      * (threshold - grid_values[i, j]))
+                        interpol_points.append((grid_x[i, j], interpol_y))
+                    if (grid_values[i, j+1] - threshold)*(grid_values[i+1, j+1] - threshold) < 0:
+                        interpol_y = (grid_y[i, j+1]
+                                      + (grid_y[i+1, j+1] - grid_y[i, j+1])
+                                      / (grid_values[i+1, j+1] - grid_values[i, j+1])
+                                      * (threshold - grid_values[i, j+1]))
+                        interpol_points.append((grid_x[i, j+1], interpol_y))
 
-        return np.array(boundary_x), np.array(boundary_y)
+                    if len(interpol_points) != 2:
+                        raise RuntimeError(
+                            f"Invalid number of interpolation points: {len(interpol_points)} "
+                            f"while computing cell: {i}, {j}"
+                        )
+                    boundary_x.append((interpol_points[0][0]+interpol_points[1][0])/2)
+                    boundary_y.append((interpol_points[0][1]+interpol_points[1][1])/2)
+        return boundary_x, boundary_y
+
+    def sort_boundary_points(self, boundary_x: np.array, boundary_y: np.array):
+        sorted_x = []
+        sorted_y = []
+
+        max_distance = 2*math.sqrt(pow((self.configuration["solver"]["domain"]["x_right"]
+                                        - self.configuration["solver"]["domain"]["x_left"])
+                                       / (self.configuration["solver"]["sizeX"] - 1), 2)
+                                   + pow((self.configuration["solver"]["domain"]["y_right"]
+                                          - self.configuration["solver"]["domain"]["y_left"])
+                                         / (self.configuration["solver"]["sizeY"] - 1), 2))
+
+        def get_distance(point1: Tuple, point2: Tuple) -> float:
+            return math.sqrt(math.pow(point1[0] - point2[0],2) + math.pow(point1[1] - point2[1],2))
+
+        picked_mask = np.full_like(boundary_x, 0)
+        for start_index, start_point in enumerate(zip(boundary_x, boundary_y)):
+            if picked_mask[start_index] == 0:
+                sorted_x.append(start_point[0])
+                sorted_y.append(start_point[1])
+                picked_mask[start_index] = 1
+
+                previous_point = start_point
+                closest_point = (0, 0)
+                best_distance = max_distance
+                best_index = None
+                while closest_point is not None:
+                    closest_point = None
+                    best_distance = max_distance
+                    best_index = None
+                    for index, point in enumerate(zip(boundary_x, boundary_y)):
+                        distance = get_distance(previous_point, point)
+                        if picked_mask[index]==0 and distance <= best_distance:
+                            closest_point = point
+                            best_distance = distance
+                            best_index = index
+
+                    if closest_point is not None:
+                        sorted_x.append(closest_point[0])
+                        sorted_y.append(closest_point[1])
+                        picked_mask[best_index] = 1
+                        previous_point = closest_point
+        sorted_x.append(sorted_x[0])
+        sorted_y.append(sorted_y[0])
+        return np.array(sorted_x), np.array(sorted_y)
 
     def reset_draw_settings(self,
                             draw_function: bool=False,
@@ -184,7 +278,7 @@ class BoundaryPlotter2D(Plotter):
         if self.draw_analit_boundary:
             self.output_name_tag = self.output_name_tag + "a"
 
-    def get_analytic_solution(self, x, y, r0, t, eps) -> Tuple[np.array, np.array]:
+    def get_analytic_solution(self, r0, t) -> Tuple[np.array, np.array]:
         # There is no circle.
         if r0**2 + 2*t < 0:
             return np.array([]), np.array([])
@@ -193,10 +287,9 @@ class BoundaryPlotter2D(Plotter):
         # Locating boundary points
         analytic_boundary_x, analytic_boundary_y = [], []
 
-        for xi, yi in zip(x, y):
-            if abs(np.sqrt(xi**2 + yi**2) - r) < eps:
-                analytic_boundary_x.append(xi)
-                analytic_boundary_y.append(yi)
+        for phi in np.linspace(0, 2*math.pi, num=1000):
+            analytic_boundary_x.append(r * math.cos(phi))
+            analytic_boundary_y.append(r * math.sin(phi))
 
         return np.array(analytic_boundary_x), np.array(analytic_boundary_y)
 
@@ -221,7 +314,7 @@ class SurfacePlotter(Plotter):
         self.ax.set_xlabel("x")
         self.ax.set_ylabel("y")
         self.ax.set_zlabel("p")
-        self.title = self.ax.set_title("Frame: 0")
+        self.title = self.ax.set_title("Čas: 0")
         self.output_name_tag = "_" + self.data_drawn + "_3D"
 
         self.function_surf = self.ax.plot_surface(x_grid, y_grid, val_grid, color='white', edgecolors="black", linewidth=0.25)
@@ -231,7 +324,8 @@ class SurfacePlotter(Plotter):
         x_grid, y_grid = np.meshgrid(np.unique(x), np.unique(y))
         val_grid = value.reshape(x_grid.shape)
 
-        self.title.set_text(f"Frame: {frame}")
+        time_decimal_places = math.ceil(math.log(self.configuration["solver"]["time_step"], 0.1))
+        self.title.set_text(f"Čas: {self.configuration["solver"]["time_step"]*frame:.{time_decimal_places}f}")
         print("Updating frame: ", frame)
         artist = []
 
@@ -275,7 +369,7 @@ class CutPlotter(Plotter):
 
         self.ax.set_ylim(value.min()*1.5, value.max()*1.5)
         self.ax.set_aspect('equal')
-        self.title = self.ax.set_title("Frame: 0")
+        self.title = self.ax.set_title("Čas: 0")
         self.output_name_tag = "_" + self.data_drawn + "_" + self.axis + "-cut"
 
         self.function, = self.ax.plot([],
@@ -299,7 +393,8 @@ class CutPlotter(Plotter):
 
     def update(self, frame: int):
         x, y, value = self._load_data(self.file_paths[frame])
-        self.title.set_text(f"Frame: {frame}")
+        time_decimal_places = math.ceil(math.log(self.configuration["solver"]["time_step"], 0.1))
+        self.title.set_text(f"Čas: {self.configuration["solver"]["time_step"]*frame:.{time_decimal_places}f}")
         print("Updating frame: ", frame)
         artist = []
 
