@@ -131,8 +131,9 @@ class BoundaryPlotter2D(Plotter):
 
     def update(self, frame: int):
         x, y, value = self._load_data(self.file_paths[frame])
-        time_decimal_places = math.ceil(math.log(self.configuration["solver"]["time_step"], 0.1))
-        self.title.set_text(f"Čas: {self.configuration["solver"]["time_step"]*frame:.{time_decimal_places}f}")
+        time_step = (self.configuration["solver"]["final_time"] - self.configuration["solver"]["initial_time"]) / 100
+        time_decimal_places = math.ceil(math.log(time_step, 0.1))
+        self.title.set_text(f"Čas: {time_step*frame:.{time_decimal_places}f}")
         print("Updating frame: ", frame)
         artist = []
 
@@ -147,7 +148,7 @@ class BoundaryPlotter2D(Plotter):
             artist.append(self.num_bound_sc)
 
         if self.draw_analit_boundary:
-            analytic_boundary_x, analytic_boundary_y = self.get_analytic_solution(0.5, frame*0.001)
+            analytic_boundary_x, analytic_boundary_y = self.get_analytic_solution(frame*time_step)
             analytic_sorted_x, analytic_sorted_y = self.sort_boundary_points(analytic_boundary_x, analytic_boundary_y)
             self.anal_bound_sc.set_data(analytic_sorted_x, analytic_sorted_y)
             artist.append(self.anal_bound_sc)
@@ -278,7 +279,9 @@ class BoundaryPlotter2D(Plotter):
         if self.draw_analit_boundary:
             self.output_name_tag = self.output_name_tag + "a"
 
-    def get_analytic_solution(self, r0, t) -> Tuple[np.array, np.array]:
+    def get_analytic_solution(self, t) -> Tuple[np.array, np.array]:
+        r0 = (self.configuration["solver"]["domain"]["x_right"] - self.configuration["solver"]["domain"]["x_left"]) / 4
+
         # There is no circle.
         if r0**2 + 2*t < 0:
             return np.array([]), np.array([])
@@ -287,9 +290,11 @@ class BoundaryPlotter2D(Plotter):
         # Locating boundary points
         analytic_boundary_x, analytic_boundary_y = [], []
 
+        offset_x = (self.configuration["solver"]["domain"]["x_left"] + self.configuration["solver"]["domain"]["x_right"])/2
+        offset_y = (self.configuration["solver"]["domain"]["y_left"] + self.configuration["solver"]["domain"]["y_right"])/2
         for phi in np.linspace(0, 2*math.pi, num=1000):
-            analytic_boundary_x.append(r * math.cos(phi))
-            analytic_boundary_y.append(r * math.sin(phi))
+            analytic_boundary_x.append(r * math.cos(phi) + offset_x)
+            analytic_boundary_y.append(r * math.sin(phi) + offset_y)
 
         return np.array(analytic_boundary_x), np.array(analytic_boundary_y)
 
@@ -324,8 +329,9 @@ class SurfacePlotter(Plotter):
         x_grid, y_grid = np.meshgrid(np.unique(x), np.unique(y))
         val_grid = value.reshape(x_grid.shape)
 
-        time_decimal_places = math.ceil(math.log(self.configuration["solver"]["time_step"], 0.1))
-        self.title.set_text(f"Čas: {self.configuration["solver"]["time_step"]*frame:.{time_decimal_places}f}")
+        time_step = (self.configuration["solver"]["final_time"] - self.configuration["solver"]["initial_time"]) / 100
+        time_decimal_places = math.ceil(math.log(time_step, 0.1))
+        self.title.set_text(f"Čas: {time_step*frame:.{time_decimal_places}f}")
         print("Updating frame: ", frame)
         artist = []
 
@@ -393,8 +399,9 @@ class CutPlotter(Plotter):
 
     def update(self, frame: int):
         x, y, value = self._load_data(self.file_paths[frame])
-        time_decimal_places = math.ceil(math.log(self.configuration["solver"]["time_step"], 0.1))
-        self.title.set_text(f"Čas: {self.configuration["solver"]["time_step"]*frame:.{time_decimal_places}f}")
+        time_step = (self.configuration["solver"]["final_time"] - self.configuration["solver"]["initial_time"]) / 100
+        time_decimal_places = math.ceil(math.log(time_step, 0.1))
+        self.title.set_text(f"Čas: {time_step*frame:.{time_decimal_places}f}")
         print("Updating frame: ", frame)
         artist = []
 
@@ -404,7 +411,7 @@ class CutPlotter(Plotter):
         artist.append(self.function)
 
         if self.draw_analytic_solution:
-            self.ana_sol.set_data(f_var, self.get_analytic_solution(frame*0.001, f_var, 5))
+            self.ana_sol.set_data(self.get_analytic_solution(frame*time_step, 4))
             artist.append(self.ana_sol)
 
         artist.append(self.title)
@@ -422,17 +429,34 @@ class CutPlotter(Plotter):
             cut_value = x.min() + (x.max() - x.min()) * self.part
             unique_x = np.unique(x)
             distance = unique_x[1] - unique_x[0]
-            mask = abs(x - cut_value) < distance / 2
+            mask = (x - cut_value <= distance / 1.5) & (x - cut_value >= 0)
             return y[mask], value[mask]
 
         if self.axis != "x" or self.axis != "y":
             raise ValueError("Wrong axis in get_cut.")
 
-    def get_analytic_solution(self, t, x_arr, n):
-        result = np.zeros(len(x_arr))
-        for k in range(1, n):
-            lambda_k = pow(k * math.pi * 2 / (x_arr.max() - x_arr.min()), 2)
-            C_k = pow(1/2, k)
-            for index, x in enumerate(x_arr):
-                result[index] += C_k * math.exp(-lambda_k*t) * math.sin(math.sqrt(lambda_k)*x)
-        return result
+    def get_analytic_solution(self, t, n_max):
+        var_space = None
+        if self.axis == "x":
+            var_space = np.linspace(self.configuration["solver"]["domain"]["x_left"],
+                                    self.configuration["solver"]["domain"]["x_right"],
+                                    500)
+        elif self.axis == "y":
+            var_space = np.linspace(self.configuration["solver"]["domain"]["y_left"],
+                                    self.configuration["solver"]["domain"]["y_right"],
+                                    500)
+        else:
+            raise ValueError("Wrong axis given: ", self.axis)
+
+        func_space = np.zeros_like(var_space)
+        F = [0, 1/2, 0, 1/4, 0]
+        var_left = var_space.min()
+        var_right = var_space.max()
+
+        for n in range(1, n_max + 1):
+            lambda_n = pow(n * math.pi / (var_right - var_left), 2)
+            C_n = pow(1/2, n)
+            for index, var in enumerate(var_space):
+                func_space[index] += C_n * math.exp(-lambda_n*t) * math.sin(math.sqrt(lambda_n)*(var-var_left))
+                func_space[index] += F[n] / lambda_n * (1 - math.exp(-lambda_n * t)) * math.sin(math.sqrt(lambda_n)*(var-var_left))
+        return var_space, func_space

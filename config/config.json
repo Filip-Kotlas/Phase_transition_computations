@@ -2,16 +2,15 @@
     "solver":
     {
         "initial_time": 0.0,
-        "final_time": 0.30,
+        "final_time": 1,
         "domain": {
-            "x_left": -1,
+            "x_left": 0,
             "x_right": 1,
-            "y_left": -1,
+            "y_left": 0,
             "y_right": 1
         },
-        "sizeX": 400,
-        "sizeY": 400,
-        "time_step": 0.001,
+        "sizeX": 100,
+        "sizeY": 100,
         "model": 3
     },
 
@@ -20,6 +19,6 @@
         "alpha": 1,
         "beta": 1,
         "a": 1,
-        "ksi": 0.01
+        "ksi": 0.02
     }
 }
