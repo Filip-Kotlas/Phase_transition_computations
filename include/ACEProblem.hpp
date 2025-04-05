@@ -1,16 +1,17 @@
 #pragma once
 
 #define _USE_MATH_DEFINES
-#include<cmath>
-#include<iostream>
-#include<fstream>
-#include<vector>
-#include<sstream>
-#include<iomanip>
+#include <cmath>
+#include <iostream>
+#include <fstream>
+#include <vector>
+#include <sstream>
+#include <iomanip>
 #include <filesystem>
 #include <unistd.h>
 #include <cassert>
 #include <algorithm>
+#include <list>
 
 #include "ODEProblem.hpp"
 
@@ -67,7 +68,7 @@ class ACEProblem : public ODEProblem
     */
     void getRightHandSide( const double& t, double* u, double* fu );
     double get_rhs_phase_at(double* u, int i, int j);
-    double get_rhs_concentration_at(double* u, int i, int j);
+    double get_rhs_concentration_at(const double &t, double* u, int i, int j);
     
     /*
     * Initial conditions
@@ -94,7 +95,7 @@ class ACEProblem : public ODEProblem
     double f_0(double *_u, int i, int j);
 
     double F(double *u, int i, int j);
-    double G(double *u, int i, int j);
+    double G(const double &t, double *u, int i, int j);
 
     double get_M_phi_tilde();
     double get_epsilon_phi_tilde();

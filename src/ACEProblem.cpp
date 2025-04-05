@@ -1,5 +1,44 @@
 #include "ACEProblem.hpp"
 
+//#define COMPUTE_PHASE
+#define COMPUTE_CONCENTRATION
+
+#define C_INIT 0
+/*
+*  0 - Linear by parts in circle around the middle
+*  1 -
+*  2 - Fourier along x axis
+*  3 - Fourier along y axis.
+*/
+
+#define P_INIT 1
+/*
+*  All based on radius
+*  0 - Hyperbolic tangent
+*  1 - Linear by parts
+*  2 - Constant by parts
+*/
+
+#define C_BOUND 0
+/*
+*  0 - Dirichlet everywhere
+*  1 - Neumann along x, Dirichlet along y
+*  2 - Dirichlet along x, Neumann along y
+*  3 - Neumann everywhere
+*/
+
+#define C_TEST_X
+
+#ifdef C_TEST_X
+#define C_INIT 2
+#define C_BOUND 1
+#endif
+
+#ifdef C_TEST_Y
+#define C_INIT 3
+#define C_BOUND 2
+#endif
+
 ACEProblem::ACEProblem(int sizeX,
                        int sizeY,
                        Domain domain,
@@ -30,8 +69,7 @@ int ACEProblem::getDegreesOfFreedom()
 
 void ACEProblem::getRightHandSide(const double &t, double *u, double *fu)
 {
-   #define PHASE
-   #ifdef PHASE
+   #ifdef COMPUTE_PHASE
    for(int i = 1; i < this->sizeX-1; i++)
    {
       for(int j = 1; j < this->sizeY-1; j++)
@@ -41,13 +79,12 @@ void ACEProblem::getRightHandSide(const double &t, double *u, double *fu)
    }
    #endif
    
-   #define CONCENTRATION
-   #ifdef CONCENTRATION
+   #ifdef COMPUTE_CONCENTRATION
    for(int i = 1; i < this->sizeX-1; i++)
    {
       for(int j = 1; j < this->sizeY-1; j++)
       {
-         fu[sizeX*sizeY + j*sizeX + i] = get_rhs_concentration_at(u, i, j);
+         fu[sizeX*sizeY + j*sizeX + i] = get_rhs_concentration_at(t, u, i, j);
       }
    }
    #endif
@@ -98,9 +135,8 @@ void ACEProblem::setInitialCondition(double *u)
 
 void ACEProblem::set_phase_initial_condition(double *u)
 {
-   #define VERSION_P 1
 
-   double r1 = 0.5 - 0.5*ksi;
+   double r1 = (domain.x_right - domain.x_left)/4 - 0.5*ksi;
    double r2 = r1 + ksi;
    for(int i = 0; i < sizeX; i++)
    {
@@ -108,11 +144,11 @@ void ACEProblem::set_phase_initial_condition(double *u)
       {
          double radius = sqrt(pow(i*hx - (domain.x_right - domain.x_left)/2, 2) + pow(j*hy - (domain.y_right-domain.y_left)/2, 2));
 
-         #if VERSION_P == 0
+         #if P_INIT == 0
          //Hyperbolic tangent
          u[j*sizeX + i] = 1.0/2 * tanh(-3/ksi*(radius - r1)) + 1.0/2;
 
-         #elif VERSION_P == 1
+         #elif P_INIT == 1
          //Linear by parts
          if( radius < r1 )
          {
@@ -127,7 +163,7 @@ void ACEProblem::set_phase_initial_condition(double *u)
             u[j*sizeX + i] = 0;
          }
          
-         #elif VERSION_P == 2
+         #elif P_INIT == 2
          //Constant by parts
          if( radius < r1 )
          {
@@ -145,17 +181,17 @@ void ACEProblem::set_phase_initial_condition(double *u)
 
 void ACEProblem::set_concentration_initial_condition(double *u)
 {
-   #define VERSION_C 2
    int offset = sizeX * sizeY;
-   double r1 = 0.5 - 0.5*ksi;
+   double r1 = (domain.x_right - domain.x_left)/4 - 0.5*ksi;
    double r2 = r1 + ksi;
+
    for(int i = 0; i < sizeX; i++)
    {
       for(int j = 0; j < sizeY; j++)
       {
          double init_conc = 0.025;
          
-         #if VERSION_C == 0
+         #if C_INIT == 0
          double radius = sqrt(pow(i*hx - (domain.x_right - domain.x_left)/2, 2) + pow(j*hy - (domain.y_right-domain.y_left)/2, 2));
          if(radius < r1)
             u[offset + j*sizeX + i] = init_conc;
@@ -164,7 +200,7 @@ void ACEProblem::set_concentration_initial_condition(double *u)
          else
             u[offset + j*sizeX + i] = 0;
 
-         #elif VERSION_C == 1
+         #elif C_INIT == 1
          double x_norm = abs(i*hx - (domain.x_right - domain.x_left)/2);
          if(x_norm < r1)
             u[offset + j*sizeX + i] = init_conc;
@@ -173,13 +209,22 @@ void ACEProblem::set_concentration_initial_condition(double *u)
          else
             u[offset + j*sizeX + i] = 0;
 
-         #elif VERSION_C == 2
+         #elif C_INIT == 2
          u[offset + j*sizeX + i] = 0;
          for(int n = 1; n < 5; n++)
          {
             double C_n = pow(1.0/2, n);
-            double lambda_n = pow(n*M_PI/(domain.x_right-domain.x_left)*2, 2);
-            u[offset + j*sizeX + i] += C_n * sin(sqrt(lambda_n) * (i*hx - (domain.x_right - domain.x_left)/2));
+            double lambda_n = pow(n*M_PI/(domain.x_right-domain.x_left), 2);
+            u[offset + j*sizeX + i] += C_n * sin(sqrt(lambda_n) * (i*hx));
+         }
+
+         #elif C_INIT == 3
+         u[offset + j*sizeX + i] = 0;
+         for(int n = 1; n < 5; n++)
+         {
+            double C_n = pow(1.0/2, n);
+            double lambda_n = pow(n*M_PI/(domain.y_right-domain.y_left), 2);
+            u[offset + j*sizeX + i] += C_n * sin(sqrt(lambda_n) * (j*hy));
          }
          #endif
       }
@@ -210,28 +255,44 @@ void ACEProblem::apply_concentration_boundary_condition(double *u, double *fu)
 {
    int offset = sizeY * sizeX;
 
-   #define VERSION_C_BOUND 1
+   //Boundary coniditons along x direction
    for(int i = 0; i < this->sizeX; i++)
    {
-      #if VERSION_C_BOUND == 0
+      //Dirichlet
+      #if C_BOUND == 0 || C_BOUND == 2
       u[offset + i] = 0;
       u[offset + (sizeY-1)*sizeX + i] = 0;
       fu[offset + i] = 0;
       fu[offset + (sizeY-1)*sizeX + i] = 0;
-      #elif VERSION_C_BOUND == 1
+      
+      //Neumann
+      #elif C_BOUND == 1 || C_BOUND == 3
       u[offset + i] = u[offset + i + sizeX];
       u[offset + (sizeY-1)*sizeX + i] = u[offset + (sizeY-2)*sizeX + i];
       fu[offset + i] = 0;
       fu[offset + (sizeY-1)*sizeX + i] = 0;
       #endif
    }
+
+   //Boundary conditions along y conditions
    for(int j = 0; j < this->sizeY; j++)
    {
+      //Dirichlet
+      #if C_BOUND == 0 || C_BOUND == 1
       u[offset + j*sizeX] = 0;
       u[offset + (j+1)*sizeX - 1] = 0;
       fu[offset + j*sizeX] = 0;
       fu[offset + (j+1)*sizeX - 1] = 0;
+
+      //Neumann
+      #elif C_BOUND == 2 || C_BOUND == 3
+      u[offset + j*sizeX] = u[offset + j*sizeX + 1];
+      u[offset + (j+1)*sizeX - 1] = u[offset + (j+1)*sizeX - 2];
+      fu[offset + j*sizeX] = 0;
+      fu[offset + (j+1)*sizeX - 1] = 0;
+      #endif
    }
+
 }
 
 double ACEProblem::get_rhs_phase_at(double* u, int i, int j)
@@ -245,9 +306,9 @@ double ACEProblem::get_rhs_phase_at(double* u, int i, int j)
    return rhs;
 }
 
-double ACEProblem::get_rhs_concentration_at(double *u, int i, int j)
+double ACEProblem::get_rhs_concentration_at(const double &t, double *u, int i, int j)
 {
-   double rhs = div_D_grad_concentration(u, i, j) + G(u, i, j);
+   double rhs = div_D_grad_concentration(u, i, j) + G(t, u, i, j);
    return rhs;
 }
 
@@ -286,13 +347,31 @@ double ACEProblem::f_0(double *_u, int i, int j)
 
 double ACEProblem::F(double *u, int i, int j)
 {
-   double r = sqrt(pow(i*hx + domain.x_left, 2) + pow(j*hy + domain.y_left, 2));
-   return 2/(std::max(r, 0.1));
+   double mid_x = (domain.x_right - domain.x_left)/2;
+   double mid_y = (domain.y_right - domain.y_left)/2;
+   double r = sqrt(pow(i*hx - mid_x, 2) + pow(j*hy - mid_y, 2));
+   return 2/std::max(r, 0.1);
 }
 
-double ACEProblem::G(double *u, int i, int j)
+double ACEProblem::G(const double &t, double *u, int i, int j)
 {
-   return 0;
+   double coefficients[5] = {0, 1.0/2, 0, 1.0/4, 0};
+   double G = 0; 
+   for(int n = 1; n < 5; n++)
+   {
+      double F_n = coefficients[n];
+      
+      #ifdef C_TEST_X
+      double lambda_n = pow(n*M_PI/(domain.x_right-domain.x_left), 2);
+      G += F_n * sin(sqrt(lambda_n) * (i*hx));
+      #endif
+
+      #ifdef C_TEST_Y
+      double lambda_n = pow(n*M_PI/(domain.y_right-domain.y_left), 2);
+      G += F_n * sin(sqrt(lambda_n) * (j*hy));
+      #endif
+   }
+   return G;
 }
 
 double ACEProblem::get_M_phi_tilde()
