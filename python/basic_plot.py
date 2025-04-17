@@ -2,7 +2,7 @@ from pathlib import Path
 import argparse
 from plotter import BoundaryPlotter2D, SurfacePlotter, CutPlotter
 
-parser = argparse.ArgumentParser(description="Plots frames 0, 10, 100, and 300 and creates\
+parser = argparse.ArgumentParser(description="Plots frames 0, 10, 50, 100 and creates\
                                               animation of the computed results both in 2D and 3D.")
 parser.add_argument("name",
                     type=str,
@@ -24,13 +24,13 @@ boundary_plotter.save_frame(0)
 boundary_plotter.save_frame(10)
 boundary_plotter.save_frame(50)
 boundary_plotter.save_frame(100)
-
+"""
 phase_surface_plotter.save_frame(0)
 phase_surface_plotter.save_frame(10)
 phase_surface_plotter.save_frame(50)
 phase_surface_plotter.save_frame(100)
-"""
 
+"""
 concentration_surface_plotter.save_frame(0)
 concentration_surface_plotter.save_frame(10)
 concentration_surface_plotter.save_frame(50)
@@ -40,8 +40,9 @@ concentration_cut_plotter.save_frame(0)
 concentration_cut_plotter.save_frame(10)
 concentration_cut_plotter.save_frame(50)
 concentration_cut_plotter.save_frame(100)
+"""
 
-concentration_cut_plotter.save_animation()
-concentration_surface_plotter.save_animation()
+#concentration_cut_plotter.save_animation()
+#concentration_surface_plotter.save_animation()
 #boundary_plotter.save_animation()
-#phase_surface_plotter.save_animation()
+phase_surface_plotter.save_animation()
