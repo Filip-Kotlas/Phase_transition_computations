@@ -1,14 +1,14 @@
 #include "ACEProblem.hpp"
 
-//#define COMPUTE_PHASE
-#define COMPUTE_CONCENTRATION
+#define COMPUTE_PHASE
+//#define COMPUTE_CONCENTRATION
 
-#define C_INIT 0
+#define C_INIT 1
 /*
 *  0 - Linear by parts in circle around the middle
-*  1 -
+*  1 - Constant on the whole domain
 *  2 - Fourier along x axis
-*  3 - Fourier along y axis.
+*  3 - Fourier along y axis
 */
 
 #define P_INIT 1
@@ -19,7 +19,7 @@
 *  2 - Constant by parts
 */
 
-#define C_BOUND 0
+#define C_BOUND 3
 /*
 *  0 - Dirichlet everywhere
 *  1 - Neumann along x, Dirichlet along y
@@ -27,7 +27,7 @@
 *  3 - Neumann everywhere
 */
 
-#define C_TEST_X
+//#define C_TEST_X
 
 #ifdef C_TEST_X
 #define C_INIT 2
@@ -77,6 +77,8 @@ void ACEProblem::getRightHandSide(const double &t, double *u, double *fu)
          fu[j*sizeX + i] = get_rhs_phase_at(u, i, j);
       }
    }
+   /*if (t >= 4 * 0.0001)
+      std::cout << "Large: " << print_largest(u) << ", small: " << print_smallest(u) << std::endl;*/
    #endif
    
    #ifdef COMPUTE_CONCENTRATION
@@ -201,13 +203,7 @@ void ACEProblem::set_concentration_initial_condition(double *u)
             u[offset + j*sizeX + i] = 0;
 
          #elif C_INIT == 1
-         double x_norm = abs(i*hx - (domain.x_right - domain.x_left)/2);
-         if(x_norm < r1)
-            u[offset + j*sizeX + i] = init_conc;
-         else if(x_norm < r2)
-            u[offset + j*sizeX + i] = init_conc - init_conc * (x_norm - r1) / (r2 - r1);
-         else
-            u[offset + j*sizeX + i] = 0;
+         u[offset + j*sizeX + i] = init_conc;
 
          #elif C_INIT == 2
          u[offset + j*sizeX + i] = 0;
@@ -297,12 +293,10 @@ void ACEProblem::apply_concentration_boundary_condition(double *u, double *fu)
 
 double ACEProblem::get_rhs_phase_at(double* u, int i, int j)
 {
-   double rhs = laplace(u, i, j) + f_0(u, i , j) / ksi / ksi + grad_norm(u, i, j)*F(u, i, j);
-   /*
-   double rhs = get_M_phi_tilde()*(get_epsilon_phi_tilde() * laplace(_u, i, j)
-                                   - get_w_tilde()*get_q_prime(_u, i, j)
-                                   + (get_G_alpha_tilde(_u, i, j) - get_G_beta_tilde(_u, i, j))*get_p_prime(_u, i, j));
-   */
+   double rhs = get_M_phi_tilde()*(pow(get_epsilon_phi_tilde(), 2) * laplace(u, i, j)
+                                   - get_w_tilde()*get_q_prime(u, i, j)
+                                   + (get_G_alpha_tilde(u, i, j) - get_G_beta_tilde(u, i, j))*get_p_prime(u, i, j));
+
    return rhs;
 }
 
@@ -328,16 +322,31 @@ double ACEProblem::grad_norm(double *u, int i, int j)
 double ACEProblem::div_D_grad_concentration(double *u, int i, int j)
 {
    int offset = sizeX * sizeY;
-   double x_direction = get_diffusion_coef(u, i + 1, j) * (u[offset + j*sizeX + i + 1] - u[offset + j*sizeX + i]) / hx
-                        - get_diffusion_coef(u, i, j) * (u[offset + j*sizeX + i] - u[offset + j*sizeX + i - 1]) / hx;
-   double y_direction = get_diffusion_coef(u, i, j + 1) * (u[offset + (j+1)*sizeX + i] - u[offset + j*sizeX + i]) / hy
-                        - get_diffusion_coef(u, i, j) * (u[offset + j*sizeX + i] - u[offset + (j-1)*sizeX + i]) / hy;
+   double x_direction = get_conc_diff_coef(u, i + 1, j) * (u[offset + j*sizeX + i + 1] - u[offset + j*sizeX + i]) / hx
+                        - get_conc_diff_coef(u, i, j) * (u[offset + j*sizeX + i] - u[offset + j*sizeX + i - 1]) / hx;
+   double y_direction = get_conc_diff_coef(u, i, j + 1) * (u[offset + (j+1)*sizeX + i] - u[offset + j*sizeX + i]) / hy
+                        - get_conc_diff_coef(u, i, j) * (u[offset + j*sizeX + i] - u[offset + (j-1)*sizeX + i]) / hy;
    return x_direction / hx + y_direction / hy;
 }
 
-double ACEProblem::get_diffusion_coef(double *u, int i, int j)
+double ACEProblem::div_D_grad_phase(double *u, int i, int j)
+{
+   int offset = 0;
+   double x_direction = get_phase_diff_coef(u, i + 1, j) * (u[offset + j*sizeX + i + 1] - u[offset + j*sizeX + i]) / hx
+                        - get_phase_diff_coef(u, i, j) * (u[offset + j*sizeX + i] - u[offset + j*sizeX + i - 1]) / hx;
+   double y_direction = get_phase_diff_coef(u, i, j + 1) * (u[offset + (j+1)*sizeX + i] - u[offset + j*sizeX + i]) / hy
+                        - get_phase_diff_coef(u, i, j) * (u[offset + j*sizeX + i] - u[offset + (j-1)*sizeX + i]) / hy;
+   return x_direction / hx + y_direction / hy;
+}
+
+double ACEProblem::get_conc_diff_coef(double *u, int i, int j)
 {
     return 1;
+}
+
+double ACEProblem::get_phase_diff_coef(double *u, int i, int j)
+{
+   return 1;
 }
 
 double ACEProblem::f_0(double *_u, int i, int j)
@@ -413,7 +422,7 @@ double ACEProblem::get_G_beta_tilde(const double *_u, int i, int j)
 {
    double c = _u[sizeX*sizeY + j*sizeX + i];
    double R = 8.31446261815324;
-   double G_0_zr_beta = -525.539 + 124.9457*T - 25.607406*T*log(T) - 3.40084E-4*T*T - 9.729e-9*T*T*T + 25233/T - 7.6143E-11*T*T*T*T;
+   double G_0_zr_beta = -525.539 + 124.9457*T - 25.607406*T*log(T) - 3.40084e-4*T*T - 9.729e-9*T*T*T + 25233/T - 7.6143e-11*T*T*T*T;
    double G_0_nb_beta = -8519.353 + 142.045475*T - 26.4711*T*log(T) + 2.03475e-4*T*T - 3.5012e-7*T*T*T + 93399/T;
    double L_0_beta = 15911 + 3.35*T;
    double L_0_i_beta = 3919 - 1.091*T;
@@ -440,4 +449,34 @@ double ACEProblem::get_p_prime(double *_u, int i, int j)
 double ACEProblem::get_q_prime(double *_u, int i, int j)
 {
    return 2*_u[j*sizeX + i] - 6*pow(_u[j*sizeX + i], 2) + 4*pow(_u[j*sizeX + i],3);
+}
+
+double ACEProblem::print_largest(double* u)
+{
+   double largest = -200000000;
+   for(int i = 1; i < this->sizeX-1; i++)
+   {
+      for(int j = 1; j < this->sizeY-1; j++)
+      {
+         double var = get_G_alpha_tilde(u, i, j) - get_G_beta_tilde(u, i, j);
+         if(var > largest)
+            largest = var;
+      }
+   }
+   return largest;
+}
+
+double ACEProblem::print_smallest(double* u)
+{
+   double smallest = 200000000;
+   for(int i = 1; i < this->sizeX-1; i++)
+   {
+      for(int j = 1; j < this->sizeY-1; j++)
+      {
+         double var = get_G_alpha_tilde(u, i, j) - get_G_beta_tilde(u, i, j);
+         if(var < smallest)
+            smallest = var;
+      }
+   }
+   return smallest;
 }

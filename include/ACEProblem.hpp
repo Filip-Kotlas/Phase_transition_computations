@@ -90,7 +90,9 @@ class ACEProblem : public ODEProblem
     double laplace(double *u, int i, int j);
     double grad_norm(double *_u, int i, int j);
     double div_D_grad_concentration(double *u, int i, int j);
-    double get_diffusion_coef(double *u, int i, int j);
+    double get_conc_diff_coef(double *u, int i, int j);
+    double div_D_grad_phase(double *u, int i, int j);
+    double get_phase_diff_coef(double *u, int i, int j);
 
     double f_0(double *_u, int i, int j);
 
@@ -106,6 +108,9 @@ class ACEProblem : public ODEProblem
     double get_p_prime(double *_u, int i, int j);
     double get_q_prime(double *_u, int i, int j);
 
+    double print_largest(double* u);
+    double print_smallest(double* u);
+
     protected:
 
     const int sizeX;
@@ -119,7 +124,7 @@ class ACEProblem : public ODEProblem
     const double beta;
     const double ksi;
     
-    const int T = 1200;
+    const int T = 850;
 
     const MODEL model;
     
