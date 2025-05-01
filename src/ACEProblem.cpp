@@ -1,7 +1,7 @@
 #include "ACEProblem.hpp"
 
 #define COMPUTE_PHASE
-//#define COMPUTE_CONCENTRATION
+#define COMPUTE_CONCENTRATION
 
 #define C_INIT 1
 /*
@@ -38,6 +38,12 @@
 #define C_INIT 3
 #define C_BOUND 2
 #endif
+
+#define FORCE 1
+/*
+*  0 - Force equal 1
+*  1 - Force inversly proportionate to the distance from the middle
+*/
 
 ACEProblem::ACEProblem(int sizeX,
                        int sizeY,
@@ -293,17 +299,20 @@ void ACEProblem::apply_concentration_boundary_condition(double *u, double *fu)
 
 double ACEProblem::get_rhs_phase_at(double* u, int i, int j)
 {
-   double rhs = get_M_phi_tilde()*(pow(get_epsilon_phi_tilde(), 2) * laplace(u, i, j)
-                                   - get_w_tilde()*get_q_prime(u, i, j)
-                                   + (get_G_alpha_tilde(u, i, j) - get_G_beta_tilde(u, i, j))*get_p_prime(u, i, j));
+   double rhs = 0.0;
+
+   if(model == MODEL::MODEL_3)
+      rhs = laplace(u, i, j) + f_0(u, i , j) / ksi / ksi + grad_norm(u, i, j)*F(u, i, j);
+   
+   else if(model == MODEL::MODEL_4)
+      rhs = laplace(u, i, j) + f_0(u, i , j) / ksi / ksi + 10/sqrt(8)*sqrt(par_a)*1.0/ksi*grade_4_polynom(u, i, j)*F(u, i, j);
 
    return rhs;
 }
 
 double ACEProblem::get_rhs_concentration_at(const double &t, double *u, int i, int j)
 {
-   double rhs = div_D_grad_concentration(u, i, j) + G(t, u, i, j);
-   return rhs;
+   return div_D_grad_concentration(u, i, j) + div_D_grad_phase(u, i, j);
 }
 
 double ACEProblem::laplace(double *u, int i, int j)
@@ -331,22 +340,21 @@ double ACEProblem::div_D_grad_concentration(double *u, int i, int j)
 
 double ACEProblem::div_D_grad_phase(double *u, int i, int j)
 {
-   int offset = 0;
-   double x_direction = get_phase_diff_coef(u, i + 1, j) * (u[offset + j*sizeX + i + 1] - u[offset + j*sizeX + i]) / hx
-                        - get_phase_diff_coef(u, i, j) * (u[offset + j*sizeX + i] - u[offset + j*sizeX + i - 1]) / hx;
-   double y_direction = get_phase_diff_coef(u, i, j + 1) * (u[offset + (j+1)*sizeX + i] - u[offset + j*sizeX + i]) / hy
-                        - get_phase_diff_coef(u, i, j) * (u[offset + j*sizeX + i] - u[offset + (j-1)*sizeX + i]) / hy;
+   double x_direction = get_phas_diff_coef(u, i + 1, j) * (u[j*sizeX + i + 1] - u[j*sizeX + i]) / hx
+                        - get_phas_diff_coef(u, i, j) * (u[j*sizeX + i] - u[j*sizeX + i - 1]) / hx;
+   double y_direction = get_phas_diff_coef(u, i, j + 1) * (u[(j+1)*sizeX + i] - u[j*sizeX + i]) / hy
+                        - get_phas_diff_coef(u, i, j) * (u[j*sizeX + i] - u[+ (j-1)*sizeX + i]) / hy;
    return x_direction / hx + y_direction / hy;
 }
 
 double ACEProblem::get_conc_diff_coef(double *u, int i, int j)
 {
-    return 1;
+   return 1;
 }
 
-double ACEProblem::get_phase_diff_coef(double *u, int i, int j)
+double ACEProblem::get_phas_diff_coef(double *u, int i, int j)
 {
-   return 1;
+   return 0.01;
 }
 
 double ACEProblem::f_0(double *_u, int i, int j)
@@ -356,10 +364,16 @@ double ACEProblem::f_0(double *_u, int i, int j)
 
 double ACEProblem::F(double *u, int i, int j)
 {
+   #if FORCE == 0
+   return 1;
+
+   #elif FORCE == 1
    double mid_x = (domain.x_right - domain.x_left)/2;
    double mid_y = (domain.y_right - domain.y_left)/2;
    double r = sqrt(pow(i*hx - mid_x, 2) + pow(j*hy - mid_y, 2));
    return 2/std::max(r, 0.1);
+   
+   #endif
 }
 
 double ACEProblem::G(const double &t, double *u, int i, int j)
@@ -381,6 +395,11 @@ double ACEProblem::G(const double &t, double *u, int i, int j)
       #endif
    }
    return G;
+}
+
+double ACEProblem::grade_4_polynom(double *u, int i, int j)
+{
+   return pow(u[j*sizeX + i], 2) * pow(u[j*sizeX + i] - 1.0, 2);
 }
 
 double ACEProblem::get_M_phi_tilde()
