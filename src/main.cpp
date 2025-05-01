@@ -43,7 +43,7 @@ Parameters get_parameters() {
         par.timeStep = (par.final_time - par.initial_time) / 100;
         
         int model_value = solver.value("model", -1);
-        if( !(model_value == 1 || model_value == 2 || model_value == 3)) {
+        if( !(model_value == 1 || model_value == 2 || model_value == 3 || model_value == 4)) {
             throw std::runtime_error("Neplatná hodnota 'model' v JSON.");
         }
         par.model = static_cast<MODEL>(model_value);
