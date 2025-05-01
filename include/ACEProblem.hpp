@@ -27,7 +27,8 @@ enum class MODEL
 {
     MODEL_1 = 1,
     MODEL_2 = 2,
-    MODEL_3 = 3
+    MODEL_3 = 3,
+    MODEL_4 = 4
 };
 
 struct Parameters{
@@ -90,11 +91,13 @@ class ACEProblem : public ODEProblem
     double laplace(double *u, int i, int j);
     double grad_norm(double *_u, int i, int j);
     double div_D_grad_concentration(double *u, int i, int j);
-    double get_conc_diff_coef(double *u, int i, int j);
     double div_D_grad_phase(double *u, int i, int j);
-    double get_phase_diff_coef(double *u, int i, int j);
+    double get_conc_diff_coef(double *u, int i, int j);
+    double get_phas_diff_coef(double *u, int i, int j);
 
     double f_0(double *_u, int i, int j);
+
+    double grade_4_polynom(double *u, int i, int j);
 
     double F(double *u, int i, int j);
     double G(const double &t, double *u, int i, int j);
