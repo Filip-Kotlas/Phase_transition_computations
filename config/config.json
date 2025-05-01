@@ -9,8 +9,8 @@
             "y_left": 0,
             "y_right": 1
         },
-        "sizeX": 200,
-        "sizeY": 200,
+        "sizeX": 100,
+        "sizeY": 100,
         "model": 4
     },
 
@@ -18,7 +18,7 @@
     {
         "alpha": 1,
         "beta": 1,
-        "a": 5,
+        "a": 1,
         "ksi": 0.01
     }
 }

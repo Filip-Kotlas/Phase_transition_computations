@@ -1,7 +1,7 @@
 #include "ACEProblem.hpp"
 
 #define COMPUTE_PHASE
-//#define COMPUTE_CONCENTRATION
+#define COMPUTE_CONCENTRATION
 
 #define C_INIT 0
 /*
@@ -358,7 +358,7 @@ double ACEProblem::get_conc_diff_coef(double *u, int i, int j)
 
 double ACEProblem::get_phas_diff_coef(double *u, int i, int j)
 {
-   return 1;
+   return 0.01;
 }
 
 double ACEProblem::f_0(double *_u, int i, int j)
