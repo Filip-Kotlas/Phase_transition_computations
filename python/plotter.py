@@ -220,6 +220,9 @@ class BoundaryPlotter2D(Plotter):
         sorted_x = []
         sorted_y = []
 
+        if len(boundary_x) == 0:
+            return  np.array(sorted_x), np.array(sorted_y)
+
         max_distance = 2*math.sqrt(pow((self.configuration["solver"]["domain"]["x_right"]
                                         - self.configuration["solver"]["domain"]["x_left"])
                                        / (self.configuration["solver"]["sizeX"] - 1), 2)
@@ -281,11 +284,12 @@ class BoundaryPlotter2D(Plotter):
 
     def get_analytic_solution(self, t) -> Tuple[np.array, np.array]:
         r0 = (self.configuration["solver"]["domain"]["x_right"] - self.configuration["solver"]["domain"]["x_left"]) / 4
+        coef = 1
 
         # There is no circle.
         if r0**2 + 2*t < 0:
             return np.array([]), np.array([])
-        r = np.sqrt(r0**2 + 2*t)
+        r = np.sqrt(r0**2 + coef*2*t)
 
         # Locating boundary points
         analytic_boundary_x, analytic_boundary_y = [], []

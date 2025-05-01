@@ -2,23 +2,23 @@
     "solver":
     {
         "initial_time": 0.0,
-        "final_time": 1,
+        "final_time": 0.04,
         "domain": {
             "x_left": 0,
             "x_right": 1,
             "y_left": 0,
             "y_right": 1
         },
-        "sizeX": 100,
-        "sizeY": 100,
-        "model": 3
+        "sizeX": 200,
+        "sizeY": 200,
+        "model": 4
     },
 
     "problem":
     {
         "alpha": 1,
         "beta": 1,
-        "a": 1,
-        "ksi": 0.02
+        "a": 5,
+        "ksi": 0.01
     }
 }
