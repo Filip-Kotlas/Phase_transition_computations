@@ -102,12 +102,13 @@ class ACEProblem : public ODEProblem
     double grad_norm(double *_u, int i, int j);
     double div_D_grad_concentration(double *u, int i, int j);
     double div_D_grad_phase(double *u, int i, int j);
-    double get_conc_diff_coef(double *u, int i, int j);
-    double get_phas_diff_coef(double *u, int i, int j);
+    double get_conc_diff_coef(const double *u, int i, int j);
+    double get_phas_diff_coef(const double *u, int i, int j);
 
     double f_0(double *_u, int i, int j);
 
     double grade_4_polynom(double *u, int i, int j);
+    double polynom_p(const double *u, int i, int j);
 
     double F(double *u, int i, int j);
     double G(const double &t, double *u, int i, int j);
@@ -127,6 +128,8 @@ class ACEProblem : public ODEProblem
     const double par_a;
     const double beta;
     const double ksi;
+
+    const double T = 850;
     
 
     const MODEL model;
