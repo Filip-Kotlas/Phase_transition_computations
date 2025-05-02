@@ -112,18 +112,6 @@ class ACEProblem : public ODEProblem
     double F(double *u, int i, int j);
     double G(const double &t, double *u, int i, int j);
 
-    double get_M_phi_tilde();
-    double get_epsilon_phi_tilde();
-    double get_G_alpha_tilde(const double *_u, int i, int j);
-    double get_G_beta_tilde(const double *_u, int i, int j);
-    double get_w_tilde();
-    
-    double get_p_prime(double *_u, int i, int j);
-    double get_q_prime(double *_u, int i, int j);
-
-    double print_largest(double* u);
-    double print_smallest(double* u);
-
     protected:
 
     const int sizeX;
@@ -137,7 +125,6 @@ class ACEProblem : public ODEProblem
     const double beta;
     const double ksi;
     
-    const int T = 850;
 
     const MODEL model;
     
