@@ -1,9 +1,9 @@
 #include "ACEProblem.hpp"
 
-#define COMPUTE_PHASE
+//#define COMPUTE_PHASE
 #define COMPUTE_CONCENTRATION
 
-#define C_INIT 1
+#define C_INIT 0
 /*
 *  0 - Linear by parts in circle around the middle
 *  1 - Constant on the whole domain
@@ -312,7 +312,7 @@ double ACEProblem::get_rhs_phase_at(double* u, int i, int j)
 
 double ACEProblem::get_rhs_concentration_at(const double &t, double *u, int i, int j)
 {
-   return div_D_grad_concentration(u, i, j) + G(t, u, i, j);// + div_D_grad_phase(u, i, j);
+   return div_D_grad_concentration(u, i, j);// + div_D_grad_phase(u, i, j);
 }
 
 double ACEProblem::laplace(double *u, int i, int j)
