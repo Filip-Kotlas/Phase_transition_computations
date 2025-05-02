@@ -2,12 +2,12 @@
     "solver":
     {
         "initial_time": 0.0,
-        "final_time": 0.04,
+        "final_time": 0.05,
         "domain": {
             "x_left": 0,
-            "x_right": 100,
+            "x_right": 1,
             "y_left": 0,
-            "y_right": 100
+            "y_right": 1
         },
         "sizeX": 100,
         "sizeY": 100,

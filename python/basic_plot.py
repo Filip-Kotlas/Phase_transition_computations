@@ -24,7 +24,7 @@ boundary_plotter.save_frame(0)
 boundary_plotter.save_frame(10)
 boundary_plotter.save_frame(50)
 boundary_plotter.save_frame(100)
-"""
+
 phase_surface_plotter.save_frame(0)
 phase_surface_plotter.save_frame(10)
 phase_surface_plotter.save_frame(50)
@@ -39,7 +39,6 @@ concentration_cut_plotter.save_frame(0)
 concentration_cut_plotter.save_frame(10)
 concentration_cut_plotter.save_frame(50)
 concentration_cut_plotter.save_frame(100)
-"""
 
 concentration_cut_plotter.save_animation()
 concentration_surface_plotter.save_animation()
