@@ -363,13 +363,13 @@ double ACEProblem::div_D_grad_phase(double *u, int i, int j)
    return x_direction / hx + y_direction / hy;
 }
 
-double ACEProblem::get_conc_diff_coef(double *u, int i, int j)
+double ACEProblem::get_conc_diff_coef(const double *u, int i, int j)
 {
    double D = 5.0;
-   return D * conc_at(u, i, j)*(1 - conc_at(u, i, j));
+   return D * conc_at(u, i, j)*(1 - conc_at(u, i, j)) * sec_deriv_of_g_w_resp_to_c(u, i, j);
 }
 
-double ACEProblem::get_phas_diff_coef(double *u, int i, int j)
+double ACEProblem::get_phas_diff_coef(const double *u, int i, int j)
 {
    return 0.01;
 }
@@ -419,7 +419,19 @@ double ACEProblem::grade_4_polynom(double *u, int i, int j)
    return pow(phase_at(u, i, j), 2) * pow(phase_at(u, i, j) - 1.0, 2);
 }
 
+double ACEProblem::polynom_p(const double *u, int i, int j)
+{
+   return 6*pow(phase_at(u, i, j), 5) - 15*pow(phase_at(u, i, j), 4) + 10*pow(phase_at(u, i, j), 3);
+}
+
 double ACEProblem::sec_deriv_of_g_w_resp_to_c(const double* u, int i, int j)
 {
-
+   double c = conc_at(u, i, j);
+   double R = 1;
+   double L_0_alpha = 1;
+   double L_0_beta = 1;
+   double L_0_i_beta = 1;
+   double second_der_G_alpha = R*T/(c*(1-c)) - 2*L_0_alpha;
+   double second_der_G_beta = R*T/(c*(1-c)) - 2*L_0_beta + (6 - 12*c)*L_0_i_beta;
+   return (1 - polynom_p(u, i, j))*second_der_G_alpha + polynom_p(u, i, j)*second_der_G_beta;
 }
