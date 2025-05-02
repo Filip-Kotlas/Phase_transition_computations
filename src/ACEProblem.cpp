@@ -1,9 +1,9 @@
 #include "ACEProblem.hpp"
 
-#define COMPUTE_PHASE
+//#define COMPUTE_PHASE
 #define COMPUTE_CONCENTRATION
 
-#define C_INIT 1
+#define C_INIT 0
 /*
 *  0 - Linear by parts in circle around the middle
 *  1 - Constant on the whole domain
@@ -19,12 +19,13 @@
 *  2 - Constant by parts
 */
 
-#define C_BOUND 3
+#define C_BOUND 4
 /*
 *  0 - Dirichlet everywhere
 *  1 - Neumann along x, Dirichlet along y
 *  2 - Dirichlet along x, Neumann along y
 *  3 - Neumann everywhere
+*  4 - Dirichlet everywhere with c = 0.007
 */
 
 //#define C_TEST_X
@@ -197,19 +198,20 @@ void ACEProblem::set_concentration_initial_condition(double *u)
    {
       for(int j = 0; j < sizeY; j++)
       {
-         double init_conc = 0.025;
+         double init_conc_in = 0.025;
+         double init_conc_out = 0.007;
          
          #if C_INIT == 0
          double radius = sqrt(pow(i*hx - (domain.x_right - domain.x_left)/2, 2) + pow(j*hy - (domain.y_right-domain.y_left)/2, 2));
          if(radius < r1)
-            u[offset + j*sizeX + i] = init_conc;
+            u[offset + j*sizeX + i] = init_conc_in;
          else if(radius < r2)
-            u[offset + j*sizeX + i] = init_conc - init_conc * (radius - r1) / (r2 - r1);
+            u[offset + j*sizeX + i] = init_conc_in - (init_conc_in - init_conc_out) * (radius - r1) / (r2 - r1);
          else
-            u[offset + j*sizeX + i] = 0;
+            u[offset + j*sizeX + i] = init_conc_out;
 
          #elif C_INIT == 1
-         u[offset + j*sizeX + i] = init_conc;
+         u[offset + j*sizeX + i] = init_conc_in;
 
          #elif C_INIT == 2
          u[offset + j*sizeX + i] = 0;
@@ -273,6 +275,13 @@ void ACEProblem::apply_concentration_boundary_condition(double *u, double *fu)
       u[offset + (sizeY-1)*sizeX + i] = u[offset + (sizeY-2)*sizeX + i];
       fu[offset + i] = 0;
       fu[offset + (sizeY-1)*sizeX + i] = 0;
+
+      //Dirichlet with 0.007
+      #elif C_BOUND == 4
+      u[offset + i] = 0.007;
+      u[offset + (sizeY-1)*sizeX + i] = 0.007;
+      fu[offset + i] = 0.007;
+      fu[offset + (sizeY-1)*sizeX + i] = 0.007;
       #endif
    }
 
@@ -292,6 +301,13 @@ void ACEProblem::apply_concentration_boundary_condition(double *u, double *fu)
       u[offset + (j+1)*sizeX - 1] = u[offset + (j+1)*sizeX - 2];
       fu[offset + j*sizeX] = 0;
       fu[offset + (j+1)*sizeX - 1] = 0;
+      
+      //Dirichlet with 0.007
+      #elif C_BOUND == 4
+      u[offset + j*sizeX] = 0.007;
+      u[offset + (j+1)*sizeX - 1] = 0.007;
+      fu[offset + j*sizeX] = 0.007;
+      fu[offset + (j+1)*sizeX - 1] = 0.007;
       #endif
    }
 
@@ -312,7 +328,7 @@ double ACEProblem::get_rhs_phase_at(double* u, int i, int j)
 
 double ACEProblem::get_rhs_concentration_at(const double &t, double *u, int i, int j)
 {
-   return div_D_grad_concentration(u, i, j) + G(t, u, i, j);// + div_D_grad_phase(u, i, j);
+   return div_D_grad_concentration(u, i, j); // + G(t, u, i, j);// + div_D_grad_phase(u, i, j);
 }
 
 double ACEProblem::laplace(double *u, int i, int j)
@@ -330,11 +346,11 @@ double ACEProblem::grad_norm(double *u, int i, int j)
 
 double ACEProblem::div_D_grad_concentration(double *u, int i, int j)
 {
-   int offset = sizeX * sizeY;
    double x_direction = get_conc_diff_coef(u, i + 1, j) * (conc_at(u, i+1, j) - conc_at(u, i, j)) / hx
                         - get_conc_diff_coef(u, i, j) * (conc_at(u, i, j) - conc_at(u, i-1, j)) / hx;
    double y_direction = get_conc_diff_coef(u, i, j + 1) * (conc_at(u, i, j+1) - conc_at(u, i, j)) / hy
                         - get_conc_diff_coef(u, i, j) * (conc_at(u, i, j) - conc_at(u, i, j-1)) / hy;
+   double test = (get_conc_diff_coef(u, i + 1, j) - get_conc_diff_coef(u, i, j)) / hx;
    return x_direction / hx + y_direction / hy;
 }
 
@@ -349,7 +365,8 @@ double ACEProblem::div_D_grad_phase(double *u, int i, int j)
 
 double ACEProblem::get_conc_diff_coef(double *u, int i, int j)
 {
-   return 1;
+   double D = 5.0;
+   return D * conc_at(u, i, j)*(1 - conc_at(u, i, j));
 }
 
 double ACEProblem::get_phas_diff_coef(double *u, int i, int j)
@@ -400,4 +417,9 @@ double ACEProblem::G(const double &t, double *u, int i, int j)
 double ACEProblem::grade_4_polynom(double *u, int i, int j)
 {
    return pow(phase_at(u, i, j), 2) * pow(phase_at(u, i, j) - 1.0, 2);
+}
+
+double ACEProblem::sec_deriv_of_g_w_resp_to_c(const double* u, int i, int j)
+{
+
 }
