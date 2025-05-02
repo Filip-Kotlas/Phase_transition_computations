@@ -42,7 +42,7 @@
 #define FORCE 1
 /*
 *  0 - Force equal 1
-*  1 - Force inversly proportionate to the distance from the middle
+*  1 - Force inversly proportional to the distance from the middle
 */
 
 ACEProblem::ACEProblem(int sizeX,
@@ -312,38 +312,38 @@ double ACEProblem::get_rhs_phase_at(double* u, int i, int j)
 
 double ACEProblem::get_rhs_concentration_at(const double &t, double *u, int i, int j)
 {
-   return div_D_grad_concentration(u, i, j) + div_D_grad_phase(u, i, j);
+   return div_D_grad_concentration(u, i, j) + G(t, u, i, j);// + div_D_grad_phase(u, i, j);
 }
 
 double ACEProblem::laplace(double *u, int i, int j)
 {
-   return (u[j*sizeX + i - 1] - 2*u[j*sizeX + i] + u[j*sizeX + i + 1])/hx/hx +
-          (u[(j-1)*sizeX + i] - 2*u[j*sizeX + i] + u[(j+1)*sizeX + i])/hy/hy;
+   return (phase_at(u, i - 1, j) - 2*phase_at(u, i, j) + phase_at(u, i + 1, j))/hx/hx +
+          (phase_at(u, i, j-1) - 2*phase_at(u, i, j) + phase_at(u, i, j+1))/hy/hy;
 }
 
 double ACEProblem::grad_norm(double *u, int i, int j)
 {
-   double derivative_x = (u[j*sizeX + i + 1] - u[j*sizeX + i - 1])/(2*hx);
-   double derivative_y = (u[(j+1)*sizeX + i] - u[(j-1)*sizeX + i])/(2*hy);
+   double derivative_x = (phase_at(u, i + 1, j) - phase_at(u, i - 1, j))/(2*hx);
+   double derivative_y = (phase_at(u, i, j+1) - phase_at(u, i, j-1))/(2*hy);
    return sqrt(pow(derivative_x,2)+pow(derivative_y,2));
 }
 
 double ACEProblem::div_D_grad_concentration(double *u, int i, int j)
 {
    int offset = sizeX * sizeY;
-   double x_direction = get_conc_diff_coef(u, i + 1, j) * (u[offset + j*sizeX + i + 1] - u[offset + j*sizeX + i]) / hx
-                        - get_conc_diff_coef(u, i, j) * (u[offset + j*sizeX + i] - u[offset + j*sizeX + i - 1]) / hx;
-   double y_direction = get_conc_diff_coef(u, i, j + 1) * (u[offset + (j+1)*sizeX + i] - u[offset + j*sizeX + i]) / hy
-                        - get_conc_diff_coef(u, i, j) * (u[offset + j*sizeX + i] - u[offset + (j-1)*sizeX + i]) / hy;
+   double x_direction = get_conc_diff_coef(u, i + 1, j) * (conc_at(u, i+1, j) - conc_at(u, i, j)) / hx
+                        - get_conc_diff_coef(u, i, j) * (conc_at(u, i, j) - conc_at(u, i-1, j)) / hx;
+   double y_direction = get_conc_diff_coef(u, i, j + 1) * (conc_at(u, i, j+1) - conc_at(u, i, j)) / hy
+                        - get_conc_diff_coef(u, i, j) * (conc_at(u, i, j) - conc_at(u, i, j-1)) / hy;
    return x_direction / hx + y_direction / hy;
 }
 
 double ACEProblem::div_D_grad_phase(double *u, int i, int j)
 {
-   double x_direction = get_phas_diff_coef(u, i + 1, j) * (u[j*sizeX + i + 1] - u[j*sizeX + i]) / hx
-                        - get_phas_diff_coef(u, i, j) * (u[j*sizeX + i] - u[j*sizeX + i - 1]) / hx;
-   double y_direction = get_phas_diff_coef(u, i, j + 1) * (u[(j+1)*sizeX + i] - u[j*sizeX + i]) / hy
-                        - get_phas_diff_coef(u, i, j) * (u[j*sizeX + i] - u[+ (j-1)*sizeX + i]) / hy;
+   double x_direction = get_phas_diff_coef(u, i + 1, j) * (phase_at(u, i + 1, j) - phase_at(u, i, j)) / hx
+                        - get_phas_diff_coef(u, i, j) * (phase_at(u, i, j) - phase_at(u, i - 1, j)) / hx;
+   double y_direction = get_phas_diff_coef(u, i, j + 1) * (phase_at(u, i, j+1) - phase_at(u, i, j)) / hy
+                        - get_phas_diff_coef(u, i, j) * (phase_at(u, i, j) - phase_at(u, i, j-1)) / hy;
    return x_direction / hx + y_direction / hy;
 }
 
@@ -357,9 +357,9 @@ double ACEProblem::get_phas_diff_coef(double *u, int i, int j)
    return 0.01;
 }
 
-double ACEProblem::f_0(double *_u, int i, int j)
+double ACEProblem::f_0(double *u, int i, int j)
 {
-   return par_a*_u[j*sizeX + i]*(1 - _u[j*sizeX + i])*(_u[j*sizeX + i] - 1.0/2.0);
+   return par_a*phase_at(u, i, j)*(1 - phase_at(u, i, j))*(phase_at(u, i, j) - 1.0/2.0);
 }
 
 double ACEProblem::F(double *u, int i, int j)
@@ -399,7 +399,7 @@ double ACEProblem::G(const double &t, double *u, int i, int j)
 
 double ACEProblem::grade_4_polynom(double *u, int i, int j)
 {
-   return pow(u[j*sizeX + i], 2) * pow(u[j*sizeX + i] - 1.0, 2);
+   return pow(phase_at(u, i, j), 2) * pow(phase_at(u, i, j) - 1.0, 2);
 }
 
 double ACEProblem::get_M_phi_tilde()
@@ -425,9 +425,9 @@ double ACEProblem::get_epsilon_phi_tilde()
    return epsilon_tilde;
 }
 
-double ACEProblem::get_G_alpha_tilde(const double *_u, int i, int j)
+double ACEProblem::get_G_alpha_tilde(const double *u, int i, int j)
 {  
-   double c = _u[sizeX*sizeY + j*sizeX + i];
+   double c = conc_at(u, i, j);
    double R = 8.31446261815324;
    double G_0_zr_alpha = -7827.595 + 125.64905*T - 24.1618*T*log(T) - 4.37791e-3*T*T + 34971/T;
    double G_0_nb_alpha = 1480.647 + 144.445475*T - 26.4711*T*log(T) + 2.03475e-4*T*T - 3.5012e-7*T*T*T + 93399/T;
@@ -437,9 +437,9 @@ double ACEProblem::get_G_alpha_tilde(const double *_u, int i, int j)
    return G_alpha/T/R;
 }
 
-double ACEProblem::get_G_beta_tilde(const double *_u, int i, int j)
+double ACEProblem::get_G_beta_tilde(const double *u, int i, int j)
 {
-   double c = _u[sizeX*sizeY + j*sizeX + i];
+   double c = conc_at(u, i, j);
    double R = 8.31446261815324;
    double G_0_zr_beta = -525.539 + 124.9457*T - 25.607406*T*log(T) - 3.40084e-4*T*T - 9.729e-9*T*T*T + 25233/T - 7.6143e-11*T*T*T*T;
    double G_0_nb_beta = -8519.353 + 142.045475*T - 26.4711*T*log(T) + 2.03475e-4*T*T - 3.5012e-7*T*T*T + 93399/T;
@@ -459,15 +459,15 @@ double ACEProblem::get_w_tilde()
    return w/R/T;
 }
 
-double ACEProblem::get_p_prime(double *_u, int i, int j)
+double ACEProblem::get_p_prime(double *u, int i, int j)
 {  
-   double q = pow(_u[j*sizeX + i], 2) - 2*pow(_u[j*sizeX + i], 3) + pow(_u[j*sizeX + i], 4);
+   double q = pow(phase_at(u, i, j), 2) - 2*pow(phase_at(u, i, j), 3) + pow(phase_at(u, i, j), 4);
    return 30*q;
 }
 
-double ACEProblem::get_q_prime(double *_u, int i, int j)
+double ACEProblem::get_q_prime(double *u, int i, int j)
 {
-   return 2*_u[j*sizeX + i] - 6*pow(_u[j*sizeX + i], 2) + 4*pow(_u[j*sizeX + i],3);
+   return 2*phase_at(u, i, j) - 6*pow(phase_at(u, i, j), 2) + 4*pow(phase_at(u, i, j),3);
 }
 
 double ACEProblem::print_largest(double* u)

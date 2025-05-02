@@ -65,6 +65,16 @@ class ACEProblem : public ODEProblem
     bool writeSolution( const double& t, int step, const double* u );
 
     /*
+    * Phase and concentration access
+    */
+    double phase_at(const double* u, int i, int j){
+        return u[j*sizeX + i];
+    };
+    double conc_at(const double* u, int i, int j){
+        return u[sizeX * sizeY + j*sizeX + i];
+    };
+
+    /*
     * RHS computations
     */
     void getRightHandSide( const double& t, double* u, double* fu );
