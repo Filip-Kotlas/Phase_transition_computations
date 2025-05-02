@@ -112,6 +112,9 @@ class ACEProblem : public ODEProblem
     double F(double *u, int i, int j);
     double G(const double &t, double *u, int i, int j);
 
+    double sec_deriv_of_g_w_resp_to_c(const double* u, int i, int j);
+
+
     protected:
 
     const int sizeX;

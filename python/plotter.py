@@ -319,7 +319,7 @@ class SurfacePlotter(Plotter):
 
         self.ax.set_xlim(x.min(), x.max())
         self.ax.set_ylim(y.min(), y.max())
-        self.ax.set_zlim(value.min()*1.5, value.max()*1.5)
+        self.ax.set_zlim(min(0, value.min()*1.5), value.max()*1.5)
         self.ax.set_xlabel("x")
         self.ax.set_ylabel("y")
         self.ax.set_zlabel("p")
@@ -377,8 +377,8 @@ class CutPlotter(Plotter):
         else:
             raise ValueError("Invalid axis given")
 
-        self.ax.set_ylim(value.min()*1.5, value.max()*1.5)
-        self.ax.set_aspect('equal')
+        self.ax.set_ylim(min(0, value.min()*1.5), value.max()*1.5)
+        self.ax.set_aspect('auto')
         self.title = self.ax.set_title("Čas: 0")
         self.output_name_tag = "_" + self.data_drawn + "_" + self.axis + "-cut"
 
