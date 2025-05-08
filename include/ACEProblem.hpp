@@ -14,6 +14,7 @@
 #include <list>
 
 #include "ODEProblem.hpp"
+#include "constants.hpp"
 
 struct Domain
 {
@@ -109,11 +110,13 @@ class ACEProblem : public ODEProblem
 
     double grade_4_polynom(double *u, int i, int j);
     double polynom_p(const double *u, int i, int j);
+    double der_polynom_p(const double *u, int i, int j);
 
     double F(double *u, int i, int j);
     double G(const double &t, double *u, int i, int j);
 
     double sec_deriv_of_g_w_resp_to_c(const double* u, int i, int j);
+    double deriv_of_g_w_resp_to_c_and_p(const double* u, int i, int j);
 
 
     protected:

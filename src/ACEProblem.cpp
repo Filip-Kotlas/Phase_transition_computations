@@ -328,7 +328,7 @@ double ACEProblem::get_rhs_phase_at(double* u, int i, int j)
 
 double ACEProblem::get_rhs_concentration_at(const double &t, double *u, int i, int j)
 {
-   return div_D_grad_concentration(u, i, j); // + G(t, u, i, j);// + div_D_grad_phase(u, i, j);
+   return div_D_grad_concentration(u, i, j) + div_D_grad_phase(u, i, j);
 }
 
 double ACEProblem::laplace(double *u, int i, int j)
@@ -364,13 +364,24 @@ double ACEProblem::div_D_grad_phase(double *u, int i, int j)
 
 double ACEProblem::get_conc_diff_coef(const double *u, int i, int j)
 {
-   double D = 0.0001;
-   return D * conc_at(u, i, j)*(1 - conc_at(u, i, j)) * sec_deriv_of_g_w_resp_to_c(u, i, j);
+   double D = 0.00001;
+   return D
+   		  * conc_at(u, i, j)
+		  * (1 - conc_at(u, i, j))
+		  * pow(constants::M_Nb_beta(T), polynom_p(u, i, j))
+		  * pow(constants::M_Nb_alpha(T), 1 - polynom_p(u, i, j))
+		  * sec_deriv_of_g_w_resp_to_c(u, i, j);
 }
 
 double ACEProblem::get_phas_diff_coef(const double *u, int i, int j)
 {
-   return 0.01;
+   double D = 0.00001;
+   return D
+   		  * conc_at(u, i, j)
+		  * (1 - conc_at(u, i, j))
+		  * pow(constants::M_Nb_beta(T), polynom_p(u, i, j))
+		  * pow(constants::M_Nb_alpha(T), 1 - polynom_p(u, i, j))
+		  * deriv_of_g_w_resp_to_c_and_p(u, i, j);
 }
 
 double ACEProblem::f_0(double *u, int i, int j)
@@ -423,10 +434,34 @@ double ACEProblem::polynom_p(const double *u, int i, int j)
    return 6*pow(phase_at(u, i, j), 5) - 15*pow(phase_at(u, i, j), 4) + 10*pow(phase_at(u, i, j), 3);
 }
 
+double ACEProblem::der_polynom_p(const double *u, int i, int j)
+{
+   return 30*(pow(phase_at(u, i, j), 4) - 2*pow(phase_at(u, i, j), 3) + pow(phase_at(u, i, j), 2));
+}
+
 double ACEProblem::sec_deriv_of_g_w_resp_to_c(const double* u, int i, int j)
 {
    double c = conc_at(u, i, j);
-   double second_der_G_alpha = constants::R * T / (c*(1-c)) - 2 * constants::L_0_alpha;
-   double second_der_G_beta = constants::R * T / (c*(1-c)) - 2 * constants::L_0_beta(T) + (6 - 12*c) * constants::L_0_i_beta(T);
-   return (1 - polynom_p(u, i, j))*second_der_G_alpha + polynom_p(u, i, j)*second_der_G_beta;
+   double d2_G_alpha_wrt_c = constants::R * T / (c*(1-c))
+   							 - 2 * constants::L_0_alpha;
+   double d2_G_beta_wrt_c = constants::R * T / (c*(1-c))
+   							 - 2 * constants::L_0_beta(T)
+							 + (6 - 12*c) * constants::L_0_i_beta(T);
+   return (1 - polynom_p(u, i, j))*d2_G_alpha_wrt_c + polynom_p(u, i, j)*d2_G_beta_wrt_c;
+}
+
+double ACEProblem::deriv_of_g_w_resp_to_c_and_p(const double* u, int i, int j)
+{
+   double c = conc_at(u, i, j);
+   double d_G_alpha_wrt_c = constants::G_Nb_alpha_0(T)
+                            - constants::G_Zr_alpha_0(T)
+                            + constants::R * T * (log(c) - log(1-c))
+                            + (1 - 2*c) * constants::L_0_alpha;
+   double d_G_beta_wrt_c = constants::G_Nb_beta_0(T)
+						   - constants::G_Zr_beta_0(T)
+						   + constants::R * T * (log(c) - log(1-c))
+						   + (1 - 2 * c) * constants::L_0_beta(T)
+						   + (6*c - 6*pow(c, 2) - 1) * constants::L_0_i_beta(T);
+
+   return der_polynom_p(u, i, j)*(d_G_beta_wrt_c - d_G_alpha_wrt_c);
 }
