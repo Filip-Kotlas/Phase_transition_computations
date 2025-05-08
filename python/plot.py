@@ -24,5 +24,5 @@ results_path = results_path.parent / "results" / args.name
 plotter = SurfacePlotter(results_path, "concentration")
 plotter.show_frame(args.frame)
 
-plotter = CutPlotter(results_path, "concentration", "x", 0.5, True)
+plotter = CutPlotter(results_path, "concentration", "x", 0.5, False)
 plotter.show_frame(args.frame)
