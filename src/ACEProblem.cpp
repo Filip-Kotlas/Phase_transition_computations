@@ -364,7 +364,7 @@ double ACEProblem::div_D_grad_phase(double *u, int i, int j)
 
 double ACEProblem::get_conc_diff_coef(const double *u, int i, int j)
 {
-   double D = 0.000005;
+   double D = 0.000001;
    return D
    		  * conc_at(u, i, j)
 		  * (1 - conc_at(u, i, j))
@@ -375,7 +375,7 @@ double ACEProblem::get_conc_diff_coef(const double *u, int i, int j)
 
 double ACEProblem::get_phas_diff_coef(const double *u, int i, int j)
 {
-	double D = 0.000005;
+	double D = 0.000001;
    	return D
    		  * conc_at(u, i, j)
 		  * (1 - conc_at(u, i, j))
