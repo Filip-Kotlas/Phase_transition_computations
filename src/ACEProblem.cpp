@@ -1,6 +1,6 @@
 #include "ACEProblem.hpp"
 
-//#define COMPUTE_PHASE
+#define COMPUTE_PHASE
 #define COMPUTE_CONCENTRATION
 
 #define C_INIT 0
@@ -350,7 +350,6 @@ double ACEProblem::div_D_grad_concentration(double *u, int i, int j)
                         - get_conc_diff_coef(u, i, j) * (conc_at(u, i, j) - conc_at(u, i-1, j)) / hx;
    double y_direction = get_conc_diff_coef(u, i, j + 1) * (conc_at(u, i, j+1) - conc_at(u, i, j)) / hy
                         - get_conc_diff_coef(u, i, j) * (conc_at(u, i, j) - conc_at(u, i, j-1)) / hy;
-   double test = (get_conc_diff_coef(u, i + 1, j) - get_conc_diff_coef(u, i, j)) / hx;
    return x_direction / hx + y_direction / hy;
 }
 
@@ -365,7 +364,7 @@ double ACEProblem::div_D_grad_phase(double *u, int i, int j)
 
 double ACEProblem::get_conc_diff_coef(const double *u, int i, int j)
 {
-   double D = 5.0;
+   double D = 0.0001;
    return D * conc_at(u, i, j)*(1 - conc_at(u, i, j)) * sec_deriv_of_g_w_resp_to_c(u, i, j);
 }
 
@@ -427,11 +426,7 @@ double ACEProblem::polynom_p(const double *u, int i, int j)
 double ACEProblem::sec_deriv_of_g_w_resp_to_c(const double* u, int i, int j)
 {
    double c = conc_at(u, i, j);
-   double R = 1;
-   double L_0_alpha = 1;
-   double L_0_beta = 1;
-   double L_0_i_beta = 1;
-   double second_der_G_alpha = R*T/(c*(1-c)) - 2*L_0_alpha;
-   double second_der_G_beta = R*T/(c*(1-c)) - 2*L_0_beta + (6 - 12*c)*L_0_i_beta;
+   double second_der_G_alpha = constants::R * T / (c*(1-c)) - 2 * constants::L_0_alpha;
+   double second_der_G_beta = constants::R * T / (c*(1-c)) - 2 * constants::L_0_beta(T) + (6 - 12*c) * constants::L_0_i_beta(T);
    return (1 - polynom_p(u, i, j))*second_der_G_alpha + polynom_p(u, i, j)*second_der_G_beta;
 }
