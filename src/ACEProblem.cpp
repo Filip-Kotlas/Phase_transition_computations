@@ -1,6 +1,6 @@
 #include "ACEProblem.hpp"
 
-#define COMPUTE_PHASE
+//#define COMPUTE_PHASE
 #define COMPUTE_CONCENTRATION
 
 #define C_INIT 0
@@ -28,7 +28,7 @@
 *  4 - Dirichlet everywhere with c = 0.007
 */
 
-//#define C_TEST_X
+#define C_TEST_X
 
 #ifdef C_TEST_X
 #define C_INIT 2
@@ -346,20 +346,32 @@ double ACEProblem::grad_norm(double *u, int i, int j)
 
 double ACEProblem::div_D_grad_concentration(double *u, int i, int j)
 {
-   double x_direction = get_conc_diff_coef(u, i + 1, j) * (conc_at(u, i+1, j) - conc_at(u, i, j)) / hx
-                        - get_conc_diff_coef(u, i, j) * (conc_at(u, i, j) - conc_at(u, i-1, j)) / hx;
-   double y_direction = get_conc_diff_coef(u, i, j + 1) * (conc_at(u, i, j+1) - conc_at(u, i, j)) / hy
-                        - get_conc_diff_coef(u, i, j) * (conc_at(u, i, j) - conc_at(u, i, j-1)) / hy;
-   return x_direction / hx + y_direction / hy;
+	double coeff_plus_half = (get_conc_diff_coef(u, i + 1, j) + get_conc_diff_coef(u, i, j)) / 2;
+	double coeff_minus_half = (get_conc_diff_coef(u, i, j) + get_conc_diff_coef(u, i - 1, j)) / 2;
+	double x_direction = coeff_plus_half * (conc_at(u, i+1, j) - conc_at(u, i, j)) / hx
+				         - coeff_minus_half * (conc_at(u, i, j) - conc_at(u, i-1, j)) / hx;
+
+	coeff_plus_half = (get_conc_diff_coef(u, i, j+1) + get_conc_diff_coef(u, i, j)) / 2;
+	coeff_minus_half = (get_conc_diff_coef(u, i, j) + get_conc_diff_coef(u, i, j-1)) / 2;
+	double y_direction = coeff_plus_half * (conc_at(u, i, j+1) - conc_at(u, i, j)) / hy
+                      	 - coeff_minus_half * (conc_at(u, i, j) - conc_at(u, i, j-1)) / hy;
+
+	return x_direction / hx + y_direction / hy;
 }
 
 double ACEProblem::div_D_grad_phase(double *u, int i, int j)
 {
-   double x_direction = get_phas_diff_coef(u, i + 1, j) * (phase_at(u, i + 1, j) - phase_at(u, i, j)) / hx
-                        - get_phas_diff_coef(u, i, j) * (phase_at(u, i, j) - phase_at(u, i - 1, j)) / hx;
-   double y_direction = get_phas_diff_coef(u, i, j + 1) * (phase_at(u, i, j+1) - phase_at(u, i, j)) / hy
-                        - get_phas_diff_coef(u, i, j) * (phase_at(u, i, j) - phase_at(u, i, j-1)) / hy;
-   return x_direction / hx + y_direction / hy;
+	double coeff_plus_half = (get_conc_diff_coef(u, i + 1, j) + get_conc_diff_coef(u, i, j)) / 2;
+	double coeff_minus_half = (get_conc_diff_coef(u, i, j) + get_conc_diff_coef(u, i - 1, j)) / 2;
+	double x_direction = coeff_plus_half * (phase_at(u, i+1, j) - phase_at(u, i, j)) / hx
+				         - coeff_minus_half * (phase_at(u, i, j) - phase_at(u, i-1, j)) / hx;
+
+	coeff_plus_half = (get_conc_diff_coef(u, i, j+1) + get_conc_diff_coef(u, i, j)) / 2;
+	coeff_minus_half = (get_conc_diff_coef(u, i, j) + get_conc_diff_coef(u, i, j-1)) / 2;
+	double y_direction = coeff_plus_half * (phase_at(u, i, j+1) - phase_at(u, i, j)) / hy
+                      	 - coeff_minus_half * (phase_at(u, i, j) - phase_at(u, i, j-1)) / hy;
+
+	return x_direction / hx + y_direction / hy;
 }
 
 double ACEProblem::get_conc_diff_coef(const double *u, int i, int j)
