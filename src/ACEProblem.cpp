@@ -27,7 +27,7 @@
 *  3 - Neumann everywhere
 */
 
-//#define C_TEST_X
+#define C_TEST_X
 
 #ifdef C_TEST_X
 #define C_INIT 2
@@ -83,8 +83,6 @@ void ACEProblem::getRightHandSide(const double &t, double *u, double *fu)
          fu[j*sizeX + i] = get_rhs_phase_at(u, i, j);
       }
    }
-   /*if (t >= 4 * 0.0001)
-      std::cout << "Large: " << print_largest(u) << ", small: " << print_smallest(u) << std::endl;*/
    #endif
    
    #ifdef COMPUTE_CONCENTRATION
@@ -312,7 +310,7 @@ double ACEProblem::get_rhs_phase_at(double* u, int i, int j)
 
 double ACEProblem::get_rhs_concentration_at(const double &t, double *u, int i, int j)
 {
-   return div_D_grad_concentration(u, i, j);// + div_D_grad_phase(u, i, j);
+   return div_D_grad_concentration(u, i, j) + G(t, u, i, j);// + div_D_grad_phase(u, i, j);
 }
 
 double ACEProblem::laplace(double *u, int i, int j)
