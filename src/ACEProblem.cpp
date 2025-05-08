@@ -1,6 +1,6 @@
 #include "ACEProblem.hpp"
 
-//#define COMPUTE_PHASE
+#define COMPUTE_PHASE
 #define COMPUTE_CONCENTRATION
 
 #define C_INIT 0
@@ -28,7 +28,7 @@
 *  4 - Dirichlet everywhere with c = 0.007
 */
 
-#define C_TEST_X
+//#define C_TEST_X
 
 #ifdef C_TEST_X
 #define C_INIT 2
@@ -376,7 +376,7 @@ double ACEProblem::div_D_grad_phase(double *u, int i, int j)
 
 double ACEProblem::get_conc_diff_coef(const double *u, int i, int j)
 {
-   double D = 0.000005;
+   double D = 0.000001;
    return D
    		  * conc_at(u, i, j)
 		  * (1 - conc_at(u, i, j))
@@ -387,7 +387,7 @@ double ACEProblem::get_conc_diff_coef(const double *u, int i, int j)
 
 double ACEProblem::get_phas_diff_coef(const double *u, int i, int j)
 {
-	double D = 0.000005;
+	double D = 0.000001;
    	return D
    		  * conc_at(u, i, j)
 		  * (1 - conc_at(u, i, j))
