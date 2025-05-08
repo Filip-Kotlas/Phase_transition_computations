@@ -27,11 +27,11 @@ namespace constants {
 
 
     inline double D_Nb_alpha(int T){
-        return 3;
+        return 1;
         //return 6.6e-10*exp(-15851.4/T);
     }
     inline double D_Nb_beta(int T){
-        return 1;
+        return 3;
         //return 9e-9*pow(T/1136, 18.1)*exp(-(25100+35.5*(T-1136))/(1.98*T));
     }
     inline double D_eff(int T){

@@ -364,23 +364,23 @@ double ACEProblem::div_D_grad_phase(double *u, int i, int j)
 
 double ACEProblem::get_conc_diff_coef(const double *u, int i, int j)
 {
-   double D = 0.00001;
+   double D = 0.000005;
    return D
    		  * conc_at(u, i, j)
 		  * (1 - conc_at(u, i, j))
 		  * pow(constants::M_Nb_beta(T), polynom_p(u, i, j))
-		  * pow(constants::M_Nb_alpha(T), 1 - polynom_p(u, i, j))
+		  / pow(constants::M_Nb_alpha(T), polynom_p(u, i, j))
 		  * sec_deriv_of_g_w_resp_to_c(u, i, j);
 }
 
 double ACEProblem::get_phas_diff_coef(const double *u, int i, int j)
 {
-   double D = 0.00001;
-   return D
+	double D = 0.000005;
+   	return D
    		  * conc_at(u, i, j)
 		  * (1 - conc_at(u, i, j))
 		  * pow(constants::M_Nb_beta(T), polynom_p(u, i, j))
-		  * pow(constants::M_Nb_alpha(T), 1 - polynom_p(u, i, j))
+		  / pow(constants::M_Nb_alpha(T), polynom_p(u, i, j))
 		  * deriv_of_g_w_resp_to_c_and_p(u, i, j);
 }
 
