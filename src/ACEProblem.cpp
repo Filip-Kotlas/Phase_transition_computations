@@ -378,22 +378,22 @@ double ACEProblem::get_conc_diff_coef(const double *u, int i, int j)
 {
    double D = 0.000001;
    return D
-   		  * conc_at(u, i, j)
-		  * (1 - conc_at(u, i, j))
-		  * pow(constants::M_Nb_beta(T), polynom_p(u, i, j))
-		  / pow(constants::M_Nb_alpha(T), polynom_p(u, i, j))
-		  * sec_deriv_of_g_w_resp_to_c(u, i, j);
+   		 * conc_at(u, i, j)
+		    * (1 - conc_at(u, i, j))
+		    * pow(constants::M_Nb_beta(T), polynom_p(u, i, j))
+		    / pow(constants::M_Nb_alpha(T), polynom_p(u, i, j))
+		    * sec_deriv_of_g_w_resp_to_c(u, i, j);
 }
 
 double ACEProblem::get_phas_diff_coef(const double *u, int i, int j)
 {
 	double D = 0.000001;
-   	return D
-   		  * conc_at(u, i, j)
-		  * (1 - conc_at(u, i, j))
-		  * pow(constants::M_Nb_beta(T), polynom_p(u, i, j))
-		  / pow(constants::M_Nb_alpha(T), polynom_p(u, i, j))
-		  * deriv_of_g_w_resp_to_c_and_p(u, i, j);
+   return D
+   		 * conc_at(u, i, j)
+		    * (1 - conc_at(u, i, j))
+		    * pow(constants::M_Nb_beta(T), polynom_p(u, i, j))
+		    / pow(constants::M_Nb_alpha(T), polynom_p(u, i, j))
+		    * deriv_of_g_w_resp_to_c_and_p(u, i, j);
 }
 
 double ACEProblem::f_0(double *u, int i, int j)
