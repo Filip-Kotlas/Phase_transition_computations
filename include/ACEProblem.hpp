@@ -111,6 +111,7 @@ class ACEProblem : public ODEProblem
     double grade_4_polynom(double *u, int i, int j);
     double polynom_p(const double *u, int i, int j);
     double der_polynom_p(const double *u, int i, int j);
+    double der_polynom_q(const double *u, int i, int j);
 
     double F(double *u, int i, int j);
     double G(const double &t, double *u, int i, int j);

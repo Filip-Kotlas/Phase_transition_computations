@@ -21,7 +21,7 @@ results_path = results_path.parent / "results" / args.name
 #plotter = BoundaryPlotter2D(results_path, False, True, True)
 #plotter.show_frame(args.frame)
 
-plotter = SurfacePlotter(results_path, "concentration")
+plotter = SurfacePlotter(results_path, "phase")
 plotter.show_frame(args.frame)
 
 plotter = CutPlotter(results_path, "concentration", "x", 0.5, False)

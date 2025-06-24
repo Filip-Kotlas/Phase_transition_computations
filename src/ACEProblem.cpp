@@ -316,12 +316,24 @@ void ACEProblem::apply_concentration_boundary_condition(double *u, double *fu)
 double ACEProblem::get_rhs_phase_at(double* u, int i, int j)
 {
    double rhs = 0.0;
+   double c = conc_at(u, i, j);
+   double D = 0.0000625;
 
    if(model == MODEL::MODEL_3)
       rhs = laplace(u, i, j) + f_0(u, i , j) / ksi / ksi + grad_norm(u, i, j)*F(u, i, j);
    
    else if(model == MODEL::MODEL_4)
-      rhs = laplace(u, i, j) + f_0(u, i , j) / ksi / ksi + 10/sqrt(8)*sqrt(par_a)*1.0/ksi*grade_4_polynom(u, i, j)*F(u, i, j);
+      if(i = sizeX/2)
+      {
+         std::cout << j << ", "
+                   << constants::M_phi_tilde(T) * pow(constants::epsilon_tilde(T), 2) << ", "
+                   << constants::M_phi_tilde(T)*(constants::G_m_alpha(c, T)/constants::R/T - constants::G_m_beta(c, T)/constants::R/T) << ", "
+                   << constants::M_phi_tilde(T)*constants::w_tilde(T) << std::endl;
+      }
+      rhs = constants::M_phi_tilde(T)*(pow(constants::epsilon_tilde(T), 2) * laplace(u, i, j)
+            + der_polynom_p(u, i, j) * (constants::G_m_alpha(c, T) - constants::G_m_beta(c, T)) / constants::R / T
+            + der_polynom_q(u, i, j) * constants::w_tilde(T));
+      rhs *= D;
 
    return rhs;
 }
@@ -448,6 +460,11 @@ double ACEProblem::polynom_p(const double *u, int i, int j)
 double ACEProblem::der_polynom_p(const double *u, int i, int j)
 {
    return 30*(pow(phase_at(u, i, j), 4) - 2*pow(phase_at(u, i, j), 3) + pow(phase_at(u, i, j), 2));
+}
+
+double ACEProblem::der_polynom_q(const double *u, int i, int j)
+{
+   return 4 * phase_at(u, i, j)*(1 - phase_at(u, i, j))*(phase_at(u, i, j) - 1.0/2.0);
 }
 
 double ACEProblem::sec_deriv_of_g_w_resp_to_c(const double* u, int i, int j)
