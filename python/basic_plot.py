@@ -1,3 +1,4 @@
+"""Plots elementar plots of the calculations."""
 from pathlib import Path
 import argparse
 from plotter import BoundaryPlotter2D, SurfacePlotter, CutPlotter
