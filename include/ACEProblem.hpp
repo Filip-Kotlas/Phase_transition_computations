@@ -132,9 +132,8 @@ class ACEProblem : public ODEProblem
     const double beta;
     const double ksi;
 
-    const double T = 850;
+    const double T = 1373;
     
-
     const MODEL model;
     
     const std::string output_folder;
