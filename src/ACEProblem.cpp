@@ -334,7 +334,7 @@ double ACEProblem::get_rhs_concentration_at(const double &t, double *u, int i, i
 double ACEProblem::laplace(double *u, int i, int j)
 {
    return (phase_at(u, i - 1, j) - 2*phase_at(u, i, j) + phase_at(u, i + 1, j))/hx/hx +
-          (phase_at(u, i, j-1) - 2*phase_at(u, i, j) + phase_at(u, i, j+1))/hy/hy;
+          (phase_at(u, i, j - 1) - 2*phase_at(u, i, j) + phase_at(u, i, j + 1))/hy/hy;
 }
 
 double ACEProblem::grad_norm(double *u, int i, int j)

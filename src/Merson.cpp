@@ -1,10 +1,11 @@
 #include <algorithm>
 #include <iostream>
 #include <cmath>
-#include "RungeKutta.hpp"
+#include "Merson.hpp"
 
-RungeKutta::RungeKutta()
+Merson::Merson()
 {
+   adaptivity = 1.0e-6;
    k1 = 0;
    k2 = 0;
    k3 = 0;
@@ -13,7 +14,7 @@ RungeKutta::RungeKutta()
    aux = 0;
 }
 
-bool RungeKutta::setup( int degreesOfFreedom )
+bool Merson::setup( int degreesOfFreedom )
 {
    k1 = new double[ degreesOfFreedom ];
    k2 = new double[ degreesOfFreedom ];
@@ -26,7 +27,12 @@ bool RungeKutta::setup( int degreesOfFreedom )
    return true;
 }
 
-bool RungeKutta::solve( const double integrationTimeStep,
+void Merson::setAdaptivity( const double& adaptivity )
+{
+   this->adaptivity = adaptivity;
+}
+
+bool Merson::solve( const double integrationTimeStep,
                     const double stopTime,
                     double* time,
                     ODEProblem* problem,
@@ -80,24 +86,31 @@ bool RungeKutta::solve( const double integrationTimeStep,
          eps = std::max( eps, err );
       }
 
-      for( int i = 0; i < dofs; i++ )
-         u[ i ] += tau / 6.0 * ( k1[ i ] + 4.0 * k4[ i ] + k5[ i ] );
-      *time += tau;
-      iteration++;
-      if( iteration > 100000 )
+      /***
+       *
+       */
+      if( this->adaptivity == 0.0 || eps < this->adaptivity )
       {
-         std::cerr << "The solver has reached the maximum number of iterations. " << std::endl;
-         return false;
+         for( int i = 0; i < dofs; i++ )
+            u[ i ] += tau / 6.0 * ( k1[ i ] + 4.0 * k4[ i ] + k5[ i ] );
+         *time += tau;
+         iteration++;
+         if( iteration > 100000 )
+         {
+            std::cerr << "The solver has reached the maximum number of iterations. " << std::endl;
+            return false;
+         }
       }
-      
+      if( this->adaptivity )
+         tau *= 0.8 * std::pow( this->adaptivity / eps, 0.2 );
       tau = std::min( tau, stopTime - *time );
-      //std::cout << "ITER: " << iteration << " \t tau = " << tau << " \t time= " << *time << "         \r " << std::flush;
+      std::cout << "ITER: " << iteration << " \t tau = " << tau << " \t time= " << *time << "         \r " << std::flush;
    }
-   //std::cout << std::endl;
+   std::cout << std::endl;
    return true;
 }
 
-RungeKutta::~RungeKutta()
+Merson::~Merson()
 {
    if( k1 ) delete[] k1;
    if( k2 ) delete[] k2;
