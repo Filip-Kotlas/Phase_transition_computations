@@ -10,13 +10,15 @@
 #include "ODESolver.hpp"
 #include "ODEProblem.hpp"
 
-class RungeKutta : public ODESolver
+class Merson : public ODESolver
 {
    public:
 
-      RungeKutta();
+      Merson();
 
       bool setup( int degreesOfFreedom );
+
+      void setAdaptivity( const double& adaptivity );
 
       bool solve( const double integrationTimeStep,
                   const double stopTime,
@@ -24,7 +26,7 @@ class RungeKutta : public ODESolver
                   ODEProblem* problem,
                   double* u );
 
-      ~RungeKutta();
+      ~Merson();
 
    protected:
 

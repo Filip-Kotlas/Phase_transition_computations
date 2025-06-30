@@ -7,7 +7,7 @@
 #include <json.hpp>
 
 #include "ode-solve.hpp"
-#include "RungeKutta.hpp"
+#include "Merson.hpp"
 #include "ODEProblem.hpp"
 #include "ODESolver.hpp"
 #include "ACEProblem.hpp"
@@ -167,8 +167,7 @@ int main(int argc, char** argv)
                                     parameters.ksi,
                                     parameters.model,
                                     calc_path);
-    RungeKutta integrator;
-    //integrator.setAdaptivity( adaptivity );
+    Merson integrator;
 
     double* u = new double[problem.getDegreesOfFreedom()];
     problem.setInitialCondition( u );
