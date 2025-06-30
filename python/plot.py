@@ -18,8 +18,8 @@ args = parser.parse_args()
 results_path = Path()
 results_path = results_path.parent / "results" / args.name
 
-#plotter = BoundaryPlotter2D(results_path, False, True, True)
-#plotter.show_frame(args.frame)
+plotter = BoundaryPlotter2D(results_path, False, True, True)
+plotter.show_frame(args.frame)
 
 plotter = SurfacePlotter(results_path, "concentration")
 plotter.show_frame(args.frame)

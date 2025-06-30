@@ -40,9 +40,9 @@
 #define C_BOUND 2
 #endif
 
-#define FORCE 1
+#define FORCE 0
 /*
-*  0 - Force equal 1
+*  0 - Force equal 20
 *  1 - Force inversly proportional to the distance from the middle
 */
 
@@ -376,7 +376,7 @@ double ACEProblem::div_D_grad_phase(double *u, int i, int j)
 
 double ACEProblem::get_conc_diff_coef(const double *u, int i, int j)
 {
-   double D = 0.000125;
+   double D = 0.00000125;
    return D
           * conc_at(u, i, j)
 		    * (1 - conc_at(u, i, j))
@@ -387,7 +387,7 @@ double ACEProblem::get_conc_diff_coef(const double *u, int i, int j)
 
 double ACEProblem::get_phas_diff_coef(const double *u, int i, int j)
 {
-   double D = 0.000125;
+   double D = 0.00000125;
    return D * conc_at(u, i, j)
 		    * (1 - conc_at(u, i, j))
 		    * pow(constants::M_Nb_beta(T), polynom_p(u, i, j))
@@ -400,10 +400,10 @@ double ACEProblem::f_0(double *u, int i, int j)
    return par_a*phase_at(u, i, j)*(1 - phase_at(u, i, j))*(phase_at(u, i, j) - 1.0/2.0);
 }
 
-double ACEProblem::F(double *u, int i, int j) 
+double ACEProblem::F(double *u, int i, int j)
 {
    #if FORCE == 0
-   return 1;
+   return 20;
 
    #elif FORCE == 1
    double mid_x = (domain.x_right - domain.x_left)/2;
