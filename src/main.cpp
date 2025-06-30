@@ -158,14 +158,6 @@ int main(int argc, char** argv)
     save_parameters(setup_path, parameters);
     copy_config_file("config\\config.json", config_path);
 
-    
-    int arr[11] = {882, 911, 949, 993, 1100, 1149, 1350, 1450, 1545, 1645, 1758};
-    for(int i = 0; i < 11; i++)
-    {
-        std::cout << arr[i] << ": " << constants::D_Nb_beta(arr[i] + 273.15) << ", " << constants::D_Nb_alpha(arr[i] + 273.15) << std::endl;
-    }
-    return 0;
-
     ACEProblem problem = ACEProblem(parameters.sizeX,
                                     parameters.sizeY,
                                     parameters.domain,

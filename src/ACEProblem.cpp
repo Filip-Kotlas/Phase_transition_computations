@@ -84,8 +84,6 @@ void ACEProblem::getRightHandSide(const double &t, double *u, double *fu)
          fu[j*sizeX + i] = get_rhs_phase_at(u, i, j);
       }
    }
-   /*if (t >= 4 * 0.0001)
-      std::cout << "Large: " << print_largest(u) << ", small: " << print_smallest(u) << std::endl;*/
    #endif
    
    #ifdef COMPUTE_CONCENTRATION
@@ -323,13 +321,13 @@ double ACEProblem::get_rhs_phase_at(double* u, int i, int j)
       rhs = laplace(u, i, j) + f_0(u, i , j) / ksi / ksi + grad_norm(u, i, j)*F(u, i, j);
    
    else if(model == MODEL::MODEL_4)
-      /*if(i = sizeX/2)
+      if(i = sizeX/2)
       {
          std::cout << j << ", "
                    << constants::M_phi_tilde(T) * pow(constants::epsilon_tilde(T), 2) << ", "
                    << constants::M_phi_tilde(T)*(constants::G_m_alpha(c, T)/constants::R/T - constants::G_m_beta(c, T)/constants::R/T) << ", "
                    << constants::M_phi_tilde(T)*constants::w_tilde(T) << std::endl;
-      }*/
+      }
       rhs = constants::M_phi_tilde(T)*(pow(constants::epsilon_tilde(T), 2) * laplace(u, i, j)
             + der_polynom_p(u, i, j) * (constants::G_m_alpha(c, T) - constants::G_m_beta(c, T)) / constants::R / T
             + der_polynom_q(u, i, j) * constants::w_tilde(T));
@@ -346,13 +344,13 @@ double ACEProblem::get_rhs_concentration_at(const double &t, double *u, int i, i
 double ACEProblem::laplace(double *u, int i, int j)
 {
    return (phase_at(u, i - 1, j) - 2*phase_at(u, i, j) + phase_at(u, i + 1, j))/hx/hx +
-          (phase_at(u, i, j-1) - 2*phase_at(u, i, j) + phase_at(u, i, j+1))/hy/hy;
+          (phase_at(u, i, j - 1) - 2*phase_at(u, i, j) + phase_at(u, i, j + 1))/hy/hy;
 }
 
 double ACEProblem::grad_norm(double *u, int i, int j)
 {
    double derivative_x = (phase_at(u, i + 1, j) - phase_at(u, i - 1, j))/(2*hx);
-   double derivative_y = (phase_at(u, i, j+1) - phase_at(u, i, j-1))/(2*hy);
+   double derivative_y = (phase_at(u, i, j + 1) - phase_at(u, i, j - 1))/(2*hy);
    return sqrt(pow(derivative_x,2) + pow(derivative_y,2));
 }
 

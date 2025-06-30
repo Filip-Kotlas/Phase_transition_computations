@@ -83,7 +83,7 @@ namespace constants {
     }
 
     inline double M_phi(float T){
-        return 0.0235*D_eff(T)*molar_volume/(b*b*R*T);
+        return 0.235*D_eff(T)*molar_volume/(b*b*R*T);
     }
     inline double M_phi_tilde(float T){
         return M_phi(T)*l*l/(M_Nb_alpha(T)*molar_volume);
