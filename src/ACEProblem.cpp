@@ -315,13 +315,14 @@ double ACEProblem::get_rhs_phase_at(double* u, int i, int j)
 {
    double rhs = 0.0;
    double c = conc_at(u, i, j);
-   double D = 0.0000625;
+   double D = 100000;
 
    if(model == MODEL::MODEL_3)
       rhs = laplace(u, i, j) + f_0(u, i , j) / ksi / ksi + grad_norm(u, i, j)*F(u, i, j);
    
    else if(model == MODEL::MODEL_4)
-      if(i = sizeX/2 && j < sizeY/2)
+      /*
+      if(i == sizeX/2 && j < sizeY/2)
       {
          std::cout << j << ", "
                    << "Laplace: " << constants::M_phi_tilde(T) * pow(constants::epsilon_tilde(T), 2)
@@ -333,7 +334,19 @@ double ACEProblem::get_rhs_phase_at(double* u, int i, int j)
             + der_polynom_p(u, i, j) * (constants::G_m_alpha(c, T) - constants::G_m_beta(c, T)) / constants::R / T
             + der_polynom_q(u, i, j) * constants::w_tilde(T));
       rhs *= D;
+      */
 
+      rhs = laplace(u, i, j)
+            + der_polynom_p(u, i, j) * (constants::G_m_alpha(c, T) - constants::G_m_beta(c, T)) / constants::R / T * D
+            + der_polynom_q(u, i, j) * 2500;
+      /*if(i == sizeX/2 && j < sizeY/2)
+      {
+         std::cout << i << ", " << j << ": "
+                   << "f_0: " << 10000
+                   << ", F: " << (constants::G_m_alpha(c, T) - constants::G_m_beta(c, T)) / constants::R / T * D
+                   << ", c: " << c
+                   << std::endl;
+      }*/
    return rhs;
 }
 
