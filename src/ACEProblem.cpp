@@ -372,6 +372,9 @@ double ACEProblem::grad_norm(double *u, int i, int j)
 
 double ACEProblem::div_D_grad_concentration(double *u, int i, int j)
 {
+   //if(i == sizeX/2)
+      //std::cout <<"c: " << conc_at(u, i, j) << ", p: " << phase_at(u, i, j) << ", 2g w c: " << sec_deriv_of_g_w_resp_to_c(u, i, j) << std::endl;
+
 	double coeff_plus_half = (get_conc_diff_coef(u, i + 1, j) + get_conc_diff_coef(u, i, j)) / 2;
 	double coeff_minus_half = (get_conc_diff_coef(u, i, j) + get_conc_diff_coef(u, i - 1, j)) / 2;
 	double x_direction = coeff_plus_half * (conc_at(u, i+1, j) - conc_at(u, i, j)) / hx
@@ -387,6 +390,8 @@ double ACEProblem::div_D_grad_concentration(double *u, int i, int j)
 
 double ACEProblem::div_D_grad_phase(double *u, int i, int j)
 {
+   //if(i == sizeX/2)
+      //std::cout <<"c: " << conc_at(u, i, j) << ", p: " << phase_at(u, i, j) <<  ", g w p c: " << deriv_of_g_w_resp_to_c_and_p(u, i, j) << std::endl;
 	double coeff_plus_half = (get_phas_diff_coef(u, i + 1, j) + get_phas_diff_coef(u, i, j)) / 2;
 	double coeff_minus_half = (get_phas_diff_coef(u, i, j) + get_phas_diff_coef(u, i - 1, j)) / 2;
 	double x_direction = coeff_plus_half * (phase_at(u, i+1, j) - phase_at(u, i, j)) / hx
@@ -489,6 +494,7 @@ double ACEProblem::sec_deriv_of_g_w_resp_to_c(const double* u, int i, int j)
    double d2_G_beta_wrt_c = constants::R * T / (c*(1-c))
    							 - 2 * constants::L_0_beta(T)
 							 + (6 - 12*c) * constants::L_0_i_beta(T);
+
    return (1 - polynom_p(u, i, j))*d2_G_alpha_wrt_c + polynom_p(u, i, j)*d2_G_beta_wrt_c;
 }
 
