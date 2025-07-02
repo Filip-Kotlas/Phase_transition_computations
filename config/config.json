@@ -2,7 +2,7 @@
     "solver":
     {
         "initial_time": 0.0,
-        "final_time": 0.0125,
+        "final_time": 0.1,
         "domain": {
             "x_left": 0,
             "x_right": 1,
@@ -11,7 +11,7 @@
         },
         "sizeX": 100,
         "sizeY": 100,
-        "frame_num": 200,
+        "frame_num": 1000,
         "model": 4
     },
 

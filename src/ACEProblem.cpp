@@ -347,8 +347,8 @@ double ACEProblem::get_rhs_phase_at(double* u, int i, int j)
                    << ", F: " << (constants::G_m_alpha(c, T) - constants::G_m_beta(c, T)) / constants::R / T * D
                    << ", c: " << c
                    << std::endl;
-      }*/
-      
+      }
+      */
    return rhs;
 }
 
