@@ -40,7 +40,8 @@ Parameters get_parameters() {
         par.final_time = solver.value("final_time", 0.30);
         par.sizeX = solver.value("sizeX", 200);
         par.sizeY = solver.value("sizeY", 200);
-        par.timeStep = (par.final_time - par.initial_time) / 100;
+        par.frame_num = solver.value("frame_num", 100);
+        par.timeStep = (par.final_time - par.initial_time) / par.frame_num;
         
         int model_value = solver.value("model", -1);
         if( !(model_value == 1 || model_value == 2 || model_value == 3 || model_value == 4)) {
