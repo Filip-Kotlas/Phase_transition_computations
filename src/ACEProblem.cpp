@@ -321,12 +321,13 @@ double ACEProblem::get_rhs_phase_at(double* u, int i, int j)
       rhs = laplace(u, i, j) + f_0(u, i , j) / ksi / ksi + grad_norm(u, i, j)*F(u, i, j);
    
    else if(model == MODEL::MODEL_4)
-      if(i = sizeX/2)
+      if(i = sizeX/2 && j < sizeY/2)
       {
          std::cout << j << ", "
-                   << constants::M_phi_tilde(T) * pow(constants::epsilon_tilde(T), 2) << ", "
-                   << constants::M_phi_tilde(T)*(constants::G_m_alpha(c, T)/constants::R/T - constants::G_m_beta(c, T)/constants::R/T) << ", "
-                   << constants::M_phi_tilde(T)*constants::w_tilde(T) << std::endl;
+                   << "Laplace: " << constants::M_phi_tilde(T) * pow(constants::epsilon_tilde(T), 2)
+                   << ", f_0: " << 4*constants::M_phi_tilde(T)*constants::w_tilde(T)
+                   << ", F: " << constants::M_phi_tilde(T)*(constants::G_m_alpha(c, T)/constants::R/T - constants::G_m_beta(c, T)/constants::R/T)
+                   << std::endl;
       }
       rhs = constants::M_phi_tilde(T)*(pow(constants::epsilon_tilde(T), 2) * laplace(u, i, j)
             + der_polynom_p(u, i, j) * (constants::G_m_alpha(c, T) - constants::G_m_beta(c, T)) / constants::R / T
