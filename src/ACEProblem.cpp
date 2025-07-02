@@ -155,32 +155,32 @@ void ACEProblem::set_phase_initial_condition(double *u)
 
          #if P_INIT == 0
          //Hyperbolic tangent
-         u[j*sizeX + i] = 1.0/2 * tanh(-3/ksi*(radius - r1)) + 1.0/2;
+         u[j*sizeX + i] = 1.0/2 * tanh(-3/ksi*(radius - r1)) + 1.0/2; //needs to be changed according to the correct phases
 
          #elif P_INIT == 1
          //Linear by parts
          if( radius < r1 )
          {
-            u[j*sizeX + i] = 1;
+            u[j*sizeX + i] = 0;
          }
          else if( radius < r2 )
          {
-            u[j*sizeX + i] = 1 - (radius - r1) / (r2 - r1);
+            u[j*sizeX + i] = (radius - r1) / (r2 - r1);
          }
          else
          {
-            u[j*sizeX + i] = 0;
+            u[j*sizeX + i] = 1;
          }
          
          #elif P_INIT == 2
          //Constant by parts
          if( radius < r1 )
          {
-            u[j*sizeX + i] = 1;
+            u[j*sizeX + i] = 0;
          }
          else
          {
-            u[j*sizeX + i] = 0;
+            u[j*sizeX + i] = 1;
          }
 
          #endif
@@ -198,8 +198,8 @@ void ACEProblem::set_concentration_initial_condition(double *u)
    {
       for(int j = 0; j < sizeY; j++)
       {
-         double init_conc_in = 0.025;
-         double init_conc_out = 0.007;
+         double init_conc_in = 0.007;
+         double init_conc_out = 0.025;
          
          #if C_INIT == 0
          double radius = sqrt(pow(i*hx - (domain.x_right - domain.x_left)/2, 2) + pow(j*hy - (domain.y_right-domain.y_left)/2, 2));
@@ -246,12 +246,12 @@ void ACEProblem::apply_phase_boundary_condition(double *u, double *fu)
    for(int i = 0; i < this->sizeX; i++)
    {
       fu[i] = 0;
-      fu[(sizeY-1)*sizeX + i] = 0;
+      fu[(sizeY-1)*sizeX + i] = 1;
    }
    for(int j = 1; j < this->sizeY-1; j++)
    {
       fu[j*sizeX] = 0;
-      fu[(j+1)*sizeX - 1] = 0;
+      fu[(j+1)*sizeX - 1] = 1;
    }
 }
 
@@ -276,12 +276,12 @@ void ACEProblem::apply_concentration_boundary_condition(double *u, double *fu)
       fu[offset + i] = 0;
       fu[offset + (sizeY-1)*sizeX + i] = 0;
 
-      //Dirichlet with 0.007
+      //Dirichlet with 0.025
       #elif C_BOUND == 4
-      u[offset + i] = 0.007;
-      u[offset + (sizeY-1)*sizeX + i] = 0.007;
-      fu[offset + i] = 0.007;
-      fu[offset + (sizeY-1)*sizeX + i] = 0.007;
+      u[offset + i] = 0.025;
+      u[offset + (sizeY-1)*sizeX + i] = 0.025;
+      fu[offset + i] = 0.025;
+      fu[offset + (sizeY-1)*sizeX + i] = 0.025;
       #endif
    }
 
@@ -302,12 +302,12 @@ void ACEProblem::apply_concentration_boundary_condition(double *u, double *fu)
       fu[offset + j*sizeX] = 0;
       fu[offset + (j+1)*sizeX - 1] = 0;
       
-      //Dirichlet with 0.007
+      //Dirichlet with 0.025
       #elif C_BOUND == 4
-      u[offset + j*sizeX] = 0.007;
-      u[offset + (j+1)*sizeX - 1] = 0.007;
-      fu[offset + j*sizeX] = 0.007;
-      fu[offset + (j+1)*sizeX - 1] = 0.007;
+      u[offset + j*sizeX] = 0.025;
+      u[offset + (j+1)*sizeX - 1] = 0.025;
+      fu[offset + j*sizeX] = 0.025;
+      fu[offset + (j+1)*sizeX - 1] = 0.025;
       #endif
    }
 
