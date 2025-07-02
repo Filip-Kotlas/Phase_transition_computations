@@ -104,7 +104,7 @@ bool Merson::solve( const double integrationTimeStep,
       if( this->adaptivity )
          tau *= 0.8 * std::pow( this->adaptivity / eps, 0.2 );
       tau = std::min( tau, stopTime - *time );
-      std::cout << "ITER: " << iteration << " \t tau = " << tau << " \t time= " << *time << "         \r " << std::flush;
+      //std::cout << "ITER: " << iteration << " \t tau = " << tau << " \t time= " << *time << "         \r " << std::flush;
    }
    std::cout << std::endl;
    return true;
