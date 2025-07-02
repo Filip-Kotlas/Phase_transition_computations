@@ -133,7 +133,7 @@ class ACEProblem : public ODEProblem
     const double beta;
     const double ksi;
 
-    const double T = 890;
+    const double T = 1100;
     
     const MODEL model;
     
