@@ -322,11 +322,12 @@ double ACEProblem::get_rhs_phase_at(double* u, int i, int j)
    
    else if(model == MODEL::MODEL_4)
       rhs = laplace(u, i, j) + f_0(u, i , j) / ksi / ksi + 10/sqrt(8)*sqrt(par_a)*1.0/ksi*grade_4_polynom(u, i, j)*F(u, i, j);
+      /*
       if(i == sizeX/2 && j < sizeY/2)
       {
          std::cout << "f_0: " << 1 / ksi / ksi << ", F: " << 10/sqrt(8)*sqrt(par_a)*1.0/ksi*F(u, i, j) << std::endl;
       }
-
+      */
    return rhs;
 }
 
