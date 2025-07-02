@@ -11,6 +11,7 @@
         },
         "sizeX": 100,
         "sizeY": 100,
+        "frame_num": 200,
         "model": 4
     },
 

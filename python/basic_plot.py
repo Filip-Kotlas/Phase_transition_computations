@@ -20,7 +20,7 @@ phase_surface_plotter = SurfacePlotter(results_path, "phase")
 concentration_surface_plotter = SurfacePlotter(results_path, "concentration")
 concentration_cut_plotter = CutPlotter(results_path, "concentration", "x", 0.5, False)
 
-"""
+
 boundary_plotter.save_frame(0)
 boundary_plotter.save_frame(10)
 boundary_plotter.save_frame(50)

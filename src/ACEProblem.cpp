@@ -42,7 +42,7 @@
 
 #define FORCE 1
 /*
-*  0 - Force equal 1
+*  0 - Force equal 20
 *  1 - Force inversly proportional to the distance from the middle
 */
 
@@ -426,10 +426,10 @@ double ACEProblem::f_0(double *u, int i, int j)
    return par_a*phase_at(u, i, j)*(1 - phase_at(u, i, j))*(phase_at(u, i, j) - 1.0/2.0);
 }
 
-double ACEProblem::F(double *u, int i, int j) 
+double ACEProblem::F(double *u, int i, int j)
 {
    #if FORCE == 0
-   return 1;
+   return 20;
 
    #elif FORCE == 1
    double mid_x = (domain.x_right - domain.x_left)/2;

@@ -38,6 +38,7 @@ struct Parameters{
     Domain domain;
     int sizeX;
     int sizeY;
+    int frame_num;
     double timeStep;
     double integrationTimeStep;
     double alpha;

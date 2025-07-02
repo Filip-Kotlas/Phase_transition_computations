@@ -106,7 +106,7 @@ bool Merson::solve( const double integrationTimeStep,
       tau = std::min( tau, stopTime - *time );
       //std::cout << "ITER: " << iteration << " \t tau = " << tau << " \t time= " << *time << "         \r " << std::flush;
    }
-   //std::cout << std::endl;
+   std::cout << std::endl;
    return true;
 }
 
