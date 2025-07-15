@@ -25,7 +25,12 @@
 *  1 - Neumann along x, Dirichlet along y
 *  2 - Dirichlet along x, Neumann along y
 *  3 - Neumann everywhere
-*  4 - Dirichlet everywhere with c = 0.007
+*/
+
+#define P_BOUND 1
+/*
+*  0 - Dirichlet
+*  1 - Neumann
 */
 
 //#define C_TEST_X
@@ -40,7 +45,7 @@
 #define C_BOUND 2
 #endif
 
-#define FORCE 1
+#define FORCE 0
 /*
 *  0 - Force equal 20
 *  1 - Force inversly proportional to the distance from the middle
@@ -239,13 +244,33 @@ void ACEProblem::apply_phase_boundary_condition(double *u, double *fu)
 {
    for(int i = 0; i < this->sizeX; i++)
    {
+      //Dirichlet
+      #if P_BOUND == 0
       fu[i] = 0;
-      fu[(sizeY-1)*sizeX + i] = constants::p_beta;
+      fu[(sizeY-1)*sizeX + i] = 0;
+
+      //Neumann
+      #elif P_BOUND == 1
+      u[i] = u[i + sizeX];
+      u[(sizeY-1)*sizeX + i] = u[(sizeY-2)*sizeX + i];
+      fu[i] = 0;
+      fu[(sizeY-1)*sizeX + i] = 0;
+      #endif
    }
    for(int j = 1; j < this->sizeY-1; j++)
    {
+      //Dirichlet
+      #if P_BOUND == 0
       fu[j*sizeX] = 0;
-      fu[(j+1)*sizeX - 1] = constants::p_beta;
+      fu[(j+1)*sizeX - 1] = 0;
+
+      //Neumann
+      #elif P_BOUND == 1
+      u[j*sizeX] = u[j*sizeX + 1];
+      u[(j+1)*sizeX - 1] = u[(j+1)*sizeX - 2];
+      fu[j*sizeX] = 0;
+      fu[(j+1)*sizeX - 1] = 0;
+      #endif
    }
 }
 
@@ -256,10 +281,8 @@ void ACEProblem::apply_concentration_boundary_condition(double *u, double *fu)
    //Boundary conditions along x direction
    for(int i = 0; i < this->sizeX; i++)
    {
-      //Dirichlet 0
+      //Dirichlet
       #if C_BOUND == 0 || C_BOUND == 2
-      u[offset + i] = 0;
-      u[offset + (sizeY-1)*sizeX + i] = 0;
       fu[offset + i] = 0;
       fu[offset + (sizeY-1)*sizeX + i] = 0;
       
@@ -270,22 +293,14 @@ void ACEProblem::apply_concentration_boundary_condition(double *u, double *fu)
       fu[offset + i] = 0;
       fu[offset + (sizeY-1)*sizeX + i] = 0;
 
-      //Dirichlet with c_init_beta
-      #elif C_BOUND == 4
-      u[offset + i] = constants::c_init_beta;
-      u[offset + (sizeY-1)*sizeX + i] = constants::c_init_beta;
-      fu[offset + i] = constants::c_init_beta;
-      fu[offset + (sizeY-1)*sizeX + i] = constants::c_init_beta;
       #endif
    }
 
    //Boundary conditions along y direction
    for(int j = 0; j < this->sizeY; j++)
    {
-      //Dirichlet 0
+      //Dirichlet
       #if C_BOUND == 0 || C_BOUND == 1
-      u[offset + j*sizeX] = 0;
-      u[offset + (j+1)*sizeX - 1] = 0;
       fu[offset + j*sizeX] = 0;
       fu[offset + (j+1)*sizeX - 1] = 0;
 
@@ -296,12 +311,6 @@ void ACEProblem::apply_concentration_boundary_condition(double *u, double *fu)
       fu[offset + j*sizeX] = 0;
       fu[offset + (j+1)*sizeX - 1] = 0;
       
-      //Dirichlet with c_init_beta
-      #elif C_BOUND == 4
-      u[offset + j*sizeX] = constants::c_init_beta;
-      u[offset + (j+1)*sizeX - 1] = constants::c_init_beta;
-      fu[offset + j*sizeX] = constants::c_init_beta;
-      fu[offset + (j+1)*sizeX - 1] = constants::c_init_beta;
       #endif
    }
 
@@ -414,7 +423,7 @@ double ACEProblem::get_conc_diff_coef(const double *u, int i, int j)
 
 double ACEProblem::get_phas_diff_coef(const double *u, int i, int j)
 {
-   double D = 0.00000125;
+   double D = 0.00000600;
    return D * conc_at(u, i, j)
 		    * (1 - conc_at(u, i, j))
 		    * pow(constants::M_Nb_beta(T), 1 - polynom_p(u, i, j))
@@ -430,7 +439,7 @@ double ACEProblem::f_0(double *u, int i, int j)
 double ACEProblem::F(double *u, int i, int j)
 {
    #if FORCE == 0
-   return 20;
+   return 40;
 
    #elif FORCE == 1
    double mid_x = (domain.x_right - domain.x_left)/2;
