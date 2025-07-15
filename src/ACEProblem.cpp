@@ -19,7 +19,7 @@
 *  2 - Constant by parts
 */
 
-#define C_BOUND 4
+#define C_BOUND 3
 /*
 *  0 - Dirichlet everywhere
 *  1 - Neumann along x, Dirichlet along y
@@ -142,7 +142,6 @@ void ACEProblem::setInitialCondition(double *u)
 
 void ACEProblem::set_phase_initial_condition(double *u)
 {
-
    double r1 = (domain.x_right - domain.x_left)/4 - 0.5*ksi;
    double r2 = r1 + ksi;
    for(int i = 0; i < sizeX; i++)
@@ -159,26 +158,26 @@ void ACEProblem::set_phase_initial_condition(double *u)
          //Linear by parts
          if( radius < r1 )
          {
-            u[j*sizeX + i] = 0;
+            u[j*sizeX + i] = constants::p_alpha;
          }
          else if( radius < r2 )
          {
-            u[j*sizeX + i] = (radius - r1) / (r2 - r1);
+            u[j*sizeX + i] = constants::p_alpha - (constants::p_alpha - constants::p_beta)*(radius - r1) / (r2 - r1);
          }
          else
          {
-            u[j*sizeX + i] = 1;
+            u[j*sizeX + i] = constants::p_beta;
          }
          
          #elif P_INIT == 2
          //Constant by parts
          if( radius < r1 )
          {
-            u[j*sizeX + i] = 0;
+            u[j*sizeX + i] = constants::p_alpha;
          }
          else
          {
-            u[j*sizeX + i] = 1;
+            u[j*sizeX + i] = constants::p_beta;
          }
 
          #endif
@@ -195,21 +194,18 @@ void ACEProblem::set_concentration_initial_condition(double *u)
    for(int i = 0; i < sizeX; i++)
    {
       for(int j = 0; j < sizeY; j++)
-      {
-         double init_conc_in = 0.007;
-         double init_conc_out = 0.025;
-         
+      {         
          #if C_INIT == 0
          double radius = sqrt(pow(i*hx - (domain.x_right - domain.x_left)/2, 2) + pow(j*hy - (domain.y_right-domain.y_left)/2, 2));
          if(radius < r1)
-            u[offset + j*sizeX + i] = init_conc_in;
+            u[offset + j*sizeX + i] = constants::c_init_alpha;
          else if(radius < r2)
-            u[offset + j*sizeX + i] = init_conc_in - (init_conc_in - init_conc_out) * (radius - r1) / (r2 - r1);
+            u[offset + j*sizeX + i] = constants::c_init_alpha - (constants::c_init_alpha - constants::c_init_beta) * (radius - r1) / (r2 - r1);
          else
-            u[offset + j*sizeX + i] = init_conc_out;
+            u[offset + j*sizeX + i] = constants::c_init_beta;
 
          #elif C_INIT == 1
-         u[offset + j*sizeX + i] = init_conc_in;
+         u[offset + j*sizeX + i] = constants::c_init_alpha;
 
          #elif C_INIT == 2
          u[offset + j*sizeX + i] = 0;
@@ -244,12 +240,12 @@ void ACEProblem::apply_phase_boundary_condition(double *u, double *fu)
    for(int i = 0; i < this->sizeX; i++)
    {
       fu[i] = 0;
-      fu[(sizeY-1)*sizeX + i] = 1;
+      fu[(sizeY-1)*sizeX + i] = constants::p_beta;
    }
    for(int j = 1; j < this->sizeY-1; j++)
    {
       fu[j*sizeX] = 0;
-      fu[(j+1)*sizeX - 1] = 1;
+      fu[(j+1)*sizeX - 1] = constants::p_beta;
    }
 }
 
@@ -257,10 +253,10 @@ void ACEProblem::apply_concentration_boundary_condition(double *u, double *fu)
 {
    int offset = sizeY * sizeX;
 
-   //Boundary coniditons along x direction
+   //Boundary conditions along x direction
    for(int i = 0; i < this->sizeX; i++)
    {
-      //Dirichlet
+      //Dirichlet 0
       #if C_BOUND == 0 || C_BOUND == 2
       u[offset + i] = 0;
       u[offset + (sizeY-1)*sizeX + i] = 0;
@@ -274,19 +270,19 @@ void ACEProblem::apply_concentration_boundary_condition(double *u, double *fu)
       fu[offset + i] = 0;
       fu[offset + (sizeY-1)*sizeX + i] = 0;
 
-      //Dirichlet with 0.025
+      //Dirichlet with c_init_beta
       #elif C_BOUND == 4
-      u[offset + i] = 0.025;
-      u[offset + (sizeY-1)*sizeX + i] = 0.025;
-      fu[offset + i] = 0.025;
-      fu[offset + (sizeY-1)*sizeX + i] = 0.025;
+      u[offset + i] = constants::c_init_beta;
+      u[offset + (sizeY-1)*sizeX + i] = constants::c_init_beta;
+      fu[offset + i] = constants::c_init_beta;
+      fu[offset + (sizeY-1)*sizeX + i] = constants::c_init_beta;
       #endif
    }
 
-   //Boundary conditions along y conditions
+   //Boundary conditions along y direction
    for(int j = 0; j < this->sizeY; j++)
    {
-      //Dirichlet
+      //Dirichlet 0
       #if C_BOUND == 0 || C_BOUND == 1
       u[offset + j*sizeX] = 0;
       u[offset + (j+1)*sizeX - 1] = 0;
@@ -300,12 +296,12 @@ void ACEProblem::apply_concentration_boundary_condition(double *u, double *fu)
       fu[offset + j*sizeX] = 0;
       fu[offset + (j+1)*sizeX - 1] = 0;
       
-      //Dirichlet with 0.025
+      //Dirichlet with c_init_beta
       #elif C_BOUND == 4
-      u[offset + j*sizeX] = 0.025;
-      u[offset + (j+1)*sizeX - 1] = 0.025;
-      fu[offset + j*sizeX] = 0.025;
-      fu[offset + (j+1)*sizeX - 1] = 0.025;
+      u[offset + j*sizeX] = constants::c_init_beta;
+      u[offset + (j+1)*sizeX - 1] = constants::c_init_beta;
+      fu[offset + j*sizeX] = constants::c_init_beta;
+      fu[offset + (j+1)*sizeX - 1] = constants::c_init_beta;
       #endif
    }
 
@@ -408,11 +404,17 @@ double ACEProblem::div_D_grad_phase(double *u, int i, int j)
 double ACEProblem::get_conc_diff_coef(const double *u, int i, int j)
 {
    double D = 0.00000125;
+   std::cout << D
+          * conc_at(u, i, j)
+		    * (1 - conc_at(u, i, j))
+		    * pow(constants::M_Nb_alpha(T), polynom_p(u, i, j))
+		    / pow(constants::M_Nb_beta(T), polynom_p(u, i, j))
+		    * sec_deriv_of_g_w_resp_to_c(u, i, j) << std::endl;
    return D
           * conc_at(u, i, j)
 		    * (1 - conc_at(u, i, j))
-		    * pow(constants::M_Nb_beta(T), polynom_p(u, i, j))
-		    / pow(constants::M_Nb_alpha(T), polynom_p(u, i, j))
+		    * pow(constants::M_Nb_alpha(T), polynom_p(u, i, j))
+		    / pow(constants::M_Nb_beta(T), polynom_p(u, i, j))
 		    * sec_deriv_of_g_w_resp_to_c(u, i, j);
 }
 
@@ -421,8 +423,8 @@ double ACEProblem::get_phas_diff_coef(const double *u, int i, int j)
    double D = 0.00000125;
    return D * conc_at(u, i, j)
 		    * (1 - conc_at(u, i, j))
-		    * pow(constants::M_Nb_beta(T), polynom_p(u, i, j))
-		    / pow(constants::M_Nb_alpha(T), polynom_p(u, i, j))
+		    * pow(constants::M_Nb_alpha(T), polynom_p(u, i, j))
+		    / pow(constants::M_Nb_beta(T), polynom_p(u, i, j))
 		    * deriv_of_g_w_resp_to_c_and_p(u, i, j);
 }
 
@@ -494,8 +496,7 @@ double ACEProblem::sec_deriv_of_g_w_resp_to_c(const double* u, int i, int j)
    double d2_G_beta_wrt_c = constants::R * T / (c*(1-c))
    							 - 2 * constants::L_0_beta(T)
 							 + (6 - 12*c) * constants::L_0_i_beta(T);
-
-   return (1 - polynom_p(u, i, j))*d2_G_alpha_wrt_c + polynom_p(u, i, j)*d2_G_beta_wrt_c;
+   return polynom_p(u, i, j)*d2_G_alpha_wrt_c + (1 - polynom_p(u, i, j))*d2_G_beta_wrt_c;
 }
 
 double ACEProblem::deriv_of_g_w_resp_to_c_and_p(const double* u, int i, int j)
@@ -511,5 +512,5 @@ double ACEProblem::deriv_of_g_w_resp_to_c_and_p(const double* u, int i, int j)
 						   + (1 - 2 * c) * constants::L_0_beta(T)
 						   + (6*c - 6*pow(c, 2) - 1) * constants::L_0_i_beta(T);
 
-   return der_polynom_p(u, i, j)*(d_G_beta_wrt_c - d_G_alpha_wrt_c);
+   return der_polynom_p(u, i, j)*(d_G_alpha_wrt_c - d_G_beta_wrt_c);
 }

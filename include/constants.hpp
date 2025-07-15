@@ -11,6 +11,12 @@ namespace constants {
     inline constexpr double sigma = 0.3;
     inline constexpr double l = 50*delta;
 
+    inline constexpr double p_alpha = 1;
+    inline constexpr double p_beta = 0;
+
+    inline constexpr double c_init_alpha = 0.007;
+    inline constexpr double c_init_beta = 0.025;
+
     inline constexpr double L_0_alpha = 24411;
     inline double L_0_beta(float T) {
         return 15911 + 3.35*T;
