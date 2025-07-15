@@ -333,7 +333,7 @@ double ACEProblem::get_rhs_phase_at(double* u, int i, int j)
       */
 
       rhs = laplace(u, i, j)
-            + der_polynom_p(u, i, j) * (constants::G_m_alpha(c, T) - constants::G_m_beta(c, T)) / constants::R / T * D
+            + der_polynom_p(u, i, j) * (constants::G_m_beta(c, T) - constants::G_m_alpha(c, T)) / constants::R / T * D
             + der_polynom_q(u, i, j) * 2500;
       /*
       if(i == sizeX/2 && j < sizeY/2)
@@ -403,18 +403,12 @@ double ACEProblem::div_D_grad_phase(double *u, int i, int j)
 
 double ACEProblem::get_conc_diff_coef(const double *u, int i, int j)
 {
-   double D = 0.00000125;
-   std::cout << D
-          * conc_at(u, i, j)
-		    * (1 - conc_at(u, i, j))
-		    * pow(constants::M_Nb_alpha(T), polynom_p(u, i, j))
-		    / pow(constants::M_Nb_beta(T), polynom_p(u, i, j))
-		    * sec_deriv_of_g_w_resp_to_c(u, i, j) << std::endl;
+   double D = 0.0000125;
    return D
           * conc_at(u, i, j)
 		    * (1 - conc_at(u, i, j))
-		    * pow(constants::M_Nb_alpha(T), polynom_p(u, i, j))
-		    / pow(constants::M_Nb_beta(T), polynom_p(u, i, j))
+          * pow(constants::M_Nb_beta(T), 1 - polynom_p(u, i, j))
+		    / pow(constants::M_Nb_alpha(T), 1 - polynom_p(u, i, j))
 		    * sec_deriv_of_g_w_resp_to_c(u, i, j);
 }
 
@@ -423,8 +417,8 @@ double ACEProblem::get_phas_diff_coef(const double *u, int i, int j)
    double D = 0.00000125;
    return D * conc_at(u, i, j)
 		    * (1 - conc_at(u, i, j))
-		    * pow(constants::M_Nb_alpha(T), polynom_p(u, i, j))
-		    / pow(constants::M_Nb_beta(T), polynom_p(u, i, j))
+		    * pow(constants::M_Nb_beta(T), 1 - polynom_p(u, i, j))
+		    / pow(constants::M_Nb_alpha(T), 1 - polynom_p(u, i, j))
 		    * deriv_of_g_w_resp_to_c_and_p(u, i, j);
 }
 

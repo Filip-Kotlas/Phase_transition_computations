@@ -12,18 +12,25 @@ parser.add_argument("frame",
                     type=int,
                     help="Number of the frame to be shown.",
                     default=0)
+parser.add_argument("type",
+                    type=str,
+                    help="Write what you want plotted. Options: conc, phase.",
+                    default="phase")
 args = parser.parse_args()
 
 
 results_path = Path()
 results_path = results_path.parent / "results" / args.name
 
-"""
-plotter = BoundaryPlotter2D(results_path, False, True, True)
-plotter.show_frame(args.frame)
-
-plotter = SurfacePlotter(results_path, "phase")
-plotter.show_frame(args.frame)
-"""
-plotter = CutPlotter(results_path, "concentration", "x", 0.5, False)
-plotter.show_frame(args.frame)
+if args.type == "phase":
+    plotter = BoundaryPlotter2D(results_path, False, True, False)
+    plotter.show_frame(args.frame)
+    plotter = SurfacePlotter(results_path, "phase")
+    plotter.show_frame(args.frame)
+elif args.type == "conc":
+    plotter = CutPlotter(results_path, "concentration", "x", 0.5, False)
+    plotter.show_frame(args.frame)
+    plotter = SurfacePlotter(results_path, "concentration")
+    plotter.show_frame(args.frame)
+else:
+    raise Exception("Wrong argument given.")
