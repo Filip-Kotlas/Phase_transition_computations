@@ -42,8 +42,8 @@
 
 #define FORCE 1
 /*
-*  0 - Force equal 20
-*  1 - Force inversly proportional to the distance from the middle
+*  0 - Force equal 40
+*  1 - Force inversely proportional to the distance from the middle
 */
 
 ACEProblem::ACEProblem(int sizeX,
@@ -93,7 +93,7 @@ void ACEProblem::getRightHandSide(const double &t, double *u, double *fu)
    {
       for(int j = 1; j < this->sizeY-1; j++)
       {
-         // Check if the concentration is in allowed range of (0.0001, 0.9999).
+         // Check if the concentration is in allowed range of (c_min, c_max).
          if(u[sizeX*sizeY + j*sizeX + i] < constants::c_min)
          {
             u[sizeX*sizeY + j*sizeX + i] = constants::c_min;
@@ -390,12 +390,6 @@ double ACEProblem::div_D_grad_phase(double *u, int i, int j)
 double ACEProblem::get_conc_diff_coef(const double *u, int i, int j)
 {
    double D = 0.00000125;
-   std::cout << D
-          * conc_at(u, i, j)
-		    * (1 - conc_at(u, i, j))
-		    * pow(constants::M_Nb_alpha(T), polynom_p(u, i, j))
-		    / pow(constants::M_Nb_beta(T), polynom_p(u, i, j))
-		    * sec_deriv_of_g_w_resp_to_c(u, i, j) << std::endl;
    return D
           * conc_at(u, i, j)
 		    * (1 - conc_at(u, i, j))

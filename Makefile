@@ -20,7 +20,7 @@ $(BUILD_DIR)./$(TARGET_NAME): $(SRC) $(INCLUDE)
 .PHONY:run
 run: $(BUILD_DIR)./$(TARGET_NAME)
 	$(BUILD_DIR)./$(TARGET_NAME) $(RESULTS_DIR)/$(FOLDER)
-	python $(PYTHON_DIR)/basic_plot.py $(FOLDER)
+	python $(PYTHON_DIR)/basic_plot.py $(FOLDER) both
 
 .PHONY:clean
 clean:

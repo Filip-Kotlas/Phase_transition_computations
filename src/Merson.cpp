@@ -1,6 +1,7 @@
 #include <algorithm>
 #include <iostream>
 #include <cmath>
+#include <iomanip>
 #include "Merson.hpp"
 
 Merson::Merson()
@@ -104,7 +105,8 @@ bool Merson::solve( const double integrationTimeStep,
       if( this->adaptivity )
          tau *= 0.8 * std::pow( this->adaptivity / eps, 0.2 );
       tau = std::min( tau, stopTime - *time );
-      //std::cout << "ITER: " << iteration << " \t tau = " << tau << " \t time= " << *time << "         \r " << std::flush;
+      std::cout << std::scientific << std::setprecision(4);
+      std::cout << "ITER: " << iteration << " \t tau = " << tau << " \t time= " << *time << "         \r " << std::flush;
    }
    std::cout << std::endl;
    return true;
@@ -119,5 +121,4 @@ Merson::~Merson()
    if( k5 ) delete[] k5;
    if( aux ) delete[] aux;
 }
-
 
