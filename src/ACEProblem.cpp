@@ -93,7 +93,19 @@ void ACEProblem::getRightHandSide(const double &t, double *u, double *fu)
    {
       for(int j = 1; j < this->sizeY-1; j++)
       {
-         fu[sizeX*sizeY + j*sizeX + i] = get_rhs_concentration_at(t, u, i, j);
+         // Check if the concentration is in allowed range of (0.0001, 0.9999).
+         if(u[sizeX*sizeY + j*sizeX + i] < 0.0001)
+         {
+            u[sizeX*sizeY + j*sizeX + i] = 0.0001;
+            fu[sizeX*sizeY + j*sizeX + i] = 0;
+         }
+         else if (u[sizeX*sizeY + j*sizeX + i] > 0.9999)
+         {
+            u[sizeX*sizeY + j*sizeX + i] = 0.9999;
+            fu[sizeX*sizeY + j*sizeX + i] = 0;
+         }
+         else
+            fu[sizeX*sizeY + j*sizeX + i] = get_rhs_concentration_at(t, u, i, j);
       }
    }
    #endif
@@ -128,7 +140,7 @@ bool ACEProblem::writeSolution(const double &t, int step, const double *u)
       for( int i = 0; i < sizeX; i++ )
       {
          file << domain.x_left + i * hx << " " << domain.y_left + j * hy << " "
-              << u[ j * sizeX + i ] << " " << u[ sizeX * sizeY + j * sizeX + i];
+              << phase_at(u, i, j) << " " << conc_at(u, i, j);
          file << std::endl;
       }
       file << std::endl;
