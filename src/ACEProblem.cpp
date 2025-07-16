@@ -96,7 +96,19 @@ void ACEProblem::getRightHandSide(const double &t, double *u, double *fu)
    {
       for(int j = 1; j < this->sizeY-1; j++)
       {
-         fu[sizeX*sizeY + j*sizeX + i] = get_rhs_concentration_at(t, u, i, j);
+         // Check if the concentration is in allowed range of (0.0001, 0.9999).
+         if(u[sizeX*sizeY + j*sizeX + i] < 0.0001)
+         {
+            u[sizeX*sizeY + j*sizeX + i] = 0.0001;
+            fu[sizeX*sizeY + j*sizeX + i] = 0;
+         }
+         else if (u[sizeX*sizeY + j*sizeX + i] > 0.9999)
+         {
+            u[sizeX*sizeY + j*sizeX + i] = 0.9999;
+            fu[sizeX*sizeY + j*sizeX + i] = 0;
+         }
+         else
+            fu[sizeX*sizeY + j*sizeX + i] = get_rhs_concentration_at(t, u, i, j);
       }
    }
    #endif
@@ -131,7 +143,7 @@ bool ACEProblem::writeSolution(const double &t, int step, const double *u)
       for( int i = 0; i < sizeX; i++ )
       {
          file << domain.x_left + i * hx << " " << domain.y_left + j * hy << " "
-              << u[ j * sizeX + i ] << " " << u[ sizeX * sizeY + j * sizeX + i];
+              << phase_at(u, i, j) << " " << conc_at(u, i, j);
          file << std::endl;
       }
       file << std::endl;
@@ -358,7 +370,7 @@ double ACEProblem::get_rhs_phase_at(double* u, int i, int j)
 }
 
 double ACEProblem::get_rhs_concentration_at(const double &t, double *u, int i, int j)
-{
+{  
    return div_D_grad_concentration(u, i, j) + div_D_grad_phase(u, i, j);
 }
 
@@ -413,6 +425,14 @@ double ACEProblem::div_D_grad_phase(double *u, int i, int j)
 double ACEProblem::get_conc_diff_coef(const double *u, int i, int j)
 {
    double D = 0.0000125;
+   if(!blowout && sec_deriv_of_g_w_resp_to_c(u, i, j) < -0.001)
+   {
+      std::cout << "Blow out conc: (" << i << ", " <<  j << std::fixed << std::setprecision(8) << "), c: "
+                << conc_at(u, i, j) << ", p: " << phase_at(u, i, j) << ", "
+                << pow(constants::M_Nb_beta(T), 1 - polynom_p(u, i, j)) / pow(constants::M_Nb_alpha(T), 1 - polynom_p(u, i, j)) << ", " 
+		          << sec_deriv_of_g_w_resp_to_c(u, i, j) << std::endl;
+      blowout = true;
+   }
    return D
           * conc_at(u, i, j)
 		    * (1 - conc_at(u, i, j))
@@ -423,7 +443,15 @@ double ACEProblem::get_conc_diff_coef(const double *u, int i, int j)
 
 double ACEProblem::get_phas_diff_coef(const double *u, int i, int j)
 {
-   double D = 0.00000600;
+   double D = 0.00000900;
+   if(!blowout && deriv_of_g_w_resp_to_c_and_p(u, i, j) < - 0.001)
+   {
+      std::cout << "Blow out phase: (" << i << ", " <<  j << "), c: "
+                << conc_at(u, i, j) << ", p: " << phase_at(u, i, j) << ", "
+                << pow(constants::M_Nb_beta(T), 1 - polynom_p(u, i, j)) / pow(constants::M_Nb_alpha(T), 1 - polynom_p(u, i, j)) << ", " 
+		          << deriv_of_g_w_resp_to_c_and_p(u, i, j) << std::endl;
+      blowout = true;
+   }
    return D * conc_at(u, i, j)
 		    * (1 - conc_at(u, i, j))
 		    * pow(constants::M_Nb_beta(T), 1 - polynom_p(u, i, j))
