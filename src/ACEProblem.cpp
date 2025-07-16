@@ -97,14 +97,14 @@ void ACEProblem::getRightHandSide(const double &t, double *u, double *fu)
       for(int j = 1; j < this->sizeY-1; j++)
       {
          // Check if the concentration is in allowed range of (0.0001, 0.9999).
-         if(u[sizeX*sizeY + j*sizeX + i] < 0.0001)
+         if(u[sizeX*sizeY + j*sizeX + i] < constants::c_min)
          {
-            u[sizeX*sizeY + j*sizeX + i] = 0.0001;
+            u[sizeX*sizeY + j*sizeX + i] = constants::c_min;
             fu[sizeX*sizeY + j*sizeX + i] = 0;
          }
-         else if (u[sizeX*sizeY + j*sizeX + i] > 0.9999)
+         else if (u[sizeX*sizeY + j*sizeX + i] > constants::c_max)
          {
-            u[sizeX*sizeY + j*sizeX + i] = 0.9999;
+            u[sizeX*sizeY + j*sizeX + i] = constants::c_max;
             fu[sizeX*sizeY + j*sizeX + i] = 0;
          }
          else
