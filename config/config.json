@@ -3,14 +3,14 @@
     {
         "type": "Runge-Kutta",
         "initial_time": 0.0,
-        "final_time": 0.010,
+        "final_time": 0.10,
         "domain": {
             "x_left": 0,
             "x_right": 1,
             "y_left": 0,
             "y_right": 1
         },
-        "custom_integration_time_step": true,
+        "custom_integration_time_step": false,
         "integration_time_step": 5.0e-6 ,
         "sizeX": 100,
         "sizeY": 100,
