@@ -5,11 +5,11 @@ from plotter import BoundaryPlotter2D, SurfacePlotter, CutPlotter
 
 parser = argparse.ArgumentParser(description="Plots frames 0, 10, 50, 100 and creates\
                                               animation of the computed results both in 2D and 3D.")
-parser.add_argument("name",
+parser.add_argument("--name",
                     type=str,
                     help="Name of the folder with results. Has to be in results folder.",
                     default="Results")
-parser.add_argument("type",
+parser.add_argument("--type",
                     type=str,
                     help="Choose what will be plotted. Options: conc, phase, both",
                     default="both")
