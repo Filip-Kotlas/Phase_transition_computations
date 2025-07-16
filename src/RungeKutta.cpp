@@ -1,6 +1,7 @@
 #include <algorithm>
 #include <iostream>
 #include <cmath>
+#include <iomanip>
 #include "RungeKutta.hpp"
 
 RungeKutta::RungeKutta()
@@ -70,16 +71,6 @@ bool RungeKutta::solve( const double integrationTimeStep,
          aux[ i ] = u[ i ] + tau * ( 0.5 * k1[ i ] - 1.5 * k3[ i ] + 2.0 * k4[ i ] );
       problem->getRightHandSide( *time + tau, aux, k5 );
 
-      /****
-       * Compute error
-       */
-      double eps( 0.0 );
-      for( int i = 0; i < dofs; i++ )
-      {
-         double err = ( tau / 3.0 * std::fabs( 0.2 * k1[ i ] + -0.9 * k3[ i ] + 0.8 * k4[ i ] + -0.1 * k5[ i ] ) );
-         eps = std::max( eps, err );
-      }
-
       for( int i = 0; i < dofs; i++ )
          u[ i ] += tau / 6.0 * ( k1[ i ] + 4.0 * k4[ i ] + k5[ i ] );
       *time += tau;
@@ -91,7 +82,8 @@ bool RungeKutta::solve( const double integrationTimeStep,
       }
       
       tau = std::min( tau, stopTime - *time );
-      //std::cout << "ITER: " << iteration << " \t tau = " << tau << " \t time= " << *time << "         \r " << std::flush;
+      std::cout << std::scientific << std::setprecision(4);
+      std::cout << "ITER: " << iteration << " \t tau = " << tau << " \t time= " << *time << "         \r " << std::flush;
    }
    //std::cout << std::endl;
    return true;
@@ -106,5 +98,4 @@ RungeKutta::~RungeKutta()
    if( k5 ) delete[] k5;
    if( aux ) delete[] aux;
 }
-
 
