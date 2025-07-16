@@ -1,7 +1,7 @@
 {
     "solver":
     {
-        "type": "Runge-Kutta",
+        "type": "Merson",
         "initial_time": 0.0,
         "final_time": 0.01,
         "domain": {

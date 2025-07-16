@@ -192,7 +192,7 @@ int main(int argc, char** argv)
             return EXIT_FAILURE;
         }
     }
-    else if(parameters.type == "Runge-Kutta")
+    else if(parameters.type == "Merson")
     {
         if( ! solve(parameters.initial_time,
                 parameters.final_time,
