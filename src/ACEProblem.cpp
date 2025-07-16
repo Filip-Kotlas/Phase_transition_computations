@@ -47,8 +47,8 @@
 
 #define FORCE 0
 /*
-*  0 - Force equal 20
-*  1 - Force inversly proportional to the distance from the middle
+*  0 - Force equal 40
+*  1 - Force inversely proportional to the distance from the middle
 */
 
 ACEProblem::ACEProblem(int sizeX,
@@ -96,7 +96,7 @@ void ACEProblem::getRightHandSide(const double &t, double *u, double *fu)
    {
       for(int j = 1; j < this->sizeY-1; j++)
       {
-         // Check if the concentration is in allowed range of (0.0001, 0.9999).
+         // Check if the concentration is in allowed range of (c_min, c_max).
          if(u[sizeX*sizeY + j*sizeX + i] < constants::c_min)
          {
             u[sizeX*sizeY + j*sizeX + i] = constants::c_min;
@@ -355,7 +355,7 @@ double ACEProblem::get_rhs_phase_at(double* u, int i, int j)
 
       rhs = laplace(u, i, j)
             + der_polynom_p(u, i, j) * (constants::G_m_beta(c, T) - constants::G_m_alpha(c, T)) / constants::R / T * D
-            + der_polynom_q(u, i, j) * 2500;
+            + der_polynom_q(u, i, j) * 500;
       /*
       if(i == sizeX/2 && j < sizeY/2)
       {

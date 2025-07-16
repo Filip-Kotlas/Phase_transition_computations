@@ -37,7 +37,15 @@ Parameters get_parameters() {
             throw std::runtime_error("Chybí sekce 'solver' nebo 'problem' v JSON.");
         }
         nlohmann::json solver = config["solver"];
+
+        // Solver type
         par.type = solver.value("type", "Runge-Kutta");
+        if( par.type != "Merson" && par.type != "Runge-Kutta" )
+        {
+            throw std::runtime_error("Neplatná hodnota 'type' v JSON.");
+        }
+        
+        // Basic solver parameters
         par.initial_time = solver.value("initial_time", 0.0);
         par.final_time = solver.value("final_time", 0.30);
         par.sizeX = solver.value("sizeX", 200);
@@ -45,16 +53,17 @@ Parameters get_parameters() {
         par.frame_num = solver.value("frame_num", 100);
         par.timeStep = (par.final_time - par.initial_time) / par.frame_num;
         
+        // Model
         int model_value = solver.value("model", -1);
         if( !(model_value == 1 || model_value == 2 || model_value == 3 || model_value == 4)) {
             throw std::runtime_error("Neplatná hodnota 'model' v JSON.");
         }
         par.model = static_cast<MODEL>(model_value);
         
+        // Domain
         if (!solver.contains("domain")) {
             throw std::runtime_error("Chybí 'domain' v sekci 'solver'.");
         }
-        
         nlohmann::json domain = solver["domain"];
         par.domain = {
             domain.value("x_left", -1.0),
@@ -63,10 +72,20 @@ Parameters get_parameters() {
             domain.value("y_right", 1.0)
         };
 
-        par.integrationTimeStep = pow(std::min((par.domain.x_right - par.domain.x_left)/(par.sizeX-1),
-                                               (par.domain.y_right - par.domain.y_left)/(par.sizeY-1)),
-                                      2)/4;
+        // Integration time step
+        double computed_integration_time_step = pow(std::min((par.domain.x_right - par.domain.x_left)/(par.sizeX-1),
+                                                   (par.domain.y_right - par.domain.y_left)/(par.sizeY-1)),
+                                                    2)/4;
+        if( solver.value("custom_integration_time_step", false) )
+        {
+            par.integrationTimeStep = solver.value("integration_time_step", computed_integration_time_step);
+        }
+        else
+        {
+            par.integrationTimeStep = computed_integration_time_step;
+        }
 
+        // Parameters considering the problem
         nlohmann::json problem = config["problem"];
         par.alpha = problem.value("alpha", 1.0);
         par.beta = problem.value("beta", 1.0);
@@ -102,6 +121,8 @@ void save_parameters(std::string file_path, Parameters param) {
        std::cout << "Unable to open the file " << file_path << std::endl;
        return;
     }
+
+    file << std::left << std::setw(24) << "Solver type:" << std::right << std::setw(28) << param.type << std::endl;
     file << std::left << std::setw(24) << "Initial time:"  << std::right << std::setw(28) << param.initial_time << std::endl;
     file << std::left << std::setw(24) << "Final time:"    << std::right << std::setw(28) << param.final_time << std::endl;
     std::ostringstream oss;
@@ -205,12 +226,6 @@ int main(int argc, char** argv)
             delete[] u;
             return EXIT_FAILURE;
         }
-    }
-    else
-    {
-        delete[] u;
-        std::cout << "Unrecognised integrator!" << std::endl;
-        return EXIT_FAILURE;
     }
     
     

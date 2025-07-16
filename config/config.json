@@ -1,7 +1,7 @@
 {
     "solver":
     {
-        "type": "Merson",
+        "type": "Runge-Kutta",
         "initial_time": 0.0,
         "final_time": 0.01,
         "domain": {
@@ -10,6 +10,8 @@
             "y_left": 0,
             "y_right": 1
         },
+        "custom_integration_time_step": true,
+        "integration_time_step": 5.0e-6 ,
         "sizeX": 100,
         "sizeY": 100,
         "frame_num": 100,

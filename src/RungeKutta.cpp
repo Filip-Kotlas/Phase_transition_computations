@@ -1,6 +1,7 @@
 #include <algorithm>
 #include <iostream>
 #include <cmath>
+#include <iomanip>
 #include "RungeKutta.hpp"
 
 RungeKutta::RungeKutta()
@@ -81,7 +82,8 @@ bool RungeKutta::solve( const double integrationTimeStep,
       }
       
       tau = std::min( tau, stopTime - *time );
-      //std::cout << "ITER: " << iteration << " \t tau = " << tau << " \t time= " << *time << "         \r " << std::flush;
+      std::cout << std::scientific << std::setprecision(4);
+      std::cout << "ITER: " << iteration << " \t tau = " << tau << " \t time= " << *time << "         \r " << std::flush;
    }
    //std::cout << std::endl;
    return true;

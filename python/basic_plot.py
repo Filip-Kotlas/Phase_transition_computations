@@ -37,7 +37,7 @@ if args.type in ("phase", "both"):
     phase_surface_plotter.save_frame(50)
     phase_surface_plotter.save_frame(100)
 
-elif args.type in ("conc", "both"):
+if args.type in ("conc", "both"):
     concentration_surface_plotter.save_frame(0)
     concentration_surface_plotter.save_frame(10)
     concentration_surface_plotter.save_frame(20)
@@ -50,18 +50,14 @@ elif args.type in ("conc", "both"):
     concentration_cut_plotter.save_frame(50)
     concentration_cut_plotter.save_frame(100)
 
-else:
-    raise Exception("Wrong argument for type.")
-
 
 if args.type in ("conc", "both"):
     concentration_cut_plotter.save_animation()
     concentration_surface_plotter.save_animation()
 
-elif args.type in ("phase", "both"):
+if args.type in ("phase", "both"):
     phase_surface_plotter.save_animation()
     boundary_plotter.save_animation()
 
-else:
+if args.type not in ("phase", "conc", "both"):
     raise Exception("Wrong argument for type.")
-
