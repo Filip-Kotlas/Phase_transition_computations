@@ -74,9 +74,9 @@ class ACEProblem : public ODEProblem
         return u[j*sizeX + i];
     };
     double conc_at(const double* u, int i, int j){
-        // Returns concentration in range (conc_min, conc_max)
-        return std::min(constants::conc_max,
-                        std::max(constants::conc_min,
+        // Returns concentration in range (c_min, c_max)
+        return std::min(constants::c_max,
+                        std::max(constants::c_min,
                                  u[sizeX * sizeY + j*sizeX + i]));
     };
 
