@@ -8,6 +8,7 @@
 
 #include "ode-solve.hpp"
 #include "Merson.hpp"
+#include "RungeKutta.hpp"
 #include "ODEProblem.hpp"
 #include "ODESolver.hpp"
 #include "ACEProblem.hpp"
@@ -36,6 +37,7 @@ Parameters get_parameters() {
             throw std::runtime_error("Chybí sekce 'solver' nebo 'problem' v JSON.");
         }
         nlohmann::json solver = config["solver"];
+        par.type = solver.value("type", "Runge-Kutta");
         par.initial_time = solver.value("initial_time", 0.0);
         par.final_time = solver.value("final_time", 0.30);
         par.sizeX = solver.value("sizeX", 200);
@@ -168,23 +170,50 @@ int main(int argc, char** argv)
                                     parameters.ksi,
                                     parameters.model,
                                     calc_path);
-    Merson integrator;
 
+    RungeKutta runge_kutta_integrator;
+    Merson merson_integrator;
+    
     double* u = new double[problem.getDegreesOfFreedom()];
     problem.setInitialCondition( u );
     problem.writeSolution( 0.0, 0, u );
-   
-    if( ! solve(parameters.initial_time,
+
+    if(parameters.type == "Runge-Kutta")
+    {
+        if( ! solve(parameters.initial_time,
                 parameters.final_time,
                 parameters.timeStep,
                 parameters.integrationTimeStep,
                 &problem,
-                &integrator,
+                &runge_kutta_integrator,
                 u))
+        {
+            delete[] u;
+            return EXIT_FAILURE;
+        }
+    }
+    else if(parameters.type == "Runge-Kutta")
+    {
+        if( ! solve(parameters.initial_time,
+                parameters.final_time,
+                parameters.timeStep,
+                parameters.integrationTimeStep,
+                &problem,
+                &merson_integrator,
+                u))
+        {
+            delete[] u;
+            return EXIT_FAILURE;
+        }
+    }
+    else
     {
         delete[] u;
+        std::cout << "Unrecognised integrator!" << std::endl;
         return EXIT_FAILURE;
     }
+    
+    
     delete[] u;
     return EXIT_SUCCESS;
     
