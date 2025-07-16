@@ -33,6 +33,7 @@ enum class MODEL
 };
 
 struct Parameters{
+    std::string type;
     double initial_time;
     double final_time;
     Domain domain;
