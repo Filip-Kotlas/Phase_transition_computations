@@ -122,4 +122,3 @@ Merson::~Merson()
    if( aux ) delete[] aux;
 }
 
-

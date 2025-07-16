@@ -99,4 +99,3 @@ RungeKutta::~RungeKutta()
    if( aux ) delete[] aux;
 }
 
-

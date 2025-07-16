@@ -4,15 +4,15 @@ from plotter import BoundaryPlotter2D, SurfacePlotter, CutPlotter
 
 parser = argparse.ArgumentParser(description="Plots a given frame of the computed results both in \
                                  2D and 3D.")
-parser.add_argument("name",
+parser.add_argument("--name",
                     type=str,
                     help="Name of the folder with results. Has to be in results folder.",
                     default="Results")
-parser.add_argument("frame",
+parser.add_argument("--frame",
                     type=int,
                     help="Number of the frame to be shown.",
                     default=0)
-parser.add_argument("type",
+parser.add_argument("--type",
                     type=str,
                     help="Write what you want plotted. Options: conc, phase.",
                     default="phase")
@@ -33,4 +33,4 @@ elif args.type == "conc":
     plotter = SurfacePlotter(results_path, "concentration")
     plotter.show_frame(args.frame)
 else:
-    raise Exception("Wrong argument given.")
+    raise ValueError("Wrong argument given.")
