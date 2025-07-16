@@ -1,6 +1,7 @@
 {
     "solver":
     {
+        "type": "Runge-Kutta",
         "initial_time": 0.0,
         "final_time": 0.10,
         "domain": {
