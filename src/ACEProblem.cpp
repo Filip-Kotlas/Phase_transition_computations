@@ -76,6 +76,8 @@ int ACEProblem::getDegreesOfFreedom()
 
 void ACEProblem::getRightHandSide(const double &t, double *u, double *fu)
 {
+   apply_concentration_physical_condition(u);
+   
    #ifdef COMPUTE_PHASE
    for(int i = 1; i < this->sizeX-1; i++)
    {
@@ -84,12 +86,9 @@ void ACEProblem::getRightHandSide(const double &t, double *u, double *fu)
          fu[j*sizeX + i] = get_rhs_phase_at(u, i, j);
       }
    }
-   /*if (t >= 4 * 0.0001)
-      std::cout << "Large: " << print_largest(u) << ", small: " << print_smallest(u) << std::endl;*/
    #endif
    
    #ifdef COMPUTE_CONCENTRATION
-   apply_concentration_physical_condition(u);
 
    for(int i = 1; i < this->sizeX-1; i++)
    {
@@ -100,7 +99,6 @@ void ACEProblem::getRightHandSide(const double &t, double *u, double *fu)
    }
    #endif
    apply_boundary_condition(u, fu);
-
 }
 
 bool ACEProblem::writeSolution(const double &t, int step, const double *u)
