@@ -75,16 +75,14 @@ class ACEProblem : public ODEProblem
     };
     double conc_at(const double* u, int i, int j){
         // Returns concentration in range (c_min, c_max)
-        return std::min(constants::c_max,
-                        std::max(constants::c_min,
-                                 u[sizeX * sizeY + j*sizeX + i]));
+        return u[sizeX * sizeY + j*sizeX + i];
     };
 
     /*
     * RHS computations
     */
     void getRightHandSide( const double& t, double* u, double* fu );
-    double get_rhs_phase_at(double* u, int i, int j);
+    double get_rhs_phase_at(const double* u, int i, int j);
     double get_rhs_concentration_at(const double &t, double* u, int i, int j);
     
     /*
@@ -102,22 +100,27 @@ class ACEProblem : public ODEProblem
     void apply_concentration_boundary_condition(double* u, double* fu);
 
     /*
+    * Condition on concentration physical meaning
+    */
+    void apply_concentration_physical_condition(double* u);
+
+    /*
     * Operators
     */
-    double laplace(double *u, int i, int j);
-    double grad_norm(double *_u, int i, int j);
-    double div_D_grad_concentration(double *u, int i, int j);
-    double div_D_grad_phase(double *u, int i, int j);
+    double laplace(const double *u, int i, int j);
+    double grad_norm(const double *_u, int i, int j);
+    double div_D_grad_concentration(const double *u, int i, int j);
+    double div_D_grad_phase(const double *u, int i, int j);
     double get_conc_diff_coef(const double *u, int i, int j);
     double get_phas_diff_coef(const double *u, int i, int j);
 
-    double f_0(double *_u, int i, int j);
+    double f_0(const double *_u, int i, int j);
 
-    double grade_4_polynom(double *u, int i, int j);
+    double grade_4_polynom(const double *u, int i, int j);
     double polynom_p(const double *u, int i, int j);
     double der_polynom_p(const double *u, int i, int j);
 
-    double F(double *u, int i, int j);
+    double F(const double *u, int i, int j);
     double G(const double &t, double *u, int i, int j);
 
     double sec_deriv_of_g_w_resp_to_c(const double* u, int i, int j);
