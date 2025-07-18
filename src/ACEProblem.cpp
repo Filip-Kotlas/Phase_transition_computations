@@ -89,23 +89,13 @@ void ACEProblem::getRightHandSide(const double &t, double *u, double *fu)
    #endif
    
    #ifdef COMPUTE_CONCENTRATION
+   apply_concentration_physical_condition(u);
+
    for(int i = 1; i < this->sizeX-1; i++)
    {
       for(int j = 1; j < this->sizeY-1; j++)
       {
-         // Check if the concentration is in allowed range of (c_min, c_max).
-         if(u[sizeX*sizeY + j*sizeX + i] < constants::c_min)
-         {
-            u[sizeX*sizeY + j*sizeX + i] = constants::c_min;
-            fu[sizeX*sizeY + j*sizeX + i] = 0;
-         }
-         else if (u[sizeX*sizeY + j*sizeX + i] > constants::c_max)
-         {
-            u[sizeX*sizeY + j*sizeX + i] = constants::c_max;
-            fu[sizeX*sizeY + j*sizeX + i] = 0;
-         }
-         else
-            fu[sizeX*sizeY + j*sizeX + i] = get_rhs_concentration_at(t, u, i, j);
+         fu[sizeX*sizeY + j*sizeX + i] = get_rhs_concentration_at(t, u, i, j);
       }
    }
    #endif
@@ -321,7 +311,26 @@ void ACEProblem::apply_concentration_boundary_condition(double *u, double *fu)
 
 }
 
-double ACEProblem::get_rhs_phase_at(double* u, int i, int j)
+void ACEProblem::apply_concentration_physical_condition(double *u)
+{
+   for(int i = 0; i < this->sizeX; i++)
+   {
+      for(int j = 0; j < this->sizeY; j++)
+      {
+         // Check if the concentration is in allowed range of (c_min, c_max).
+         if(u[sizeX*sizeY + j*sizeX + i] < constants::c_min)
+         {
+            u[sizeX*sizeY + j*sizeX + i] = constants::c_min;
+         }
+         else if (u[sizeX*sizeY + j*sizeX + i] > constants::c_max)
+         {
+            u[sizeX*sizeY + j*sizeX + i] = constants::c_max;
+         }
+      }
+   }
+}
+
+double ACEProblem::get_rhs_phase_at(const double* u, int i, int j)
 {
    double rhs = 0.0;
 
@@ -344,20 +353,20 @@ double ACEProblem::get_rhs_concentration_at(const double &t, double *u, int i, i
    return div_D_grad_concentration(u, i, j) + div_D_grad_phase(u, i, j);
 }
 
-double ACEProblem::laplace(double *u, int i, int j)
+double ACEProblem::laplace(const double *u, int i, int j)
 {
    return (phase_at(u, i - 1, j) - 2*phase_at(u, i, j) + phase_at(u, i + 1, j))/hx/hx +
           (phase_at(u, i, j - 1) - 2*phase_at(u, i, j) + phase_at(u, i, j + 1))/hy/hy;
 }
 
-double ACEProblem::grad_norm(double *u, int i, int j)
+double ACEProblem::grad_norm(const double *u, int i, int j)
 {
    double derivative_x = (phase_at(u, i + 1, j) - phase_at(u, i - 1, j))/(2*hx);
    double derivative_y = (phase_at(u, i, j+1) - phase_at(u, i, j-1))/(2*hy);
    return sqrt(pow(derivative_x,2) + pow(derivative_y,2));
 }
 
-double ACEProblem::div_D_grad_concentration(double *u, int i, int j)
+double ACEProblem::div_D_grad_concentration(const double *u, int i, int j)
 {
 	double coeff_plus_half = (get_conc_diff_coef(u, i + 1, j) + get_conc_diff_coef(u, i, j)) / 2;
 	double coeff_minus_half = (get_conc_diff_coef(u, i, j) + get_conc_diff_coef(u, i - 1, j)) / 2;
@@ -372,7 +381,7 @@ double ACEProblem::div_D_grad_concentration(double *u, int i, int j)
 	return x_direction / hx + y_direction / hy;
 }
 
-double ACEProblem::div_D_grad_phase(double *u, int i, int j)
+double ACEProblem::div_D_grad_phase(const double *u, int i, int j)
 {
 	double coeff_plus_half = (get_phas_diff_coef(u, i + 1, j) + get_phas_diff_coef(u, i, j)) / 2;
 	double coeff_minus_half = (get_phas_diff_coef(u, i, j) + get_phas_diff_coef(u, i - 1, j)) / 2;
@@ -408,12 +417,12 @@ double ACEProblem::get_phas_diff_coef(const double *u, int i, int j)
 		    * deriv_of_g_w_resp_to_c_and_p(u, i, j);
 }
 
-double ACEProblem::f_0(double *u, int i, int j)
+double ACEProblem::f_0(const double *u, int i, int j)
 {
    return par_a*phase_at(u, i, j)*(1 - phase_at(u, i, j))*(phase_at(u, i, j) - 1.0/2.0);
 }
 
-double ACEProblem::F(double *u, int i, int j)
+double ACEProblem::F(const double *u, int i, int j)
 {
    #if FORCE == 0
    return 20;
@@ -448,7 +457,7 @@ double ACEProblem::G(const double &t, double *u, int i, int j)
    return G;
 }
 
-double ACEProblem::grade_4_polynom(double *u, int i, int j)
+double ACEProblem::grade_4_polynom(const double *u, int i, int j)
 {
    return pow(phase_at(u, i, j), 2) * pow(phase_at(u, i, j) - 1.0, 2);
 }
