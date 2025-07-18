@@ -364,7 +364,7 @@ double ACEProblem::get_rhs_phase_at(const double* u, int i, int j)
 
       rhs = laplace(u, i, j)
             + der_polynom_p(u, i, j) * (constants::G_m_beta(c, T) - constants::G_m_alpha(c, T)) / constants::R / T * D
-            + der_polynom_q(u, i, j) * 500;
+            + der_polynom_q(u, i, j) * 10000;
       /*
       if(i == sizeX/2 && j < sizeY/2)
       {

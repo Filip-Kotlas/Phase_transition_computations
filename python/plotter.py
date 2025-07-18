@@ -65,6 +65,7 @@ class Plotter():
         pass
 
     def save_animation(self) -> None:
+        print("Preparing animation for", str(self.output_name_tag)[1:])
         self.check_for_info_folder()
         num_frames = len(self.file_paths)
         ani = animation.FuncAnimation(self.fig, self.update, frames=num_frames, blit=True)

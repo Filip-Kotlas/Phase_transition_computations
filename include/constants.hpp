@@ -14,7 +14,7 @@ namespace constants {
     inline constexpr double p_alpha = 1;
     inline constexpr double p_beta = 0;
 
-    inline constexpr double c_min = 0.0001;
+    inline constexpr double c_min = 0.001;
     inline constexpr double c_max = 1 - c_min;
 
     inline constexpr double c_init_alpha = 0.007;
