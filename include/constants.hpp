@@ -6,6 +6,7 @@ namespace constants {
     inline constexpr double Cal_to_joule = 4.184;
 
     inline constexpr double delta = 5e-9;
+    inline constexpr double delta_fixed = 5e-9;
     inline constexpr double molar_volume = 1.4060e-5;
     inline constexpr double b = 3.23e-10;
     inline constexpr double sigma = 0.3;
@@ -92,7 +93,7 @@ namespace constants {
     }
 
     inline double M_phi(float T){
-        return 0.235*D_eff(T)*molar_volume/(b*b*R*T);
+        return 0.235 * D_eff(T) * delta_fixed / delta* molar_volume / (b*b*R*T);
     }
     inline double M_phi_tilde(float T){
         return M_phi(T)*l*l/(M_Nb_alpha(T)*molar_volume);
