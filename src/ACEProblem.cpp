@@ -177,8 +177,19 @@ void ACEProblem::set_phase_initial_condition(double *u)
          }
          
          #elif P_INIT == 2
-         //Constant by parts
+         //Constant in circle
          if( radius < r1 )
+         {
+            u[j*sizeX + i] = constants::p_alpha;
+         }
+         else
+         {
+            u[j*sizeX + i] = constants::p_beta;
+         }
+
+         #elif P_INIT == 3
+         //Constant in circle
+         if( i < sizeX )
          {
             u[j*sizeX + i] = constants::p_alpha;
          }
@@ -231,6 +242,18 @@ void ACEProblem::set_concentration_initial_condition(double *u)
             double lambda_n = pow(n*M_PI/(domain.y_right-domain.y_left), 2);
             u[offset + j*sizeX + i] += C_n * sin(sqrt(lambda_n) * (j*hy));
          }
+
+         #elif C_INIT == 3
+         //Constant in circle
+         if( i < sizeX )
+         {
+            u[j*sizeX + i] = constants::c_init_alpha
+         }
+         else
+         {
+            u[j*sizeX + i] = constants::c_init_beta;
+         }
+
          #endif
       }
    }
