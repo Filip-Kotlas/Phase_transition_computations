@@ -75,7 +75,7 @@ Parameters get_parameters() {
         // Integration time step
         double computed_integration_time_step = pow(std::min((par.domain.x_right - par.domain.x_left)/(par.sizeX-1),
                                                    (par.domain.y_right - par.domain.y_left)/(par.sizeY-1)),
-                                                    2)/4;
+                                                    2)/5/2000;
         if( solver.value("custom_integration_time_step", false) )
         {
             par.integrationTimeStep = solver.value("integration_time_step", computed_integration_time_step);

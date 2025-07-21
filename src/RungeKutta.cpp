@@ -82,7 +82,7 @@ bool RungeKutta::solve( const double integrationTimeStep,
       }
       
       tau = std::min( tau, stopTime - *time );
-      std::cout << std::scientific << std::setprecision(4);
+      std::cout << std::scientific << std::setprecision(8);
       std::cout << "ITER: " << iteration << " \t tau = " << tau << " \t time= " << *time << "         \r " << std::flush;
    }
    //std::cout << std::endl;

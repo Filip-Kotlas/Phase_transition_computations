@@ -3,12 +3,12 @@
     {
         "type": "Runge-Kutta",
         "initial_time": 0.0,
-        "final_time": 0.01,
+        "final_time": 0.001,
         "domain": {
             "x_left": 0,
-            "x_right": 100,
+            "x_right": 20,
             "y_left": 0,
-            "y_right": 100
+            "y_right": 20
         },
         "custom_integration_time_step": false,
         "integration_time_step": 5.0e-6 ,
@@ -23,6 +23,6 @@
         "alpha": 1,
         "beta": 1,
         "a": 4,
-        "ksi": 0.01
+        "ksi": 1.11
     }
 }

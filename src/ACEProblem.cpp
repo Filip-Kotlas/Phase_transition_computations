@@ -347,9 +347,10 @@ double ACEProblem::get_rhs_phase_at(const double* u, int i, int j)
    
    else if(model == MODEL::MODEL_4)
       /*
-      if(i == sizeX/2 && j < sizeY/2)
+      if(i % 3 == 0 && j == sizeY/2)
       {
-         std::cout << j << ", "
+         std::cout << std::defaultfloat;
+         std::cout << i << ", p: " << phase_at(u, i, j) << ", c: " << conc_at(u, i, j) << ", "
                    << "Laplace: " << constants::M_phi_tilde(T) * pow(constants::epsilon_tilde(T), 2)
                    << ", f_0: " << 4*constants::M_phi_tilde(T)*constants::w_tilde(T)
                    << ", F: " << constants::M_phi_tilde(T)*(constants::G_m_alpha(c, T)/constants::R/T - constants::G_m_beta(c, T)/constants::R/T)
@@ -358,17 +359,6 @@ double ACEProblem::get_rhs_phase_at(const double* u, int i, int j)
       rhs = constants::M_phi_tilde(T)*(pow(constants::epsilon_tilde(T), 2) * laplace(u, i, j)
             + der_polynom_p(u, i, j) * (constants::G_m_beta(c, T) - constants::G_m_alpha(c, T)) / constants::R / T
             - der_polynom_q(u, i, j) * constants::w_tilde(T));
-      
-      /*
-      if(i == sizeX/2 && j < sizeY/2)
-      {
-         std::cout << i << ", " << j << ": "
-                   << "f_0: " << 2500
-                   << ", F: " << (constants::G_m_alpha(c, T) - constants::G_m_beta(c, T)) / constants::R / T * D
-                   << ", c: " << c
-                   << std::endl;
-      }
-      */
    return rhs;
 }
 
@@ -424,18 +414,29 @@ double ACEProblem::get_conc_diff_coef(const double *u, int i, int j)
 {
    return conc_at(u, i, j)
 		    * (1 - conc_at(u, i, j))
-          * pow(constants::M_Nb_beta(T), 1 - polynom_p(u, i, j))
-		    / pow(constants::M_Nb_alpha(T), 1 - polynom_p(u, i, j))
-		    * sec_deriv_of_g_w_resp_to_c(u, i, j);
+		    * pow(constants::M_Nb_beta(T) / constants::M_Nb_alpha(T), 1 - polynom_p(u, i, j))
+		    * sec_deriv_of_g_w_resp_to_c(u, i, j)
+          / constants::R / T;
 }
 
 double ACEProblem::get_phas_diff_coef(const double *u, int i, int j)
 {
+   /*if(i % 3 == 0 && j == sizeY/2)
+      {
+         std::cout << i << ", p: " << phase_at(u, i, j) << ", c: " << conc_at(u, i, j) << ", ";
+         std::cout << std::scientific << std::setprecision(8);
+         std::cout << 50 * conc_at(u, i, j)
+		    * (1 - conc_at(u, i, j))
+		    * pow(constants::M_Nb_beta(T) / constants::M_Nb_alpha(T), 1 - polynom_p(u, i, j))
+		    * deriv_of_g_w_resp_to_c_and_p(u, i, j)
+          / constants::R / T
+                   << std::endl;
+      }*/
    return conc_at(u, i, j)
 		    * (1 - conc_at(u, i, j))
-		    * pow(constants::M_Nb_beta(T), 1 - polynom_p(u, i, j))
-		    / pow(constants::M_Nb_alpha(T), 1 - polynom_p(u, i, j))
-		    * deriv_of_g_w_resp_to_c_and_p(u, i, j);
+		    * pow(constants::M_Nb_beta(T) / constants::M_Nb_alpha(T), 1 - polynom_p(u, i, j))
+		    * deriv_of_g_w_resp_to_c_and_p(u, i, j)
+          / constants::R / T;
 }
 
 double ACEProblem::f_0(const double *u, int i, int j)
@@ -495,7 +496,7 @@ double ACEProblem::der_polynom_p(const double *u, int i, int j)
 
 double ACEProblem::der_polynom_q(const double *u, int i, int j)
 {
-   return 4 * phase_at(u, i, j)*(1 - phase_at(u, i, j))*(phase_at(u, i, j) - 1.0/2.0);
+   return 4 * phase_at(u, i, j)*(phase_at(u, i, j) - 1)*(phase_at(u, i, j) - 1.0/2.0);
 }
 
 double ACEProblem::sec_deriv_of_g_w_resp_to_c(const double* u, int i, int j)

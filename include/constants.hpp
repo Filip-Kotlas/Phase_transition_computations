@@ -10,12 +10,12 @@ namespace constants {
     inline constexpr double molar_volume = 1.4060e-5;
     inline constexpr double b = 3.23e-10;
     inline constexpr double sigma = 0.3;
-    inline constexpr double l = 50*delta;
+    inline constexpr double l = 0.9*delta;
 
     inline constexpr double p_alpha = 1;
     inline constexpr double p_beta = 0;
 
-    inline constexpr double c_min = 0.001;
+    inline constexpr double c_min = 0.0001;
     inline constexpr double c_max = 1 - c_min;
 
     inline constexpr double c_init_alpha = 0.007;
@@ -104,7 +104,7 @@ namespace constants {
         return epsilon/(l*sqrt(R*T/molar_volume));
     }
 
-    inline double w = 3 * sigma / delta;
+    inline double w = 3 * sigma / delta * molar_volume;
     inline double w_tilde(float T){
         return w / (R*T);
     }
