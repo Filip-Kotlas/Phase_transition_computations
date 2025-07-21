@@ -3,7 +3,7 @@
     {
         "type": "Runge-Kutta",
         "initial_time": 0.0,
-        "final_time": 0.10,
+        "final_time": 0.0010,
         "domain": {
             "x_left": 0,
             "x_right": 1,
@@ -15,7 +15,7 @@
         "sizeX": 100,
         "sizeY": 100,
         "frame_num": 100,
-        "model": 4
+        "model": 3
     },
 
     "problem":

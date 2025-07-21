@@ -3,22 +3,22 @@
 #define COMPUTE_PHASE
 #define COMPUTE_CONCENTRATION
 
-#define C_INIT 0
+#define C_INIT 4
 /*
 *  0 - Linear by parts in circle around the middle
 *  1 - Constant on the whole domain
 *  2 - Fourier along x axis
 *  3 - Fourier along y axis
-*  4 - Constant in halfes
+*  4 - Constant in halves
 */
 
-#define P_INIT 1
+#define P_INIT 3
 /*
 *  All based on radius
 *  0 - Hyperbolic tangent
 *  1 - Linear by parts
 *  2 - Constant in circle
-*  3 - Constant in halfes
+*  3 - Constant in halves
 */
 
 #define C_BOUND 3
@@ -28,6 +28,12 @@
 *  2 - Dirichlet along x, Neumann along y
 *  3 - Neumann everywhere
 *  4 - Dirichlet everywhere with c = 0.007
+*/
+
+#define P_BOUND 1
+/*
+*  0 - Dirichlet
+*  1 - Neumann
 */
 
 //#define C_TEST_X
@@ -241,14 +247,14 @@ void ACEProblem::set_concentration_initial_condition(double *u)
          }
 
          #elif C_INIT == 4
-         //Constant in circle
+         //Constant in halfes
          if( i < sizeX/2 )
          {
-            u[j*sizeX + i] = constants::c_init_alpha;
+            u[offset + j*sizeX + i] = constants::c_init_alpha;
          }
          else
          {
-            u[j*sizeX + i] = constants::c_init_beta;
+            u[offset + j*sizeX + i] = constants::c_init_beta;
          }
 
          #endif
@@ -266,13 +272,33 @@ void ACEProblem::apply_phase_boundary_condition(double *u, double *fu)
 {
    for(int i = 0; i < this->sizeX; i++)
    {
+      //Dirichlet
+      #if P_BOUND == 0
       fu[i] = 0;
-      fu[(sizeY-1)*sizeX + i] = constants::p_beta;
+      fu[(sizeY-1)*sizeX + i] = 0;
+
+      //Neumann
+      #elif P_BOUND == 1
+      u[i] = u[i + sizeX];
+      u[(sizeY-1)*sizeX + i] = u[(sizeY-2)*sizeX + i];
+      fu[i] = 0;
+      fu[(sizeY-1)*sizeX + i] = 0;
+      #endif
    }
    for(int j = 1; j < this->sizeY-1; j++)
    {
+      //Dirichlet
+      #if P_BOUND == 0
       fu[j*sizeX] = 0;
-      fu[(j+1)*sizeX - 1] = constants::p_beta;
+      fu[(j+1)*sizeX - 1] = 0;
+
+      //Neumann
+      #elif P_BOUND == 1
+      u[j*sizeX] = u[j*sizeX + 1];
+      u[(j+1)*sizeX - 1] = u[(j+1)*sizeX - 2];
+      fu[j*sizeX] = 0;
+      fu[(j+1)*sizeX - 1] = 0;
+      #endif
    }
 }
 
