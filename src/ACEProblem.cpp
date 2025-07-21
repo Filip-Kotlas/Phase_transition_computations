@@ -191,7 +191,7 @@ void ACEProblem::set_phase_initial_condition(double *u)
 
          #elif P_INIT == 3
          //Constant in circle
-         if( i < sizeX )
+         if( i < sizeX/2 )
          {
             u[j*sizeX + i] = constants::p_alpha;
          }
@@ -247,9 +247,9 @@ void ACEProblem::set_concentration_initial_condition(double *u)
 
          #elif C_INIT == 4
          //Constant in circle
-         if( i < sizeX )
+         if( i < sizeX/2 )
          {
-            u[j*sizeX + i] = constants::c_init_alpha
+            u[j*sizeX + i] = constants::c_init_alpha;
          }
          else
          {
