@@ -1,4 +1,4 @@
-TARGET_NAME:= Phase-field.exe
+TARGET:= Phase-field.exe
 FOLDER ?= Results
 
 BUILD_DIR := ./build
@@ -13,13 +13,18 @@ WARNINGS := -Wall -Wextra
 
 SRC := $(wildcard $(SRC_DIR)/*.cpp)
 INCLUDE := $(wildcard $(INCLUDE_DIR)/*.hpp)
+OBJ := $(SRC:$(SRC_DIR)/%.cpp=$(BUILD_DIR)/%.o)
 
-$(BUILD_DIR)./$(TARGET_NAME): $(SRC) $(INCLUDE)
-	$(CXX) $(CXXFLAGS) -o $(BUILD_DIR)./$(TARGET_NAME) $(SRC)
+$(BUILD_DIR)/%.o: $(SRC_DIR)/%.cpp
+	@if not exist "$(BUILD_DIR)" mkdir $(BUILD_DIR)
+	$(CXX) $(CXXFLAGS) -c $< -o $@
+
+$(BUILD_DIR)/$(TARGET): $(OBJ)
+	$(CXX) $(CXXFLAGS) -o $@ $^
 
 .PHONY:run
-run: $(BUILD_DIR)./$(TARGET_NAME)
-	$(BUILD_DIR)./$(TARGET_NAME) $(RESULTS_DIR)/$(FOLDER)
+run: $(BUILD_DIR)/$(TARGET)
+	$(BUILD_DIR)/$(TARGET) $(RESULTS_DIR)/$(FOLDER)
 	python $(PYTHON_DIR)/basic_plot.py --name $(FOLDER) --type both
 
 .PHONY:clean

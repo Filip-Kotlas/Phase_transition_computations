@@ -5,7 +5,7 @@ namespace constants {
     inline constexpr double R = 8.31446261815324;
     inline constexpr double Cal_to_joule = 4.184;
 
-    inline constexpr double delta = 5e-9;
+    inline constexpr double delta = 5e-7;
     inline constexpr double delta_fixed = 5e-9;
     inline constexpr double molar_volume = 1.4060e-5;
     inline constexpr double b = 3.23e-10;
