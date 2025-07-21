@@ -9,6 +9,7 @@
 *  1 - Constant on the whole domain
 *  2 - Fourier along x axis
 *  3 - Fourier along y axis
+*  4 - Constant in halfes
 */
 
 #define P_INIT 1
@@ -16,7 +17,8 @@
 *  All based on radius
 *  0 - Hyperbolic tangent
 *  1 - Linear by parts
-*  2 - Constant by parts
+*  2 - Constant in circle
+*  3 - Constant in halfes
 */
 
 #define C_BOUND 3
@@ -238,7 +240,7 @@ void ACEProblem::set_concentration_initial_condition(double *u)
             u[offset + j*sizeX + i] += C_n * sin(sqrt(lambda_n) * (j*hy));
          }
 
-         #elif C_INIT == 3
+         #elif C_INIT == 4
          //Constant in circle
          if( i < sizeX )
          {
