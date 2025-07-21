@@ -66,6 +66,7 @@ ACEProblem::ACEProblem(int sizeX,
                        double beta,
                        double par_a,
                        double ksi,
+                       int par_T,
                        MODEL model,
                        std::string output_folder)
 :  sizeX(sizeX),
@@ -77,6 +78,7 @@ ACEProblem::ACEProblem(int sizeX,
    beta(beta),
    par_a(par_a),
    ksi(ksi),
+   T(par_T),
    model(model),
    output_folder(output_folder)
 {
@@ -253,7 +255,7 @@ void ACEProblem::set_concentration_initial_condition(double *u)
 
          #elif C_INIT == 4
          //Constant in halfes
-         if( i < sizeX/2 )
+         if( i < sizeX/2 + 5 )
          {
             u[offset + j*sizeX + i] = constants::c_init_alpha;
          }
@@ -377,8 +379,9 @@ double ACEProblem::get_rhs_phase_at(const double* u, int i, int j)
       rhs = laplace(u, i, j) + f_0(u, i , j) / ksi / ksi + grad_norm(u, i, j)*F(u, i, j);
    
    else if(model == MODEL::MODEL_4)
+   {
       /*
-      if(i % 3 == 0 && j == sizeY/2)
+      if(j == sizeY/2)
       {
          std::cout << std::defaultfloat;
          std::cout << i << ", p: " << phase_at(u, i, j) << ", c: " << conc_at(u, i, j) << ", "
@@ -390,6 +393,7 @@ double ACEProblem::get_rhs_phase_at(const double* u, int i, int j)
       rhs = constants::M_phi_tilde(T)*(pow(constants::epsilon_tilde(T), 2) * laplace(u, i, j)
             + der_polynom_p(u, i, j) * (constants::G_m_beta(c, T) - constants::G_m_alpha(c, T)) / constants::R / T
             - der_polynom_q(u, i, j) * constants::w_tilde(T));
+   }
    return rhs;
 }
 

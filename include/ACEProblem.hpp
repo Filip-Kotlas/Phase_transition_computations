@@ -46,6 +46,7 @@ struct Parameters{
     double beta;
     double par_a;
     double ksi;
+    int par_T;
     MODEL model;
 };
 
@@ -61,6 +62,7 @@ class ACEProblem : public ODEProblem
                double beta,
                double par_a,
                double ksi,
+               int par_T,
                MODEL model,
                std::string output_folder);
       

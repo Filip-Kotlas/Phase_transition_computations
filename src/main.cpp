@@ -75,7 +75,7 @@ Parameters get_parameters() {
         // Integration time step
         double computed_integration_time_step = pow(std::min((par.domain.x_right - par.domain.x_left)/(par.sizeX-1),
                                                    (par.domain.y_right - par.domain.y_left)/(par.sizeY-1)),
-                                                    2)/5/2000;
+                                                    2)/4047/5;
         if( solver.value("custom_integration_time_step", false) )
         {
             par.integrationTimeStep = solver.value("integration_time_step", computed_integration_time_step);
@@ -91,6 +91,7 @@ Parameters get_parameters() {
         par.beta = problem.value("beta", 1.0);
         par.par_a = problem.value("a", 1.0);
         par.ksi = problem.value("ksi", 0.01);
+        par.par_T = problem.value("T", 1000);
     }
     catch(const std::exception& e) {
         std::cout << "Chyba při načítání JSON: " << e.what() << std::endl;
@@ -142,6 +143,7 @@ void save_parameters(std::string file_path, Parameters param) {
     file << std::left << std::setw(24) << "Beta:"          << std::right << std::setw(28) << param.beta << std::endl;
     file << std::left << std::setw(24) << "Par_a:"         << std::right << std::setw(28) << param.par_a << std::endl;
     file << std::left << std::setw(24) << "Ksi:"           << std::right << std::setw(28) << param.ksi << std::endl;
+    file << std::left << std::setw(24) << "T:"           << std::right << std::setw(28) << param.par_T << std::endl;
     file << std::left << std::setw(24) << "Model:"         << std::right << std::setw(28) << int(param.model);
 }
 
@@ -189,6 +191,7 @@ int main(int argc, char** argv)
                                     parameters.beta,
                                     parameters.par_a,
                                     parameters.ksi,
+                                    parameters.par_T,
                                     parameters.model,
                                     calc_path);
 
