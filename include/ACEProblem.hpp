@@ -143,8 +143,6 @@ class ACEProblem : public ODEProblem
 
     const double T = 1000;
 
-    bool blowout = false;
-    
     const MODEL model;
     
     const std::string output_folder;

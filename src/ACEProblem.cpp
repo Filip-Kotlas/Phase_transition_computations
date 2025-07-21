@@ -341,7 +341,6 @@ double ACEProblem::get_rhs_phase_at(const double* u, int i, int j)
 {
    double rhs = 0.0;
    double c = conc_at(u, i, j);
-   double D = 100000;
 
    if(model == MODEL::MODEL_3)
       rhs = laplace(u, i, j) + f_0(u, i , j) / ksi / ksi + grad_norm(u, i, j)*F(u, i, j);
@@ -355,16 +354,11 @@ double ACEProblem::get_rhs_phase_at(const double* u, int i, int j)
                    << ", f_0: " << 4*constants::M_phi_tilde(T)*constants::w_tilde(T)
                    << ", F: " << constants::M_phi_tilde(T)*(constants::G_m_alpha(c, T)/constants::R/T - constants::G_m_beta(c, T)/constants::R/T)
                    << std::endl;
-      }
+      }*/
       rhs = constants::M_phi_tilde(T)*(pow(constants::epsilon_tilde(T), 2) * laplace(u, i, j)
-            + der_polynom_p(u, i, j) * (constants::G_m_alpha(c, T) - constants::G_m_beta(c, T)) / constants::R / T
-            + der_polynom_q(u, i, j) * constants::w_tilde(T));
-      rhs *= D;
-      */
-
-      rhs = laplace(u, i, j)
-            + der_polynom_p(u, i, j) * (constants::G_m_beta(c, T) - constants::G_m_alpha(c, T)) / constants::R / T * D
-            + der_polynom_q(u, i, j) * 10000;
+            + der_polynom_p(u, i, j) * (constants::G_m_beta(c, T) - constants::G_m_alpha(c, T)) / constants::R / T
+            - der_polynom_q(u, i, j) * constants::w_tilde(T));
+      
       /*
       if(i == sizeX/2 && j < sizeY/2)
       {
@@ -398,9 +392,6 @@ double ACEProblem::grad_norm(const double *u, int i, int j)
 
 double ACEProblem::div_D_grad_concentration(const double *u, int i, int j)
 {
-   //if(i == sizeX/2)
-      //std::cout <<"c: " << conc_at(u, i, j) << ", p: " << phase_at(u, i, j) << ", 2g w c: " << sec_deriv_of_g_w_resp_to_c(u, i, j) << std::endl;
-
 	double coeff_plus_half = (get_conc_diff_coef(u, i + 1, j) + get_conc_diff_coef(u, i, j)) / 2;
 	double coeff_minus_half = (get_conc_diff_coef(u, i, j) + get_conc_diff_coef(u, i - 1, j)) / 2;
 	double x_direction = coeff_plus_half * (conc_at(u, i+1, j) - conc_at(u, i, j)) / hx
@@ -416,8 +407,6 @@ double ACEProblem::div_D_grad_concentration(const double *u, int i, int j)
 
 double ACEProblem::div_D_grad_phase(const double *u, int i, int j)
 {
-   //if(i == sizeX/2)
-      //std::cout <<"c: " << conc_at(u, i, j) << ", p: " << phase_at(u, i, j) <<  ", g w p c: " << deriv_of_g_w_resp_to_c_and_p(u, i, j) << std::endl;
 	double coeff_plus_half = (get_phas_diff_coef(u, i + 1, j) + get_phas_diff_coef(u, i, j)) / 2;
 	double coeff_minus_half = (get_phas_diff_coef(u, i, j) + get_phas_diff_coef(u, i - 1, j)) / 2;
 	double x_direction = coeff_plus_half * (phase_at(u, i+1, j) - phase_at(u, i, j)) / hx
@@ -433,17 +422,7 @@ double ACEProblem::div_D_grad_phase(const double *u, int i, int j)
 
 double ACEProblem::get_conc_diff_coef(const double *u, int i, int j)
 {
-   double D = 0.0000125;
-   if(!blowout && sec_deriv_of_g_w_resp_to_c(u, i, j) < -0.001)
-   {
-      std::cout << "Blow out conc: (" << i << ", " <<  j << std::fixed << std::setprecision(8) << "), c: "
-                << conc_at(u, i, j) << ", p: " << phase_at(u, i, j) << ", "
-                << pow(constants::M_Nb_beta(T), 1 - polynom_p(u, i, j)) / pow(constants::M_Nb_alpha(T), 1 - polynom_p(u, i, j)) << ", " 
-		          << sec_deriv_of_g_w_resp_to_c(u, i, j) << std::endl;
-      blowout = true;
-   }
-   return D
-          * conc_at(u, i, j)
+   return conc_at(u, i, j)
 		    * (1 - conc_at(u, i, j))
           * pow(constants::M_Nb_beta(T), 1 - polynom_p(u, i, j))
 		    / pow(constants::M_Nb_alpha(T), 1 - polynom_p(u, i, j))
@@ -452,16 +431,7 @@ double ACEProblem::get_conc_diff_coef(const double *u, int i, int j)
 
 double ACEProblem::get_phas_diff_coef(const double *u, int i, int j)
 {
-   double D = 0.00000900;
-   if(!blowout && deriv_of_g_w_resp_to_c_and_p(u, i, j) < - 0.001)
-   {
-      std::cout << "Blow out phase: (" << i << ", " <<  j << "), c: "
-                << conc_at(u, i, j) << ", p: " << phase_at(u, i, j) << ", "
-                << pow(constants::M_Nb_beta(T), 1 - polynom_p(u, i, j)) / pow(constants::M_Nb_alpha(T), 1 - polynom_p(u, i, j)) << ", " 
-		          << deriv_of_g_w_resp_to_c_and_p(u, i, j) << std::endl;
-      blowout = true;
-   }
-   return D * conc_at(u, i, j)
+   return conc_at(u, i, j)
 		    * (1 - conc_at(u, i, j))
 		    * pow(constants::M_Nb_beta(T), 1 - polynom_p(u, i, j))
 		    / pow(constants::M_Nb_alpha(T), 1 - polynom_p(u, i, j))

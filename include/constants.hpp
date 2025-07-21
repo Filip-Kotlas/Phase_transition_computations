@@ -31,11 +31,11 @@ namespace constants {
 
     inline double G_Nb_alpha_0(float T){
         return 1480.647
-               + 144.445475*T
-               - 26.4711*T*log(T)
-               + 2.03475e-4*T*T
-               - 3.5012e-7*T*T*T
-               + 93399/T;
+        + 144.445475*T
+        - 26.4711*T*log(T)
+        + 2.03475e-4*T*T
+        - 3.5012e-7*T*T*T
+        + 93399/T;
     }
     inline double G_Zr_alpha_0(float T){
         return -7827.595
@@ -93,7 +93,7 @@ namespace constants {
     }
 
     inline double M_phi(float T){
-        return 0.235 * D_eff(T) * delta_fixed / delta* molar_volume / (b*b*R*T);
+        return 0.235 * D_eff(T) * delta_fixed / delta * molar_volume / (b*b*R*T);
     }
     inline double M_phi_tilde(float T){
         return M_phi(T)*l*l/(M_Nb_alpha(T)*molar_volume);

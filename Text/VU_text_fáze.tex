@@ -1,0 +1,581 @@
+\chapter{Model fázového pole}
+Mějme omezenou oblast \(\Omega \subset \mathbb{R}^2\), na které uvažujeme pevný materiál.
+Nechť tento materiál může existovat ve dvou fázích pojmenovaných \(\alpha\) a \(\beta\).
+Dále předpokládáme, že dynamika změny fáze je řízena koncentrací jistého prvku \(\chi\) v tomto materiálu.
+Zavádíme proto funkci \(c: \mathbb{R}^+ \times \Omega \to [0, 1]\), která tuto koncentraci představuje.
+%TODO: Zkontrolovat, že mám dobře pojmenovaný tento prvek i jindy, třeba u těch mobilit. Popřípadě to pojmenování úplně předělat.
+
+\section{Fázového pole}\label{Sekce: Fázové pole}
+Při popisu fázových přechodů v materiálech je možno využívat vícero přístupů.
+Často využívaným je model ostré hranice, který uvažuje nespojitost některé proměnné systému. % TODO: Přidat ještě něco k tomuhle ať to není tak prázdný.
+Jiné paradigma, které je v posledních letech hojně využíváno, je metoda fázového pole.
+Jejím principem je popis fáze v materiálu pomocí spojité skalární funkce.
+
+\begin{definice}
+    Na \(\Omega\) zavádíme fázové pole jako funkci \(\phi: \mathbb{R}^{+} \times \Omega \to [0, 1]\) splňující:
+    \begin{itemize}
+        \item \(\phi\) je hladká na \(\Omega\),
+        \item \(\phi\) je blízká k 1 v místech \(\Omega\), kde je materiál ve fázi \(\alpha\)
+        \item \(\phi\) je blízká k 0 v místech \(\Omega\), kde je materiál ve fázi \(\beta\), % TODO: Zkontrolovat jestli mi sedí alfa a beta k odpovídajícím hodnotám fázové funkce.
+        \item množina \(\left\{ \mathbf{x} \in \Omega \mid \phi(t, \mathbf{x}) = \tfrac{1}{2}\right\}\) odpovídá fázovému rozhraní materiálu.
+    \end{itemize}
+\end{definice}
+
+K přechodu fáze dochází na tenké přechodové vrstvě nacházející se v blízkém okolí fázového rozhraní.
+% TODO: Pokud bude nějaká obrázek, tak sem přidat odkaz na něj.
+
+Zkoumaný systém popisujeme pomocí funkcionálu volné energie
+\begin{equation}\label{Funkcionál volné energie}
+    G[\phi, c] = \int_\Omega W(\phi, c) \dd x,
+\end{equation}
+vyjádřeného pomocí jeho objemové hustoty.
+Ta má tvar
+\begin{equation}
+    W(\phi, c) = w(\phi, c) + \xi^2 \left\vert \nabla \phi \right\vert^2,
+\end{equation}
+kde \(w(\phi, c)\) je objemový člen hustoty a člen \(\xi^2 \left\vert \nabla \phi \right\vert^2 \) popisuje nehomogenitu systému.
+Veličina \(\xi\) vyjadřuje tloušťku rozhraní.
+Hustota \(w(\phi, c)\) má vzhledem k \(\phi\) tvar dvouminimového potenciálu, díky čemuž má systém tendenci přecházet k stavům určeným předepsanými hodnotami fázového pole.
+Nejjednodušší tvar je
+\begin{equation}\label{Zavedení w_0}
+    w_0(\phi) = \frac{a}{4}\left(\left(\phi-\frac{1}{2}\right)^2 - \frac{1}{4}\right)^2,
+\end{equation}
+kde \(a > 0\) je konstanta.
+K vidění je na obrázku \ref{Temp 1}.
+%TODO: Přidat obrázek.
+
+Předpokládáme, že funkcionál \eqref{Funkcionál volné energie} se v čase přibližuje ke svému minimu podle rovnice gradientního toku
+\begin{equation}
+    \tau \frac{\partial \phi}{\partial t} = - \delta_\phi G[\phi, c],
+\end{equation}
+kde \(\delta_\phi G(\phi, c)\) je Gateauxova derivace vzhledem k \(\phi\) a \(\tau\) je relaxační parametr \cite{Beneš_01}. 
+%TODO: Možná trochu zmínit model A equation nebo proč tahle rovnice platí.
+Dosazením (viz \cite{Beneš_97}) získáme Allenovu-Cahnovu rovnici
+\begin{equation}\label{Obecna ACE}
+    \alpha \xi^2 \frac{\partial \phi}{\partial t} = \xi^2 \Delta \phi + f(c, \phi, \nabla \phi, \xi),
+\end{equation}
+kde \(f(c, \phi, \nabla \phi, \xi) = - \frac{\partial w}{\partial \phi}\) a bereme \(\tau = \alpha \xi^2\).
+% TODO: Doplnit počáteční podmínky.
+
+Konkrétní tvar \(f(c, \phi, \nabla \phi, \xi)\) je závislý na použitém modelu.
+Všechny odvozujeme z \eqref{Zavedení w_0}, kde dostáváme
+\begin{equation}\label{Jednoduchý tvar f}
+    f_0(\phi) = - \frac{\partial w_0}{\partial \phi} = a \phi \left(1-\phi\right) \left(\phi-\tfrac{1}{2}\right).
+\end{equation}
+Tato funkce má vzhledem k \(\phi\) tři kořeny \(0, \frac{1}{2}\) a \(1\) a je zobrazena na obrázku \ref{Temp 2}.
+Funkce \(f(c, \phi, \nabla \phi, \xi)\) v odvozených modelech musí mít vzhledem k \(\phi\) kořeny 0 a 1, třetí kořen mezi nimi a podobný tvar, jako má \(f_0\).
+Jinak by \(w(\phi, c)\) nebyl dvouminimový potenciál a model by postrádal fyzikální smysl.
+
+\begin{itemize}
+    \item \textbf{Model 1}: Je dán funkcí \(f\) ve tvaru
+    \begin{equation}
+        f(c, \phi, \xi) = a\phi(1-\phi)(\phi-\tfrac{1}{2}) - b\xi F(c),
+    \end{equation}
+    kde \(b\) je určitá konstanta a \(F(c)\) je silový člen závislý na řídícím poli \(c\).
+    Tento model je sice jednoduchý na implementaci, ale má tu nevýhodu, že \(f\) má tři kořeny pouze za podmínky
+    \begin{equation}
+        \big\vert b \xi F(c) \big\vert < \frac{\sqrt{3}a}{36}.
+    \end{equation}
+    To značně omezuje jeho využití.
+
+    \item \textbf{Model 2}: Je dán funkcí \(f\) ve tvaru
+    \begin{equation}
+        f(c, \phi, \xi) = a\phi(1-\phi)\left(\phi-\tfrac{1}{2} - b \xi F(c)\right).
+    \end{equation}
+    %TODO: Zmínit, že F je obvykle tangens?
+    Ta má kořeny 0 a 1, ale třetí kořen má v intervalu \((0,1)\) jedině, když je splněno
+    \begin{equation}
+        \big\vert b \xi F(c) \big\vert < \frac{1}{2}.
+    \end{equation}
+
+    \item \textbf{Model 3}: Je dán funkcí \(f\) ve tvaru
+    \begin{equation}
+        f(c, \phi, \nabla \phi, \xi) = a\phi\left(1-\phi\right)\left(\phi-\tfrac{1}{2}\right) - \xi^2\vert\nabla \phi \vert F(c).
+    \end{equation}
+    Tento tvar nemá žádná omezení na \(\xi\) či \(F\).
+    %TODO: Proč? Napsat z něčeho. Myslím, že Dvořák to tam má.
+
+    \item \textbf{Model 4}: Pro tento model je funkce \(f\) vzhledem k \(\phi\) polynomem čtvrtého řádu. Je hojně využíván pro modelování změny fáze řízené koncentrací např. v \cite{Loginova_2004,Boettinger_2002, Choudhuri_2013}.
+    %TODO: Co to napří.? Je to dobře?
+    Funkce \(f\) má tvar
+    \begin{equation}\label{f modelu 4}
+        \begin{aligned}
+        f(c, \phi, \xi) &= a\phi(1-\phi)\left(\phi-\tfrac{1}{2}-b\xi \phi (1-\phi) F(c) \right)\\
+        &=a\phi(1-\phi)\left(\phi-\tfrac{1}{2}\right) - b\xi \phi^2 (1-\phi)^2 F(c).
+        \end{aligned}
+    \end{equation}
+    Celkem má čtyři kořeny z nichž dva jsou 0 a 1 a jeden je pro libovolnou hodnotu \(\vert b \xi F(c) \vert\) v intervalu \((0, 1)\), jak je vidět z obrázku \ref{Temp_3}.
+\end{itemize}
+
+\section{Řídící rovnice pro koncentraci}
+Rozložení koncentrace se v našem modelu řídí difuzní rovnicí
+\begin{equation}
+    \frac{\partial c}{\partial t} = - \nabla J_c.
+\end{equation}
+s difuzním tokem \(J_c\) \cite{Loginova_2004}.
+Dle zákonů lineární nerovnovážné termodynamiky \cite{Loginova_2004} pro něj platí
+\begin{equation}
+    J_c = - L^{\prime \prime}\nabla \delta_c G,
+\end{equation}
+kde \(\delta_c G\) je Gateauxova derivace vzhledem k \(c\) a \(L^{\prime \prime} = L^{\prime \prime}(\phi, c)\) je kinetický parametr.
+
+Jelikož
+\begin{equation}
+    \delta_c G[\phi, c] = \frac{\partial w}{\partial c},
+\end{equation}
+dostáváme zderivováním
+\begin{equation}
+    \nabla \delta_c G = \frac{\partial^2 w}{\partial c^2} \nabla c + \frac{\partial^2 w}{\partial \phi \partial c} \nabla \phi.
+\end{equation}
+Vývoj koncentrace se tak řídí rovnicí
+\begin{equation}
+    \frac{\partial c}{\partial t} = \nabla \left[ D(\phi, c) \nabla c + \bar D(\phi, c) \nabla \phi \right],
+\end{equation}
+kde
+\begin{align}
+    D(\phi, c) &= L^{\prime \prime}(\phi, c) \frac{\partial^2 w}{\partial c^2},\\
+    \bar{D}(\phi, c) &=  L^{\prime \prime}(\phi, c) \frac{\partial^2 w}{\partial \phi \partial c}.
+\end{align}
+
+
+
+\section{Překrývací asymptotická analýza}
+Výše jsme odvodili dvě rovnice, podle kterých se vyvíjí fáze v materiálu.
+Doplněním o okrajové a počáteční podmínky dostáváme úlohu fázového pole řízeného koncentrací,
+\begin{subequations}\label{Úloha fázového pole}
+    \begin{align}
+        \alpha \xi^2 \frac{\partial \phi}{\partial t} &= \xi^2 \Delta \phi + f(c, \phi, \nabla \phi, \xi) &&\text{na \(\Omega\)},\label{Úloha fázového pole: rovnice fáze}\\
+        \frac{\partial c}{\partial t} &= \nabla \left[ D(\phi, c) \nabla c + \bar D(\phi, c) \nabla \phi \right] &&\text{na \(\Omega\)},\label{Úloha fázového pole: rovnice koncentrace}\\
+        \phi &= 0 &&\text{na \(\partial \Omega\)},\label{Úloha fázového pole: okrajové podmínky fáze}\\
+        \nabla c \cdot \mathbf{N} &= 0 &&\text{na \(\partial \Omega\)},\\
+        \phi &= p_{init} &&\text{pro \(t = 0\) na \(\Omega\)},\\
+        c &= c_{init} &&\text{pro \(t = 0\) na \(\Omega\)},
+    \end{align}
+\end{subequations}
+kde \(\phi_{init}\) a \(c_{init}\) jsou počáteční podmínky, \(\mathbf{N}\) je normálový vektor k \(\partial \Omega\) a \(f(c, \phi, \nabla \phi, \xi)\) je určena podle volby modelu ze sekce \ref{Sekce: Fázové pole}.
+Počáteční podmínku \(\phi_{init}\) uvažujeme takovou, že uvnitř \(\Omega\) se nachází oblast, na které je blízká 1, a na \(\partial \Omega\) splňuje okrajové podmínky \eqref{Úloha fázového pole: okrajové podmínky fáze}.
+
+Díky tvaru úlohy fázového pole se dá předpokládat, že oblast \(\Omega\) se podle vlastností řešení \(\phi\) rozdělí na tři podoblasti:
+\begin{itemize}
+    \item \(\Omega_\alpha\), kde \(\phi\) je blízko 1,
+    \item \(\Omega_\beta\), kde \(\phi\) je blízko 0,
+    \item tenkou přechodovou vrstvu \(\Omega_\Gamma\), na které \(\phi\) rychle mění svoji hodnotu od 0 k 1.
+\end{itemize}
+Řešení úloh s podobným profilem můžeme aproximovat a analyzovat pomocí překrývací asymptotické analýzy.
+Tu v tomto textu provedeme pouze pro model 4.
+Postup přebíráme z \cite{Dvořák_2010}, kde je analýza provedena pro modely 1-3.
+Analýza se skládá ze dvou kroků, z vnějšího a vnitřního rozvoje.
+Vnější rozvoj provádíme na \(\Omega_\alpha\) a \(\Omega_\beta\) a vnitřní rozvoj potom na \(\Omega_\Gamma\).
+
+\subsection{Vnější rozvoj}\label{Sekce: Vnější rozvoj}
+Začneme vnějším rozvojem.
+Na funkci fáze \(\phi\) a funkci koncentrace \(c\) použijeme Poincarého rozvoj s asymptotickou posloupností \(\{\xi^i\}\) \cite{Lagerstrom_1988},
+\begin{subequations}\label{Poincarého rozvoje phi a c}
+    \begin{align}
+        \phi(t, \mathbf{x}) &\sim \sum_{i=0}^\infty \phi_i(t, \mathbf{x}) \xi^i,\\
+        c(t, \mathbf{x}) &\sim \sum_{i=0}^\infty c_i(t, \mathbf{x}) \xi^i.
+    \end{align}
+\end{subequations}
+Označíme
+\begin{equation}\label{Vnější rozvoj: značení f z modelu 4}
+    f(c, \phi) = f_0(\phi) + f_1(c, \phi) \xi,
+\end{equation}
+kde podle \eqref{f modelu 4} je \(f_1(c, \phi) = - b \phi^2 (1-\phi)^2 F(c).\)
+
+Dále \(f(c, \phi)\) rozvineme pomocí Taylorovy řady v bodě \( (c_0, \phi_0)\)
+\begin{equation}\label{f pomocí Taylora}
+    \begin{aligned}
+        f(c,\phi) &= f(c_0, \phi_0)\\ &+ \frac{\partial f}{\partial c}(c_0, \phi_0) (c-c_0) + \frac{\partial f}{\partial \phi}(c_0, \phi_0) (\phi-\phi_0)\\
+        &+ \frac{1}{2}\frac{\partial^2 f}{\partial c^2}(c_0, \phi_0)(c-c_0)^2 + \frac{1}{2}\frac{\partial^2 f}{\partial \phi\partial c}(c-c_0)(\phi-\phi_0) + \frac{1}{2}\frac{\partial^2f}{\partial \phi^2}(\phi-\phi_0)^2 + \ldots
+    \end{aligned}
+\end{equation}
+Do \eqref{f pomocí Taylora} můžeme dosadit rozvoje \eqref{Poincarého rozvoje phi a c} a použít značení \eqref{Vnější rozvoj: značení f z modelu 4}. Celý výsledný rozvoj pak dosadíme do rovnice \eqref{Úloha fázového pole: rovnice fáze}.
+Při využití faktu, že \(f_0\) nezávisí na \(c\), a seskupením členů s mocninami \(\xi\) vyššími než 2 získáváme
+\begin{equation}
+    \begin{aligned}
+        \alpha \xi^2 \frac{\partial \phi_0}{\partial t} &= \xi^2 \Delta \phi_0\\
+        &+ f_0(\phi_0) + f_1(c_0, \phi_0)\xi\\
+        &+ \frac{\partial f_1}{\partial c}(c_0, \phi_0)c_1 \xi^2 \\
+        &+ \frac{\partial f_0}{\partial \phi}(\phi_0) \left(\phi_1 \xi + \phi_2 \xi^2\right) + \frac{\partial f_1}{\partial \phi}(c_0, \phi_0) \phi_1 \xi^2\\
+        &+ \frac{1}{2}\frac{\partial^2 f_0}{\partial \phi^2}(\phi_0) \left( \phi_1\xi\right)^2\\
+        &+O(\xi^3)
+    \end{aligned}
+\end{equation}
+
+Nyní budeme porovnávat členy u jednotlivých mocnin \(\xi\).
+\begin{itemize}
+    \item \textbf{Členy u \(\xi^0\):} Máme
+    \begin{equation}
+        0 = f_0(\phi_0) = a\phi_0(1-\phi_0)(\phi_0-\tfrac{1}{2})
+    \end{equation}
+    Z toho vyplývá, že \(\phi_0\) se rovná pouze 0 nebo 1.
+    %TODO: Přepsat až bud mít ty zadefinované části \Omega.
+    \item \textbf{Členy u \(\xi^1\):} Máme
+    \begin{equation}
+        0 = f_1(c_0, \phi_0) + \frac{\partial f_0}{\partial \phi}(\phi_0) \phi_1
+    \end{equation}
+    Jelikož \(\phi_0 \in \{0, 1\}\) platí
+    \begin{align}\label{derivace f_0 podle phi a v phi_0}
+        \frac{\partial f_0}{\partial \phi}(\phi_0) &= a\left(-3\phi_0^2+3\phi_0-\tfrac{1}{2}\right) = -\frac{a}{2},\\
+        f_1(c_0, \phi_0) &= -b \phi_0^2 (1-\phi_0)^2 F(c_0) = 0.
+    \end{align}
+    Z toho už vyplývá, že
+    \begin{equation}
+        \phi_1 = 0.
+    \end{equation}
+    \item \textbf{Členy u \(\xi^2\):} Máme 
+    \begin{equation}
+        \alpha \frac{\partial \phi_0}{\partial t} = \Delta \phi_0 + \frac{\partial f_1}{\partial c}(c_0, \phi_0)c_1 + \frac{\partial f_0}{\partial \phi}(\phi_0) \phi_2 + \frac{\partial f_1}{\partial \phi}(c_0, \phi_0)\phi_1 + \frac{1}{2}\frac{\partial^2 f_0}{\partial \phi^2}(\phi_0)\phi_1
+    \end{equation}
+    Pro \(\phi_0 \in \{0, 1\}\) platí znovu \eqref{derivace f_0 podle phi a v phi_0} a dále
+    \begin{align}
+        &\frac{\partial \phi_0}{\partial t} = 0\\
+        &\Delta \phi_0 = 0 \\
+        &\frac{\partial f_1}{\partial c}(c_0, \phi_0) = -b\phi_0^2(1-\phi_0)^2F^\prime(c_0) = 0,\\
+        &\frac{\partial f_1}{\partial \phi}(c_0, \phi_0) = -b\left(2\phi_0-6\phi_0^2+4\phi_0^3\right)F(c_0) = 0\\
+        &\frac{\partial^2 f_0}{\partial \phi^2}(\phi_0) = a(-6\phi_0 + 3) =
+        \begin{cases}
+            3a & \text{pro } \phi_0 = 0 \\
+            -3a & \text{pro } \phi_0 = 1
+        \end{cases}
+    \end{align}
+    Z čehož znovu vyplývá, že
+    \begin{equation}
+        \phi_2 = \pm 3 \phi_1 = 0.
+    \end{equation}
+\end{itemize}
+Z této analýzy vyplývá, že funkce \(\phi\) je na \(\Omega_\alpha\) a \(\Omega_\beta\) konstantní s přesností do třetího řádu \(\xi\).
+
+Nyní se zaměříme na koncentraci.
+Do \eqref{Úloha fázového pole: rovnice koncentrace} dosadíme rozvoje \eqref{Poincarého rozvoje phi a c} a koeficient \(D(\phi, c)\) rozvineme do Taylorovy řady v bodě \((\phi_0, c_0)\)
+\begin{equation}
+    D(\phi, c) = D(\phi_0, c_0) + O(\xi).
+\end{equation}
+Jelikož \(\phi_0\) je konstantní, dostáváme
+\begin{equation}\label{Vnější rozvoj: Rovnice pro c_0}
+    \frac{\partial c_0}{\partial t} = \nabla \left( D(\phi_0, c_0) \nabla c_0 \right)+ O(\xi).
+\end{equation}
+Na oblastech \(\Omega_\alpha\) a \(\Omega_\beta\) se tak koncentrace řídí rovnicí \eqref{Vnější rozvoj: Rovnice pro c_0} s přesností prvního řádu \(\xi\).
+
+\subsection{Vnitřní rozvoj}
+Nyní na oblasti \(\Omega_\Gamma\) aplikujeme na rovnice \eqref{Úloha fázového pole} vnitřní rozvoj s „malým“ parametrem \(\xi\).
+Nejprve ale provedeme záměnu souřadnic.
+
+Označme rozhraní fází
+\begin{equation}
+    \Gamma(t) = \left\{\mathbf{x} \in \Omega \mid \phi(t, \mathbf{x}) = \tfrac{1}{2}\right\}.
+\end{equation}
+Nechť \(S \subset \mathbb{R}\) a \(\mathbf{Q}:S \to \Omega\) je dostatečně hladké zobrazení, pro které platí \(\phi(t, \mathbf{Q}(s)) = \tfrac{1}{2}\) pro všechna \(s\in S\).
+Pak pomocí \(\mathbf{Q}\) parametrizujeme pro dané \(t\) nadrovinu \(\Gamma(t)\) jako
+\begin{equation}
+    \Gamma(t) = \left\{\mathbf{x} \in \Omega \mid \left(\exists_1 s \in S\right) \left(x = \mathbf{Q}(t, s)\right)\right\}.
+    %TODO: Opravit tu množinu.
+\end{equation}
+V okolí \(\Gamma(t)\) zavádíme lokální ortogonální souřadný systém \([s, r]\) předpisem
+\begin{equation}
+    \mathbf{x} = \mathbf{Q}(t, s) + r \mathbf{n}(t, s),
+\end{equation}
+kde \(\mathbf{n}(t, s)\) je jednotkový vektor kolmý na \(\Gamma(t)\) v bodě \(\mathbf{Q}(t, s)\) mířící ven z oblasti \(\Omega_\alpha\).
+%TODO: Pokud nějak přepíšu ten začátek a přidám tam tu fázi \alpha  a \beta, tak to tu trochu můžu upravit a říct, že ta normála je vnější, třeba k té fázi \alpha.
+%TODO: Přidat obrázky.
+Jeho existenci zajišťuje věta o implicitní funkci, tj. existují zobrazení
+\begin{align}
+    s &= s(t, \mathbf{x})& r &= r(t, \mathbf{x}).
+\end{align}
+O \(s\) mluvíme jako o podélné a o \(r\) jako o radiální souřadnici.
+
+Budeme se zabývat tím, jaký tvar mají v těchto nových souřadnicích operátory použité v úloze \eqref{Úloha fázového pole}.
+Označme
+\begin{align}
+    \mathbf{n} &=
+    \begin{pmatrix}
+        n_1\\
+        n_2
+    \end{pmatrix} &
+    \mathbf{Q} &= 
+    \begin{pmatrix}
+        Q_1\\
+        Q_2
+    \end{pmatrix}.
+\end{align}
+Platí následující identity
+\begin{align}
+    n_1^2(s) + n_2^2(s) &= 1,\label{Vnitřní rozvoj: n je jednotkový}\\
+    n_1(s)\frac{\partial n_1(s)}{\partial s} + n_2(s)\frac{\partial n_2(s)}{\partial s} &= 0,\label{Vnitřní rozvoj: derivace n je jednotkový}\\
+    n_1(s)\frac{\partial Q_1(s)}{\partial s} + n_2(s)\frac{\partial Q_2(s)}{\partial s} &= 0 \label{Vnitřní rozvoj: n je kolmé na dQ/ds}.
+\end{align}
+Rovnice \eqref{Vnitřní rozvoj: n je jednotkový} popisuje fakt, že \(\mathbf{n}\) je jednotkový vektor, rovnice \eqref{Vnitřní rozvoj: derivace n je jednotkový} je derivací předchozího vztahu a rovnice \eqref{Vnitřní rozvoj: n je kolmé na dQ/ds} platí, protože \(\mathbf{n}\) je v \(s\) kolmý na \((\partial_s Q_1, \partial_s Q_2)^T\).
+Pro gradient v nových souřadnicích máme
+\begin{equation}\label{Vnitřní rozvoj: gradient v souřadnicích s, r}
+    \nabla_{(s, r)} = \mathcal{J} \cdot \nabla_{(\mathbf{x})},
+\end{equation}
+kde Jacobiho matice \(\mathcal{J}\) je tvaru
+\begin{equation}
+    \mathcal{J} =
+    \begin{pmatrix}
+        \partial_s Q_1 + r \partial_s n_1 & \partial_s Q_2 + r \partial_s n_2 \\
+        n_1 & n_2
+    \end{pmatrix}.
+\end{equation}
+Matice k ní inverzní má potom tvar
+\begin{equation}\label{Vnitřní rozvoj: inverze J}
+    \mathcal{J}^{-1} = \frac{1}{\det \mathcal{J}}
+    \begin{pmatrix}
+        n_2 & -\partial_s Q_2 - r \partial_s n_2 \\
+        -n_1 & \partial_s Q_1 + r \partial_s n_1
+    \end{pmatrix}.
+\end{equation}
+\begin{lemma}\label{Vnitřní rozvoj: lemma det J na druhou}
+    Pro determinant Jacobiho matice definované výše platí
+    \begin{equation}
+        \left(\det \mathcal{J}\right)^2 = \left( \frac{\partial Q_1}{\partial s} + r \frac{\partial n_1}{\partial s}\right)^2 + \left( \frac{\partial Q_2}{\partial s} + r \frac{\partial n_2}{\partial s}\right)^2
+    \end{equation}
+\end{lemma}
+\begin{proof}
+    Odvození je k nalezení v \cite{Dvořák_2010}.
+\end{proof}
+
+Označíme normálovou rychlost rozhraní jako \(v_\Gamma\) a jeho křivost jako \(\kappa_\Gamma\).
+Platí
+\begin{align}\label{Vnitřní rozvoj: Normálová rychlost rozhraní a křivost}
+    v_\Gamma &= -\frac{\partial r}{\partial t} &
+    \kappa_\Gamma &= \Delta_{(\mathbf{x})} r.
+\end{align}
+\begin{tvrzeni}\label{Vnitřní rozvoj: Laplace v nových souřadnicích}
+    V souřadnicích \([s, r]\) má Laplaceův operátor tvar
+    \begin{equation}
+        \Delta_{(\mathbf{x})}=\frac{1}{\det \mathcal{J}} \partial_s \left(\frac{1}{\det \mathcal{J}}\right) \partial_s + \kappa_\Gamma \partial_r + \frac{1}{\left(\det \mathcal{J}\right)^2}\partial_s^2 + \partial_r^2
+    \end{equation}
+\end{tvrzeni}
+\begin{proof}
+    Důkaz je k nalezení v \cite{Dvořák_2010}.
+\end{proof}
+\begin{tvrzeni}\label{Vnitřní rozvoj: div D grad v nových souřadnicích}
+    Nechť \(D: \mathbb{R}^2 \to \mathbb{R}\) je obecný difuzní koeficient.
+    Pak pro operátor \(\nabla_{(\mathbf{x})}\) platí
+    \begin{equation}
+        \begin{split}
+            \nabla_{(\mathbf{x})}\left(D\nabla_{(\mathbf{x})}\right) =& \frac{1}{(\det \mathcal{J})^2}\partial_s D\partial_s + \partial_r D \partial_r\\ &+ D\left( \frac{1}{\det \mathcal{J}} \partial_s \left(\frac{1}{\det \mathcal{J}}\right) \partial_s + \kappa_\Gamma \partial_r + \frac{1}{\left(\det \mathcal{J}\right)^2}\partial_s^2 + \partial_r^2 \right)
+        \end{split}
+    \end{equation}
+\end{tvrzeni}
+\begin{proof}
+    Aplikací pravidel pro derivování součinu dvou funkcí získáváme
+    \begin{equation}
+        \nabla_{(\mathbf{x})}\left(D\nabla_{(\mathbf{x})}\right) = \nabla_{(\mathbf{x})}D \cdot \nabla_{(\mathbf{x})} + D \Delta_{(\mathbf{x})}.
+    \end{equation}
+    Díky tvrzení \ref{Vnitřní rozvoj: Laplace v nových souřadnicích} tak stačí dokázat, že
+    \begin{equation}
+        \nabla_{(\mathbf{x})}D \cdot \nabla_{(\mathbf{x})} = \frac{1}{(\det \mathcal{J})^2}\partial_s D\partial_s + \partial_r D \partial_r.
+    \end{equation}
+    Ze vztahu \eqref{Vnitřní rozvoj: gradient v souřadnicích s, r} máme
+    \begin{equation}
+    \begin{aligned}
+        \nabla_{(\mathbf{x})}D \cdot \nabla_{(\mathbf{x})} =&\left(\mathcal{J}^{-1} \cdot \nabla_{(s, r)}D \right) \cdot \left( \mathcal{J}^{-1} \cdot \nabla_{(s, r)}\right)\\
+        =& \begin{pmatrix}
+            \mathcal{J}^{-1}_{11}\partial_s D+ \mathcal{J}^{-1}_{12}\partial_r D \\
+            \mathcal{J}^{-1}_{21}\partial_s D+ \mathcal{J}^{-1}_{22}\partial_r D
+        \end{pmatrix} \cdot
+        \begin{pmatrix}
+            \mathcal{J}^{-1}_{11}\partial_s + \mathcal{J}^{-1}_{12}\partial_r\\
+            \mathcal{J}^{-1}_{21}\partial_s + \mathcal{J}^{-1}_{22}\partial_r
+        \end{pmatrix}\\
+        =& \left[\left(\mathcal{J}^{-1}_{11}\right)^2 + \left(\mathcal{J}^{-1}_{21}\right)^2 \right] \partial_s D \partial_s\\
+        &+ \left[\mathcal{J}^{-1}_{11}\mathcal{J}^{-1}_{12} + \mathcal{J}^{-1}_{21}\mathcal{J}^{-1}_{22} \right] \left(\partial_s D \partial_r + \partial_r D \partial_s \right)\\
+        &+ \left[\left(\mathcal{J}^{-1}_{12}\right)^2 + \left(\mathcal{J}^{-1}_{22}\right)^2 \right] \partial_r D \partial_r.
+    \end{aligned}
+    \end{equation}
+    Po dosazení do členů \(\mathcal{J}^{-1}\) z \eqref{Vnitřní rozvoj: inverze J} a použití vzorců \eqref{Vnitřní rozvoj: n je jednotkový}, \eqref{Vnitřní rozvoj: derivace n je jednotkový} a \eqref{Vnitřní rozvoj: n je kolmé na dQ/ds} a lemmatu \ref{Vnitřní rozvoj: lemma det J na druhou} již dostáváme
+    \begin{align}
+        \begin{split}\label{Vnitřní rozvoj: důkaz vzorec 1}
+        \left(\mathcal{J}^{-1}_{11}\right)^2 + \left(\mathcal{J}^{-1}_{21}\right)^2 &= \frac{1}{\left(\det \mathcal{J}\right)^2} (n_2^2 + n_1^2)\\
+        &= \frac{1}{\left(\det \mathcal{J}\right)^2},
+        \end{split}\\
+        \begin{split}\label{Vnitřní rozvoj: důkaz vzorec 2}
+            \mathcal{J}^{-1}_{11}\mathcal{J}^{-1}_{12} + \mathcal{J}^{-1}_{21}\mathcal{J}^{-1}_{22} &= n_2 \left(-\partial_s Q_2 - r \partial_s n_2\right) - n_1 (\partial_s Q_1 + r \partial_s n_1)\\
+            &=-(n_1 \partial_s Q_1 + n_2 \partial_s Q_2) -r (n_1 \partial_s n_1 + n_2 \partial_s n_2)\\
+            &= 0,
+        \end{split}\\
+        \begin{split}\label{Vnitřní rozvoj: důkaz vzorec 3}
+            \left(\mathcal{J}^{-1}_{12}\right)^2 + \left(\mathcal{J}^{-1}_{22}\right)^2 &= \frac{1}{\left(\det \mathcal{J}\right)^2}\left( (-\partial_s Q_2 - r \partial_s n_2)^2 + (\partial_s Q_1 + r \partial_s n_1)^2 \right)\\
+            &=1,
+        \end{split}
+    \end{align}
+    čímž je důkaz hotov.
+\end{proof}
+
+Nyní provedeme druhou záměnu souřadnic.
+Od \([s, r]\) přecházíme na \(\Omega_\Gamma\) k \([s, z]\) pomocí vztahu
+\begin{equation}
+    r = \xi z.
+\end{equation}
+Funkce fáze a koncentrace přeznačíme na
+\begin{align}
+    \phi(t, s, z) &= \phi(t, \mathbf{x})\\
+    c(t, s, z) &= c(t, \mathbf{x})
+\end{align}
+Formálně pro časovou derivaci ve starých souřadnicích platí
+\begin{equation}\label{Vnitřní rozvoj: Přepis časové derivace v nových souřadnicích}
+    \frac{\partial}{\partial t} = \frac{\partial}{\partial t} + \frac{\partial}{\partial s}\frac{\partial s}{\partial t} + \frac{\partial}{\partial z}\frac{\partial z}{\partial t},
+\end{equation}
+pro derivaci podle \(r\) máme
+\begin{equation}\label{Vnitřní rozvoj: Přepis derivace podle r v nových souřadnicích}
+    \frac{\partial}{\partial r} = \frac{1}{\xi}\frac{\partial}{\partial z}
+\end{equation}
+a pro rychlost rozhraní triviálně dostáváme
+\begin{equation}\label{Vnitřní rozvoj: Rychlost rozhraní v s, z}
+    v_\Gamma = -\xi \frac{\partial z}{\partial t}.
+\end{equation}
+Rovnice \eqref{Úloha fázového pole: rovnice fáze} a \eqref{Úloha fázového pole: rovnice koncentrace} za použití vztahů  \eqref{Vnitřní rozvoj: Normálová rychlost rozhraní a křivost}, \eqref{Vnitřní rozvoj: Přepis časové derivace v nových souřadnicích}, \eqref{Vnitřní rozvoj: Přepis derivace podle r v nových souřadnicích} a \eqref{Vnitřní rozvoj: Rychlost rozhraní v s, z} a tvrzení \ref{Vnitřní rozvoj: Laplace v nových souřadnicích} a \ref{Vnitřní rozvoj: div D grad v nových souřadnicích} přechází do tvaru
+\begin{subequations}\label{Vnitřní rozvoj: Transformovaná úloha fázového pole}
+    \begin{align}
+        \begin{split}
+            \alpha \xi^2 \left(\frac{\partial \phi}{\partial t} + \frac{\partial \phi}{\partial s}\frac{\partial s}{\partial t}\right) - \alpha\xi \frac{\partial \phi}{\partial z}v_\Gamma =& \frac{\xi^2}{\det \mathcal{J}} \frac{\partial}{\partial s} \left(\frac{1}{\det \mathcal{J}}\right) \frac{\partial \phi}{\partial s} + \kappa_\Gamma\xi \frac{\partial \phi}{\partial z} + \frac{\xi^2}{\left(\det \mathcal{J}\right)^2}\frac{\partial^2 p}{\partial s^2} + \frac{\partial^2 p}{\partial z^2}\\
+            & + f(c, \phi, \xi),
+        \end{split}\\
+        \begin{split}
+            \xi^2\left(\frac{\partial c}{\partial t} + \frac{\partial c}{\partial s}\frac{\partial s}{\partial t} \right) - \xi\frac{\partial c}{\partial z}v_\Gamma =& \frac{\xi^2}{(\det \mathcal{J})^2}\frac{\partial D}{\partial s}\frac{\partial c}{\partial s} + \frac{\partial D}{\partial z}\frac{\partial c}{\partial z} \\
+            &+ D\left( \frac{\xi^2}{\det \mathcal{J}} \frac{\partial}{\partial s} \left(\frac{1}{\det \mathcal{J}}\right) \frac{\partial c}{\partial s} + \kappa_\Gamma \xi \frac{\partial c}{\partial z} + \frac{\xi^2}{\left(\det \mathcal{J}\right)^2}\frac{\partial^2 c}{\partial s^2} + \frac{\partial^2 c}{\partial z^2} \right)\\
+            & + \frac{\xi^2}{(\det \mathcal{J})^2}\frac{\partial \bar D}{\partial s}\frac{\partial \phi}{\partial s} + \frac{\partial \bar D}{\partial z}\frac{\partial \phi}{\partial z} \\
+            & + \bar D\left( \frac{\xi^2}{\det \mathcal{J}} \frac{\partial}{\partial s} \left(\frac{1}{\det \mathcal{J}}\right) \frac{\partial \phi}{\partial s} + \kappa_\Gamma \xi \frac{\partial \phi}{\partial z} + \frac{\xi^2}{\left(\det \mathcal{J}\right)^2}\frac{\partial^2 p}{\partial s^2} + \frac{\partial^2 p}{\partial z^2} \right).
+        \end{split}
+    \end{align}
+\end{subequations}
+
+Poincarého rozvoj funkcí fáze a koncentrace je nyní tvaru
+\begin{subequations}\label{Vnitřní rozvoj: Poincarého rozvoje phi a c}
+    \begin{align}
+        \phi(t, s, z) &\sim \sum_{i=0}^\infty \phi_i(t, s, z)\xi^i\\
+        c(t, s, z) &\sim \sum_{i=0}^\infty c_i(t, s, z)\xi^i.
+    \end{align}
+\end{subequations}
+%Navíc tento rozvoj použijeme i na \(r(t, \mathbf{x)}\) \cite{Beneš_01}
+%\begin{equation}
+%    r(t, \mathbf{x)} \sim \sum_{i=0}^\infty r_i(t, \mathbf{x})\xi^i.
+%\end{equation}
+%Z toho pak dostáváme
+%\begin{align}
+%    v_\Gamma = -\frac{\partial r}{\partial t} \sim - \sum_{i=0}^\infty \frac{\partial r_i}{\partial t} \xi^i = \sum_{i=0}^\infty v_{\Gamma, i}\xi^i,
+%\end{align}
+%kde
+Předpokládáme, že funkce \(\mathbf{Q}, \mathbf{n}, v_\Gamma, \kappa_\Gamma\) mají rozvoje 
+\begin{align}
+\mathbf{Q} &= \mathbf{Q}_0 + \xi \mathbf{Q}_1 + \xi^2 \mathbf{Q}_2 + \mathcal{O}(\xi^3),\\
+\mathbf{n} &= \mathbf{n}_0 + \xi \mathbf{n}_1 + \xi^2 \mathbf{n}_2 + \mathcal{O}(\xi^3),\\
+v_\Gamma &= v_{\Gamma,0} + \xi v_{\Gamma, 1} + \xi^2 v_{\Gamma, 2} + \mathcal{O}(\xi^3),\label{Vnitřní rozvoj: rozvoj v_Gamma}\\
+\kappa_\Gamma &= \kappa_{\Gamma,0} + \xi \kappa_{\Gamma, 1} + \xi^2 \kappa_{\Gamma, 2} + \mathcal{O}(\xi^3)\label{Vnitřní rozvoj: rozvoj kappa_Gamma}.
+\end{align}
+Znovu si označíme
+\begin{equation}
+    f(c, \phi, \xi) = f_0(\phi) + f_1(c, \phi) \xi,
+\end{equation}
+kde \(f_1(c, \phi)\) je určená modelem 4.
+%TODO: Přidat rozvoje toho Q, v_\Gamma a \kappa atd.
+Do rovnic \eqref{Vnitřní rozvoj: Transformovaná úloha fázového pole} dosadíme rozvoje \eqref{Vnitřní rozvoj: Poincarého rozvoje phi a c}, \eqref{Vnitřní rozvoj: rozvoj v_Gamma} a \eqref{Vnitřní rozvoj: rozvoj kappa_Gamma} a analogicky jako v sekci \ref{Sekce: Vnější rozvoj} rozvineme do Taylorovy řady v bodě \((c_0, \phi_0)\) funkce \(f(c, \phi), D(c, \phi)\) a \(\bar D(c, \phi)\).
+Dostáváme
+\begin{align}
+    \begin{split}
+        \alpha \xi^2\left( \frac{\partial \phi_0}{\partial t} + \frac{\partial \phi_0}{\partial s}\frac{\partial s}{\partial t}\right) &- \alpha \xi \left( \frac{\partial \phi_0}{\partial z} + \xi \frac{\partial \phi_1}{\partial z}\right)\left(v_{\Gamma, 0}+ \xi v_{\Gamma, 1}\right) =\\
+        =&\frac{\xi^2}{\det \mathcal{J}} \frac{\partial}{\partial s} \left(\frac{1}{\det \mathcal{J}}\right) \frac{\partial \phi_0}{\partial s} + \left(\kappa_{\Gamma, 0} + \xi\kappa_{\Gamma,1}\right) \xi \left(\frac{\partial \phi_0}{\partial z} + \xi \frac{\partial \phi_1}{\partial z} \right)\\
+        &+ \frac{\xi^2}{\left(\det \mathcal{J}\right)^2}\frac{\partial^2 \phi_0}{\partial s^2} + \frac{\partial^2 \phi_0}{\partial z^2} + \xi\frac{\partial^2 \phi_1}{\partial z^2} + \xi^2\frac{\partial^2 \phi_2}{\partial z^2}\\
+        & + f_0(\phi_0) + \xi f_1(c_0, \phi_0) + \frac{\partial f_0}{\partial \phi}(\phi_0)(\xi \phi_1 + \xi^2 \phi_2)\\
+        &+ \xi^2 \frac{\partial f_1}{\partial \phi}(c_0, \phi_0) \phi_1 + \xi^2\frac{\partial f_1}{\partial c}(c_0, \phi_0) c_1 + \frac{1}{2}\xi^2\frac{\partial f_0}{\partial \phi}(\phi_0)\phi_1^2 + \mathcal{O}(\xi^3)
+    \end{split}\\
+    \begin{split}
+    \end{split}
+\end{align}
+%TODO: Doplnit i druhou rovnici.
+Porovnáme členy u jednotlivých mocnin \(\xi\).
+\begin{itemize}
+    \item \textbf{Členy u \(\xi^0\):} Máme
+    \begin{equation}\label{Vnitřní rozvoj: rovnice fáze u řídícího členu}
+        0 = \frac{\partial^2 \phi_0}{\partial z^2} + f_0(\phi_0).
+    \end{equation}
+    Díky tomu, jak jsme zavedli kolmý vektor \(\mathbf{n}\) a tomu v jakém tvaru předpokládáme řešení, dostáváme okrajové podmínky
+    \begin{align}
+        \lim_{z\to \infty} \phi_0(z) &= 0,\\
+        \lim_{z \to -\infty} \phi_0(z) &= 1.
+    \end{align}
+    Rovnici \eqref{Vnitřní rozvoj: rovnice fáze u řídícího členu} vynásobíme \(2 \tfrac{\partial \phi_0}{\partial z}\) a upravíme
+    \begin{align}
+        2 \frac{\partial \phi_0}{\partial z} \frac{\partial^2 \phi_0}{\partial z^2} + 2 \frac{\partial \phi_0}{\partial z} f_0(\phi_0) &= 0,\\
+        \frac{\partial }{\partial z}\left(\frac{\partial \phi_0}{\partial z} \right)^2 - 2\frac{\partial w_0}{\partial \phi}(\phi_0)\frac{\partial \phi_0}{\partial z} &= 0,\\
+        \frac{\partial }{\partial z}\left(\frac{\partial \phi_0}{\partial z} \right)^2 - 2\frac{\partial w_0}{\partial z}(\phi_0) &= 0.
+    \end{align}
+    Z toho po integraci a úpravě získáváme
+    \begin{equation}\label{Vnitřní rozvoj: derivace phi_0 podle z}
+       \frac{\partial \phi_0}{\partial z} = - \sqrt{2w_0(\phi_0)}.
+    \end{equation}
+    Záporné znaménko jsme zvolili, protože z okrajových podmínek vyplývá, že \(\tfrac{\partial \phi_0}{\partial z} < 0\).
+    Máme tak
+    \begin{equation}
+        \frac{\partial \phi_0}{\partial z} = -\frac{\sqrt{2a}}{2} \left( \frac{1}{4} - \left(\phi_0 - \frac{1}{2} \right)^2 \right),
+    \end{equation}
+    což je separovatelná diferenciální rovnice. Doplněná o podmínku \( \phi_0(0) = \tfrac{1}{2} \) má řešení
+    \begin{equation}
+        \phi_0(z) = \frac{1}{2}\left(\tanh \left( -\frac{\sqrt{2a}}{4} z \right) + 1\right).
+    \end{equation}
+    \item \textbf{Členy u \(\xi^1\):} Máme
+    \begin{equation}
+        -\alpha\frac{\partial \phi_0}{\partial z} v_{\Gamma,0} = \kappa_{\Gamma, 0} \frac{\partial \phi_0}{\partial z} + \frac{\partial^2 \phi_1}{\partial z^2} + f_1(c_0, \phi_0) + \frac{\partial f_0}{\partial \phi}(\phi_0)\phi_1.
+    \end{equation}
+    Úpravou dostáváme operátorovou rovnici
+    \begin{equation}
+        \left(\frac{\partial^2 }{\partial z^2} + \frac{\partial f_0}{\partial \phi}(\phi_0)\right)\phi_1 = \left(-\alpha v_{\Gamma,0} - \kappa_{\Gamma, 0}\right) \frac{\partial \phi_0}{\partial z} - f_1(c_0, \phi_0).
+    \end{equation}
+    Ta má řešení, právě když splňuje Fredholmovu alternativu \cite{Beneš_97}, tj. když
+    \begin{equation}
+        \left(-\alpha v_{\Gamma,0} - \kappa_{\Gamma, 0}\right) \frac{\partial \phi_0}{\partial z} - f_1(c_0, \phi_0) \in \left[\ker \left( \frac{\partial^2 }{\partial z^2} + \frac{\partial f_0}{\partial \phi}(\phi_0) \right) \right]^{\perp}.
+    \end{equation}
+    Když zderivujeme rovnici \eqref{Vnitřní rozvoj: rovnice fáze u řídícího členu} získáme
+    \begin{equation}
+        0 = \frac{\partial^2}{\partial z^2}\frac{\partial \phi_0}{\partial z} + \frac{\partial f_0}{\partial \phi}(\phi_0)\frac{\partial \phi_0}{\partial z} = \left(\frac{\partial^2}{\partial z^2} + \frac{\partial f_0}{\partial \phi}(\phi_0)\right)\frac{\partial \phi_0}{\partial z},
+    \end{equation}
+    což znamená, že
+    \begin{equation}
+    \frac{\partial \phi_0}{\partial z} \in \ker \left(\frac{\partial^2}{\partial z^2} + \frac{\partial f_0}{\partial \phi}(\phi_0)\right).  
+    \end{equation}
+    Z toho vyplývá
+    \begin{equation}
+        \int\limits_{-\infty}^{\infty} \frac{\partial \phi_0}{\partial z} \left( \left(-\alpha v_{\Gamma,0} - \kappa_{\Gamma, 0}\right) \frac{\partial \phi_0}{\partial z} - f_1(c_0, \phi_0)\right) \dd z = 0.
+    \end{equation}
+    Tomuto vztahu říkáme obecná Gibbsova-Thomsonova podmínka.
+    Z té ještě vyjádříme
+    \begin{equation}\label{Vnitřní rozvoj: Podílové vyjádření gibbs thomsona}
+        -\alpha v_{\Gamma,0} - \kappa_{\Gamma, 0} = \dfrac{\displaystyle \int\limits_{-\infty}^{\infty}\frac{\partial \phi_0}{\partial z}f_1(c_0, \phi_0) \dd z}{\displaystyle \int\limits_{-\infty}^{\infty} \left(\frac{\partial \phi_0}{\partial z}\right)^2 \dd z}.
+    \end{equation}
+    Do integrálu v čitateli dosadíme \(f_1(c_0, \phi_0)\) z modelu 4 a vypočítáme
+    \begin{equation}
+        \begin{split}
+            \int\limits_{-\infty}^{\infty}\frac{\partial \phi_0}{\partial z}f_1(c_0, \phi_0) \dd z &= \int\limits_{-\infty}^{\infty} b\phi_0^2 (1-\phi_0)^2 F(c_0) \frac{\partial \phi_0}{\partial z} \dd z\\ &= bF(c_0)\int\limits_{1}^{0}q^2(1-q)^2 \dd q\\ &= \frac{b F(c_0)}{30},
+        \end{split}
+    \end{equation}
+    kde jsme v druhém kroku využili substituce \(\phi_0(z) = q\).
+    Integrál ve jmenovateli má hodnotu
+    \begin{equation}
+        \begin{split}
+            \int\limits_{-\infty}^{\infty} \left(\frac{\partial \phi_0}{\partial z}\right)^2
+            &= - \int\limits_{-\infty}^{\infty}\sqrt{2w_0(\phi_0)}\frac{\partial \phi_0}{\partial z} \dd z\\
+            &= -\int\limits_{1}^{0}\sqrt{2w_0(q)} \dd q\\
+            &= \frac{\sqrt{a}}{2} \int\limits_{0}^{1} \left(q-\frac{1}{2}\right)^2 - \frac{1}{4} \dd q \\
+            &= \frac{1}{6}\sqrt{\frac{a}{2}}.
+        \end{split}
+    \end{equation}
+    Dosazením do vzorce \eqref{Vnitřní rozvoj: Podílové vyjádření gibbs thomsona} získáme
+    \begin{equation}
+        -\alpha v_{\Gamma,0} - \kappa_{\Gamma, 0} = \frac{\sqrt{2}b }{5\sqrt{a}}F(c_0).
+    \end{equation}
+    Pro nejjednodušší tvar modelu 4 volíme
+    \begin{equation}
+        b = \frac{5\sqrt{a}}{\sqrt{2}},
+    \end{equation}
+    kdy Gibbsonova-Thomsonova podmínka vypadá
+    \begin{equation}
+        -\alpha v_{\Gamma,0} - \kappa_{\Gamma, 0} = F(c_0).
+    \end{equation}
+    
+\end{itemize}
+
+
+% TODO: Pozměnit číslování definic, vět a tak.
+% QSTN: Jak přeložit order parameter.
