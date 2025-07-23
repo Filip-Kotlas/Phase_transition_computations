@@ -255,7 +255,7 @@ void ACEProblem::set_concentration_initial_condition(double *u)
 
          #elif C_INIT == 4
          //Constant in halfes
-         if( i < sizeX/2 + 5 )
+         if( i < sizeX/2 )
          {
             u[offset + j*sizeX + i] = constants::c_init_alpha;
          }

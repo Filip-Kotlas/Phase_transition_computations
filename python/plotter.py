@@ -378,7 +378,7 @@ class CutPlotter(Plotter):
         else:
             raise ValueError("Invalid axis given")
 
-        self.ax.set_ylim(min(0, value.min()*1.5), max(0.5, value.max()*1.5))
+        self.ax.set_ylim(min(0, value.min()*1.5), value.max()*1.5)
         self.ax.set_aspect('auto')
         self.title = self.ax.set_title("Čas: 0")
         self.output_name_tag = "_" + self.data_drawn + "_" + self.axis + "-cut"
