@@ -85,6 +85,10 @@ Parameters get_parameters() {
             par.integrationTimeStep = computed_integration_time_step;
         }
 
+        // Initial condition
+        par.init_cond_from_file = solver.value("init_cond_from_file", false);
+        par.init_cond_file_path = solver.value("init_cond_file_path", "");
+
         // Parameters considering the problem
         nlohmann::json problem = config["problem"];
         par.alpha = problem.value("alpha", 1.0);
@@ -196,7 +200,11 @@ int main(int argc, char** argv)
     Merson merson_integrator;
     
     double* u = new double[problem.getDegreesOfFreedom()];
-    problem.setInitialCondition( u );
+    if(!parameters.init_cond_from_file ||
+       !problem.set_init_cond_from_file(u, calc_path + "\\" + parameters.init_cond_file_path)){
+        std::cout << "Setting initial condition by code." << std::endl;
+        problem.set_init_cond_manually(u);
+    }
     problem.writeSolution( 0.0, 0, u );
 
     if(parameters.type == "Runge-Kutta")
