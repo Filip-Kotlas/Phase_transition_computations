@@ -43,8 +43,10 @@ struct Parameters{
     double timeStep;
     double integrationTimeStep;
     double alpha;
-    double beta;
     double par_a;
+    double par_b;
+    double par_d;
+    int T;
     double ksi;
     MODEL model;
 };
@@ -58,8 +60,10 @@ class ACEProblem : public ODEProblem
                int sizeY,
                Domain domain,
                double alpha,
-               double beta,
                double par_a,
+               double par_b,
+               double par_d,
+               int T,
                double ksi,
                MODEL model,
                std::string output_folder);
@@ -88,7 +92,7 @@ class ACEProblem : public ODEProblem
     /*
     * Initial conditions
     */
-    void setInitialCondition( double* u );
+    void setInitialCondition( double* u);
     void set_phase_initial_condition( double* u);
     void set_concentration_initial_condition( double* u);
 
@@ -137,10 +141,11 @@ class ACEProblem : public ODEProblem
 
     const double alpha;
     const double par_a;
-    const double beta;
+    const double par_b;
+    const double par_d;
     const double ksi;
 
-    const double T = 1100;
+    const double T;
     
     const MODEL model;
     

@@ -75,7 +75,7 @@ Parameters get_parameters() {
         // Integration time step
         double computed_integration_time_step = pow(std::min((par.domain.x_right - par.domain.x_left)/(par.sizeX-1),
                                                    (par.domain.y_right - par.domain.y_left)/(par.sizeY-1)),
-                                                    2)/4;
+                                                    2)/5;
         if( solver.value("custom_integration_time_step", false) )
         {
             par.integrationTimeStep = solver.value("integration_time_step", computed_integration_time_step);
@@ -88,8 +88,10 @@ Parameters get_parameters() {
         // Parameters considering the problem
         nlohmann::json problem = config["problem"];
         par.alpha = problem.value("alpha", 1.0);
-        par.beta = problem.value("beta", 1.0);
         par.par_a = problem.value("a", 1.0);
+        par.par_b = problem.value("b", 1.0);
+        par.par_d = problem.value("d", 1.0);
+        par.T = problem.value("T", 1.0);
         par.ksi = problem.value("ksi", 0.01);
     }
     catch(const std::exception& e) {
@@ -139,8 +141,10 @@ void save_parameters(std::string file_path, Parameters param) {
     file << std::left << std::setw(24) << "Integration time step:" 
                             << std::right << std::setw(28) << param.integrationTimeStep << std::endl;
     file << std::left << std::setw(24) << "Alpha:"         << std::right << std::setw(28) << param.alpha << std::endl;
-    file << std::left << std::setw(24) << "Beta:"          << std::right << std::setw(28) << param.beta << std::endl;
     file << std::left << std::setw(24) << "Par_a:"         << std::right << std::setw(28) << param.par_a << std::endl;
+    file << std::left << std::setw(24) << "Par_b:"         << std::right << std::setw(28) << param.par_b << std::endl;
+    file << std::left << std::setw(24) << "Par_d:"         << std::right << std::setw(28) << param.par_d << std::endl;
+    file << std::left << std::setw(24) << "T:"             << std::right << std::setw(28) << param.T << std::endl;
     file << std::left << std::setw(24) << "Ksi:"           << std::right << std::setw(28) << param.ksi << std::endl;
     file << std::left << std::setw(24) << "Model:"         << std::right << std::setw(28) << int(param.model);
 }
@@ -186,8 +190,10 @@ int main(int argc, char** argv)
                                     parameters.sizeY,
                                     parameters.domain,
                                     parameters.alpha,
-                                    parameters.beta,
                                     parameters.par_a,
+                                    parameters.par_b,
+                                    parameters.par_d,
+                                    parameters.T,
                                     parameters.ksi,
                                     parameters.model,
                                     calc_path);

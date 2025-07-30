@@ -48,18 +48,21 @@
 #define C_BOUND 2
 #endif
 
-#define FORCE 1
+#define FORCE 2
 /*
 *  0 - Force equal 40
 *  1 - Force inversely proportional to the distance from the middle
+*  2 - Force for zirconium model
 */
 
 ACEProblem::ACEProblem(int sizeX,
                        int sizeY,
                        Domain domain,
                        double alpha,
-                       double beta,
                        double par_a,
+                       double par_b,
+                       double par_d,
+                       int T,
                        double ksi,
                        MODEL model,
                        std::string output_folder)
@@ -69,8 +72,10 @@ ACEProblem::ACEProblem(int sizeX,
    hx((domain.x_right - domain.x_left)/(sizeX-1)),
    hy((domain.y_right - domain.y_left)/(sizeY-1)),
    alpha(alpha),
-   beta(beta),
    par_a(par_a),
+   par_b(par_b),
+   par_d(par_d),
+   T(T),
    ksi(ksi),
    model(model),
    output_folder(output_folder)
@@ -384,16 +389,10 @@ double ACEProblem::get_rhs_phase_at(const double* u, int i, int j)
    double rhs = 0.0;
 
    if(model == MODEL::MODEL_3)
-      rhs = laplace(u, i, j) + f_0(u, i , j) / ksi / ksi + grad_norm(u, i, j)*F(u, i, j);
+      rhs = laplace(u, i, j) + f_0(u, i , j) / ksi / ksi - grad_norm(u, i, j)*F(u, i, j);
    
    else if(model == MODEL::MODEL_4)
-      rhs = laplace(u, i, j) + f_0(u, i , j) / ksi / ksi + 10/sqrt(8)*sqrt(par_a)*1.0/ksi*grade_4_polynom(u, i, j)*F(u, i, j);
-      /*
-      if(i == sizeX/2 && j < sizeY/2)
-      {
-         std::cout << "f_0: " << 1 / ksi / ksi << ", F: " << 10/sqrt(8)*sqrt(par_a)*1.0/ksi*F(u, i, j) << std::endl;
-      }
-      */
+      rhs = 1.0/alpha * (laplace(u, i, j) + f_0(u, i , j) / ksi / ksi - par_b/ksi*grade_4_polynom(u, i, j)*F(u, i, j));
    return rhs;
 }
 
@@ -447,22 +446,21 @@ double ACEProblem::div_D_grad_phase(const double *u, int i, int j)
 
 double ACEProblem::get_conc_diff_coef(const double *u, int i, int j)
 {
-   double D = 0.00000125;
-   return D
+   return par_b*par_d/30.0
           * conc_at(u, i, j)
 		    * (1 - conc_at(u, i, j))
-		    * pow(constants::M_Nb_alpha(T), polynom_p(u, i, j))
-		    / pow(constants::M_Nb_beta(T), polynom_p(u, i, j))
+          * constants::M_Nb_beta(T)
+		    * pow(constants::M_Nb_alpha(T)/constants::M_Nb_beta(T), polynom_p(u, i, j))
 		    * sec_deriv_of_g_w_resp_to_c(u, i, j);
 }
 
 double ACEProblem::get_phas_diff_coef(const double *u, int i, int j)
 {
-   double D = 0.00000125;
-   return D * conc_at(u, i, j)
+   return par_b*par_d/30.0
+          * conc_at(u, i, j)
 		    * (1 - conc_at(u, i, j))
-		    * pow(constants::M_Nb_alpha(T), polynom_p(u, i, j))
-		    / pow(constants::M_Nb_beta(T), polynom_p(u, i, j))
+          * constants::M_Nb_beta(T)
+		    * pow(constants::M_Nb_alpha(T)/constants::M_Nb_beta(T), polynom_p(u, i, j))
 		    * deriv_of_g_w_resp_to_c_and_p(u, i, j);
 }
 
@@ -481,6 +479,9 @@ double ACEProblem::F(const double *u, int i, int j)
    double mid_y = (domain.y_right - domain.y_left)/2;
    double r = sqrt(pow(i*hx - mid_x, 2) + pow(j*hy - mid_y, 2));
    return 2/std::max(r, 0.1);
+
+   #elif FORCE == 2
+   return constants::G_m_alpha(conc_at(u, i, j), T) - constants::G_m_beta(conc_at(u, i, j), T);
    
    #endif
 }
