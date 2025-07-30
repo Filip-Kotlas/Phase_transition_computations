@@ -12,6 +12,7 @@
 #include <cassert>
 #include <algorithm>
 #include <list>
+#include <string>
 
 #include "ODEProblem.hpp"
 #include "constants.hpp"
@@ -40,6 +41,8 @@ struct Parameters{
     int sizeX;
     int sizeY;
     int frame_num;
+    bool init_cond_from_file;
+    std::string init_cond_file_path;
     double timeStep;
     double integrationTimeStep;
     double alpha;
@@ -92,9 +95,10 @@ class ACEProblem : public ODEProblem
     /*
     * Initial conditions
     */
-    void setInitialCondition( double* u);
+    void set_init_cond_manually( double* u );
     void set_phase_initial_condition( double* u);
     void set_concentration_initial_condition( double* u);
+    bool set_init_cond_from_file(double *u, const std::string& filename);
 
     /*
     * Boundary conditions
