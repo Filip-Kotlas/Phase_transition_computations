@@ -389,7 +389,7 @@ double ACEProblem::get_rhs_phase_at(const double* u, int i, int j)
    double rhs = 0.0;
 
    if(model == MODEL::MODEL_3)
-      rhs = laplace(u, i, j) + f_0(u, i , j) / ksi / ksi - grad_norm(u, i, j)*F(u, i, j);
+      rhs = 1.0/alpha * (laplace(u, i, j) + f_0(u, i , j) / ksi / ksi - par_b*grad_norm(u, i, j)*F(u, i, j));
    
    else if(model == MODEL::MODEL_4)
       rhs = 1.0/alpha * (laplace(u, i, j) + f_0(u, i , j) / ksi / ksi - par_b/ksi*grade_4_polynom(u, i, j)*F(u, i, j));
