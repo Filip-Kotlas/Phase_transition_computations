@@ -134,7 +134,7 @@ class BoundaryPlotter2D(Plotter):
         x, y, value = self._load_data(self.file_paths[frame])
         time_step = (self.configuration["solver"]["final_time"] - self.configuration["solver"]["initial_time"]) / self.configuration["solver"]["frame_num"]
         time_decimal_places = math.ceil(math.log(time_step, 0.1))
-        self.title.set_text(f"Čas: {time_step*frame:.{time_decimal_places}f}")
+        self.title.set_text(f"Čas: {self.configuration["solver"]["initial_time"] + time_step*frame:.{time_decimal_places}f}")
         print("Updating frame: ", frame)
         artist = []
 
@@ -305,7 +305,6 @@ class BoundaryPlotter2D(Plotter):
 
 class SurfacePlotter(Plotter):
     """Plotter of graph of a function of two variables."""
-
     def __init__(self,
                  folder_path,
                  data_drawn: str="concentration"):
@@ -336,7 +335,7 @@ class SurfacePlotter(Plotter):
 
         time_step = (self.configuration["solver"]["final_time"] - self.configuration["solver"]["initial_time"]) / 100
         time_decimal_places = math.ceil(math.log(time_step, 0.1))
-        self.title.set_text(f"Čas: {time_step*frame:.{time_decimal_places}f}")
+        self.title.set_text(f"Čas: {self.configuration["solver"]["initial_time"] + time_step*frame:.{time_decimal_places}f}")
         print("Updating frame: ", frame)
         artist = []
 
@@ -406,7 +405,7 @@ class CutPlotter(Plotter):
         x, y, value = self._load_data(self.file_paths[frame])
         time_step = (self.configuration["solver"]["final_time"] - self.configuration["solver"]["initial_time"]) / 100
         time_decimal_places = math.ceil(math.log(time_step, 0.1))
-        self.title.set_text(f"Čas: {time_step*frame:.{time_decimal_places}f}")
+        self.title.set_text(f"Čas: {self.configuration["solver"]["initial_time"] + time_step*frame:.{time_decimal_places}f}")
         print("Updating frame: ", frame)
         artist = []
 
