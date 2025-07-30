@@ -48,7 +48,7 @@
 #define C_BOUND 2
 #endif
 
-#define FORCE 1
+#define FORCE 0
 /*
 *  0 - Force equal 40
 *  1 - Force inversely proportional to the distance from the middle
@@ -131,6 +131,7 @@ bool ACEProblem::writeSolution(const double &t, int step, const double *u)
    /****
     * Write solution
     */
+   file << std::scientific << std::setprecision(15);
    for( int j = 0; j < sizeY; j++ )
    {
       for( int i = 0; i < sizeX; i++ )
@@ -144,7 +145,7 @@ bool ACEProblem::writeSolution(const double &t, int step, const double *u)
    return true;
 }
 
-void ACEProblem::setInitialCondition(double *u)
+void ACEProblem::set_init_cond_manually(double *u)
 {
    set_phase_initial_condition(u);
    set_concentration_initial_condition(u);
@@ -260,6 +261,46 @@ void ACEProblem::set_concentration_initial_condition(double *u)
          #endif
       }
    }
+}
+
+bool ACEProblem::set_init_cond_from_file(double *u, const std::string& filename)
+{
+   std::ifstream file(filename);
+   if (!file)
+   {
+      std::cerr << "Nelze otevřít soubor: " << filename << '\n';
+      return false;
+   }
+
+   std::string line;
+   int count = 0;
+
+   while (std::getline(file, line)) {
+      if (line.empty()) continue; // přeskoč prázdné řádky
+
+      std::istringstream iss(line);
+      double x, y, p, c;
+      if (!(iss >> x >> y >> p >> c)) {
+         std::cerr << "Chyba při čtení řádku: " << line << '\n';
+         return false;
+      }
+
+      if (count >= sizeX * sizeY) {
+         std::cerr << "Soubor obsahuje více dat než očekáváno.\n";
+         return false;
+      }
+
+      u[count] = p;
+      u[sizeX * sizeY + count] = c;
+      ++count;
+      }
+
+   if (count < sizeX * sizeY) {
+      std::cerr << "Soubor obsahuje méně dat než očekáváno.\n";
+      return false;
+   }
+
+   return true;
 }
 
 void ACEProblem::apply_boundary_condition(double *u, double *fu)

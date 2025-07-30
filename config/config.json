@@ -10,6 +10,8 @@
             "y_left": 0,
             "y_right": 1
         },
+        "init_cond_from_file": true,
+        "init_cond_file_path": "ACE-equation-00100.txt",
         "custom_integration_time_step": false,
         "integration_time_step": 5.0e-6 ,
         "sizeX": 100,
