@@ -132,7 +132,7 @@ class BoundaryPlotter2D(Plotter):
 
     def update(self, frame: int):
         x, y, value = self._load_data(self.file_paths[frame])
-        time_step = (self.configuration["solver"]["final_time"] - self.configuration["solver"]["initial_time"]) / self.configuration["solver"]["frame_num"]
+        time_step = (self.configuration["solver"]["final_time"] - self.configuration["solver"]["initial_time"]) / len(self.file_paths)
         time_decimal_places = math.ceil(math.log(time_step, 0.1))
         self.title.set_text(f"Čas: {self.configuration["solver"]["initial_time"] + time_step*frame:.{time_decimal_places}f}")
         print("Updating frame: ", frame)
@@ -333,7 +333,7 @@ class SurfacePlotter(Plotter):
         x_grid, y_grid = np.meshgrid(np.unique(x), np.unique(y))
         val_grid = value.reshape(x_grid.shape)
 
-        time_step = (self.configuration["solver"]["final_time"] - self.configuration["solver"]["initial_time"]) / 100
+        time_step = (self.configuration["solver"]["final_time"] - self.configuration["solver"]["initial_time"]) / len(self.file_paths)
         time_decimal_places = math.ceil(math.log(time_step, 0.1))
         self.title.set_text(f"Čas: {self.configuration["solver"]["initial_time"] + time_step*frame:.{time_decimal_places}f}")
         print("Updating frame: ", frame)
@@ -377,7 +377,7 @@ class CutPlotter(Plotter):
         else:
             raise ValueError("Invalid axis given")
 
-        self.ax.set_ylim(min(0, value.min()*1.5), value.max()*1.5)
+        self.ax.set_ylim(min(0, value.min()*1.5), value.max()*1.2)
         self.ax.set_aspect('auto')
         self.title = self.ax.set_title("Čas: 0")
         self.output_name_tag = "_" + self.data_drawn + "_" + self.axis + "-cut"
@@ -403,8 +403,9 @@ class CutPlotter(Plotter):
 
     def update(self, frame: int):
         x, y, value = self._load_data(self.file_paths[frame])
-        time_step = (self.configuration["solver"]["final_time"] - self.configuration["solver"]["initial_time"]) / 100
+        time_step = (self.configuration["solver"]["final_time"] - self.configuration["solver"]["initial_time"]) / len(self.file_paths)
         time_decimal_places = math.ceil(math.log(time_step, 0.1))
+        self.ax.set_ylim(min(0, value.min()*1.5), value.max()*1.2)
         self.title.set_text(f"Čas: {self.configuration["solver"]["initial_time"] + time_step*frame:.{time_decimal_places}f}")
         print("Updating frame: ", frame)
         artist = []
