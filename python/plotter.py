@@ -405,7 +405,7 @@ class CutPlotter(Plotter):
         x, y, value = self._load_data(self.file_paths[frame])
         time_step = (self.configuration["solver"]["final_time"] - self.configuration["solver"]["initial_time"]) / max(len(self.file_paths), self.configuration["solver"]["frame_num"])
         time_decimal_places = math.ceil(math.log(time_step, 0.1))
-        self.ax.set_ylim(min(0, value.min()*1.5), math.floor(value.max()*1.2 / 0.001)*0.001)
+        self.ax.set_ylim(min(0, value.min()*1.5), math.floor(value.max()*1.2 / 0.01)*0.01)
         self.title.set_text(f"Čas: {self.configuration["solver"]["initial_time"] + time_step*frame:.{time_decimal_places}f}")
         print("Updating frame: ", frame)
         artist = []
