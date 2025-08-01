@@ -2,21 +2,21 @@
     "solver":
     {
         "type": "Runge-Kutta",
-        "initial_time": 0.0,
-        "final_time": 0.040,
+        "initial_time": 0.00,
+        "final_time": 0.2,
         "domain": {
             "x_left": 0,
             "x_right": 1,
             "y_left": 0,
             "y_right": 1
         },
-        "init_cond_from_file": true,
-        "init_cond_file_path": "ACE-equation-00100.txt",
+        "init_cond_from_file": false,
+        "init_cond_file_path": "ACE-equation-00200.txt",
         "custom_integration_time_step": false,
         "integration_time_step": 5.0e-6,
-        "sizeX": 100,
-        "sizeY": 100,
-        "frame_num": 100,
+        "sizeX": 101,
+        "sizeY": 101,
+        "frame_num": 1000,
         "model": 4
     },
 
@@ -24,7 +24,7 @@
     {
         "alpha": 1,
         "a": 1,
-        "b": 3.5,
+        "b": 3.5355339059327,
         "d": 1.6e15,
         "T": 1000,
         "ksi": 0.05

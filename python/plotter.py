@@ -104,10 +104,12 @@ class BoundaryPlotter2D(Plotter):
 
         x, y, _ = self._load_data(self.file_paths[0])
         self.fig, self.ax = plt.subplots()
+        self.ax.set_xlabel("x")
+        self.ax.set_ylabel("y")
         self.ax.set_xlim(x.min(), x.max())
         self.ax.set_ylim(y.min(), y.max())
         self.ax.set_aspect('equal')
-        self.title = self.ax.set_title("Čas: 0")
+        self.title = self.ax.set_title("t = 0")
         self.output_name_tag = "_" + self.data_drawn + "_2D_"
 
         #self.ax.vlines(np.unique(x), x.min(), x.max(), colors='gray', alpha=0.6)
@@ -122,19 +124,19 @@ class BoundaryPlotter2D(Plotter):
             self.function_sc.set_offsets(np.column_stack((x, y)))
             self.output_name_tag = self.output_name_tag + "f"
         if self.draw_num_boundary:
-            self.num_bound_sc, = self.ax.plot([], [], color='orange', linestyle="-", label='Num. sol.')
+            self.num_bound_sc, = self.ax.plot([], [], color='orange', linestyle="-", label='Numerické řešení')
             self.output_name_tag = self.output_name_tag + "n"
         if self.draw_analit_boundary:
-            self.anal_bound_sc, = self.ax.plot([], [], color='blue', linestyle=":", label='Anal. sol.')
+            self.anal_bound_sc, = self.ax.plot([], [], color='blue', linestyle=":", label='Analytické řešení')
             self.output_name_tag = self.output_name_tag + "a"
 
         self.ax.legend()
 
     def update(self, frame: int):
         x, y, value = self._load_data(self.file_paths[frame])
-        time_step = (self.configuration["solver"]["final_time"] - self.configuration["solver"]["initial_time"]) / max(len(self.file_paths), self.configuration["solver"]["frame_num"])
+        time_step = (self.configuration["solver"]["final_time"] - self.configuration["solver"]["initial_time"]) / max(len(self.file_paths)-1, self.configuration["solver"]["frame_num"])
         time_decimal_places = math.ceil(math.log(time_step, 0.1))
-        self.title.set_text(f"Čas: {self.configuration["solver"]["initial_time"] + time_step*frame:.{time_decimal_places}f}")
+        self.title.set_text(f"t = {self.configuration["solver"]["initial_time"] + time_step*frame:.{time_decimal_places}f}")
         print("Updating frame: ", frame)
         artist = []
 
@@ -284,7 +286,7 @@ class BoundaryPlotter2D(Plotter):
             self.output_name_tag = self.output_name_tag + "a"
 
     def get_analytic_solution(self, t) -> Tuple[np.array, np.array]:
-        r0 = (self.configuration["solver"]["domain"]["x_right"] - self.configuration["solver"]["domain"]["x_left"]) / 4
+        r0 = (self.configuration["solver"]["domain"]["x_right"] - self.configuration["solver"]["domain"]["x_left"]) / 6
         coef = 1
 
         # There is no circle.
@@ -323,7 +325,7 @@ class SurfacePlotter(Plotter):
         self.ax.set_xlabel("x")
         self.ax.set_ylabel("y")
         self.ax.set_zlabel("p")
-        self.title = self.ax.set_title("Čas: 0")
+        self.title = self.ax.set_title("t = 0")
         self.output_name_tag = "_" + self.data_drawn + "_3D"
 
         self.function_surf = self.ax.plot_surface(x_grid, y_grid, val_grid, color='white', edgecolors="black", linewidth=0.25)
@@ -333,9 +335,9 @@ class SurfacePlotter(Plotter):
         x_grid, y_grid = np.meshgrid(np.unique(x), np.unique(y))
         val_grid = value.reshape(x_grid.shape)
 
-        time_step = (self.configuration["solver"]["final_time"] - self.configuration["solver"]["initial_time"]) / max(len(self.file_paths), self.configuration["solver"]["frame_num"])
+        time_step = (self.configuration["solver"]["final_time"] - self.configuration["solver"]["initial_time"]) / max(len(self.file_paths)-1, self.configuration["solver"]["frame_num"])
         time_decimal_places = math.ceil(math.log(time_step, 0.1))
-        self.title.set_text(f"Čas: {self.configuration["solver"]["initial_time"] + time_step*frame:.{time_decimal_places}f}")
+        self.title.set_text(f"t = {self.configuration["solver"]["initial_time"] + time_step*frame:.{time_decimal_places}f}")
         print("Updating frame: ", frame)
         artist = []
 
@@ -379,7 +381,7 @@ class CutPlotter(Plotter):
 
         self.ax.set_ylim(min(0, value.min()*1.5), value.max()*1.2)
         self.ax.set_aspect('auto')
-        self.title = self.ax.set_title("Čas: 0")
+        self.title = self.ax.set_title("t = 0")
         self.output_name_tag = "_" + self.data_drawn + "_" + self.axis + "-cut"
 
         self.function, = self.ax.plot([],
@@ -403,10 +405,10 @@ class CutPlotter(Plotter):
 
     def update(self, frame: int):
         x, y, value = self._load_data(self.file_paths[frame])
-        time_step = (self.configuration["solver"]["final_time"] - self.configuration["solver"]["initial_time"]) / max(len(self.file_paths), self.configuration["solver"]["frame_num"])
+        time_step = (self.configuration["solver"]["final_time"] - self.configuration["solver"]["initial_time"]) / max(len(self.file_paths)-1, self.configuration["solver"]["frame_num"])
         time_decimal_places = math.ceil(math.log(time_step, 0.1))
         self.ax.set_ylim(min(0, value.min()*1.5), math.floor(value.max()*1.2 / 0.01)*0.01)
-        self.title.set_text(f"Čas: {self.configuration["solver"]["initial_time"] + time_step*frame:.{time_decimal_places}f}")
+        self.title.set_text(f"t = {self.configuration["solver"]["initial_time"] + time_step*frame:.{time_decimal_places}f}")
         print("Updating frame: ", frame)
         artist = []
 

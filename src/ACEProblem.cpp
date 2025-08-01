@@ -3,22 +3,27 @@
 #define COMPUTE_PHASE
 #define COMPUTE_CONCENTRATION
 
-#define C_INIT 4
+#define C_INIT 7
 /*
 *  0 - Linear by parts in circle around the middle
 *  1 - Constant on the whole domain
 *  2 - Fourier along x axis
 *  3 - Fourier along y axis
 *  4 - Constant in halves
+*  5 - Custom
+*  6 - Constant in circle
+*  7 - 2 pikes
 */
 
-#define P_INIT 3
+#define P_INIT 7
 /*
 *  All based on radius
 *  0 - Hyperbolic tangent
 *  1 - Linear by parts
 *  2 - Constant in circle
 *  3 - Constant in halves
+*  4 - Custom
+*  7 - 2 pikes
 */
 
 #define C_BOUND 3
@@ -158,7 +163,8 @@ void ACEProblem::set_init_cond_manually(double *u)
 
 void ACEProblem::set_phase_initial_condition(double *u)
 {
-   double r1 = (domain.x_right - domain.x_left)/4 - 0.5*ksi;
+   double r = (domain.x_right - domain.x_left)/6;
+   double r1 = r1- 0.5*ksi;
    double r2 = r1 + ksi;
    for(int i = 0; i < sizeX; i++)
    {
@@ -187,7 +193,7 @@ void ACEProblem::set_phase_initial_condition(double *u)
          
          #elif P_INIT == 2
          //Constant in circle
-         if( radius < r1 )
+         if( radius < r )
          {
             u[j*sizeX + i] = constants::p_alpha;
          }
@@ -197,7 +203,7 @@ void ACEProblem::set_phase_initial_condition(double *u)
          }
 
          #elif P_INIT == 3
-         //Constant in circle
+         //Constant in halfes
          if( i < sizeX/2 )
          {
             u[j*sizeX + i] = constants::p_alpha;
@@ -207,6 +213,29 @@ void ACEProblem::set_phase_initial_condition(double *u)
             u[j*sizeX + i] = constants::p_beta;
          }
 
+         #elif P_INIT == 4
+         //Custom
+         if( i*hx < 0.2 )
+         {
+            u[j*sizeX + i] = constants::p_alpha;
+         }
+         else
+         {
+            u[j*sizeX + i] = constants::p_beta;
+         }
+
+         #elif P_INIT == 7
+         //2 Pikes
+         double y = 2*j*hy;
+         if( (y < 1 && i*hx < y*y*(1-2*y+y*y)/0.625+0.1) ||
+             (y >= 1 && i*hx < (y-1)*(y-1)*(1-2*(y-1)+(y-1)*(y-1))/0.625+0.1))
+         {
+            u[j*sizeX + i] = constants::p_alpha;
+         }
+         else
+         {
+            u[j*sizeX + i] = constants::p_beta;
+         }
          #endif
       }
    }
@@ -215,7 +244,8 @@ void ACEProblem::set_phase_initial_condition(double *u)
 void ACEProblem::set_concentration_initial_condition(double *u)
 {
    int offset = sizeX * sizeY;
-   double r1 = (domain.x_right - domain.x_left)/4 - 0.5*ksi;
+   double r = (domain.x_right - domain.x_left)/6;
+   double r1 = r - 0.5*ksi;
    double r2 = r1 + ksi;
 
    for(int i = 0; i < sizeX; i++)
@@ -263,6 +293,41 @@ void ACEProblem::set_concentration_initial_condition(double *u)
             u[offset + j*sizeX + i] = constants::c_init_beta;
          }
 
+         #elif C_INIT == 5
+         //Custom
+         if( i*hx < 0.2 )
+         {
+            u[offset + j*sizeX + i] = constants::c_init_alpha;
+         }
+         else
+         {
+            u[offset + j*sizeX + i] = constants::c_init_beta;
+         }
+
+         #elif C_INIT == 6
+         //Constant in circle
+         double radius = sqrt(pow(i*hx - (domain.x_right - domain.x_left)/2, 2) + pow(j*hy - (domain.y_right-domain.y_left)/2, 2));
+         if( radius < r )
+         {
+            u[offset + j*sizeX + i] = constants::c_init_alpha;
+         }
+         else
+         {
+            u[offset + j*sizeX + i] = constants::c_init_beta;
+         }
+
+         #elif C_INIT == 7
+         //2 Pikes
+         double y = 2*j*hy;
+         if( (y < 1 && i*hx < y*y*(1-2*y+y*y)/0.625+0.1) ||
+             (y >= 1 && i*hx < (y-1)*(y-1)*(1-2*(y-1)+(y-1)*(y-1))/0.625+0.1))
+         {
+            u[offset + j*sizeX + i] = constants::c_init_alpha;
+         }
+         else
+         {
+            u[offset + j*sizeX + i] = constants::c_init_beta;
+         }
          #endif
       }
    }
@@ -519,7 +584,7 @@ double ACEProblem::F(const double *u, int i, int j)
    double mid_x = (domain.x_right - domain.x_left)/2;
    double mid_y = (domain.y_right - domain.y_left)/2;
    double r = sqrt(pow(i*hx - mid_x, 2) + pow(j*hy - mid_y, 2));
-   return 2/std::max(r, 0.1);
+   return -2/std::max(r, 0.1);
 
    #elif FORCE == 2
    return constants::G_m_alpha(conc_at(u, i, j), T) - constants::G_m_beta(conc_at(u, i, j), T);

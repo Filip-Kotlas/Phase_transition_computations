@@ -1,4 +1,4 @@
-TARGET:= Phase-field.exe
+TARGET ?= Phase-field.exe
 FOLDER ?= Results
 
 BUILD_DIR := ./build

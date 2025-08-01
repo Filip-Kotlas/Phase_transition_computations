@@ -72,19 +72,6 @@ Parameters get_parameters() {
             domain.value("y_right", 1.0)
         };
 
-        // Integration time step
-        double computed_integration_time_step = pow(std::min((par.domain.x_right - par.domain.x_left)/(par.sizeX-1),
-                                                   (par.domain.y_right - par.domain.y_left)/(par.sizeY-1)),
-                                                    2)/5;
-        if( solver.value("custom_integration_time_step", false) )
-        {
-            par.integrationTimeStep = solver.value("integration_time_step", computed_integration_time_step);
-        }
-        else
-        {
-            par.integrationTimeStep = computed_integration_time_step;
-        }
-
         // Initial condition
         par.init_cond_from_file = solver.value("init_cond_from_file", false);
         par.init_cond_file_path = solver.value("init_cond_file_path", "");
@@ -97,6 +84,19 @@ Parameters get_parameters() {
         par.par_d = problem.value("d", 1.0);
         par.T = problem.value("T", 1.0);
         par.ksi = problem.value("ksi", 0.01);
+
+        // Integration time step
+        double computed_integration_time_step = par.alpha * pow(std::min((par.domain.x_right - par.domain.x_left)/(par.sizeX-1),
+                                                   (par.domain.y_right - par.domain.y_left)/(par.sizeY-1)),
+                                                    2)/5;
+        if( solver.value("custom_integration_time_step", false) )
+        {
+            par.integrationTimeStep = solver.value("integration_time_step", computed_integration_time_step);
+        }
+        else
+        {
+            par.integrationTimeStep = computed_integration_time_step;
+        }
     }
     catch(const std::exception& e) {
         std::cout << "Chyba při načítání JSON: " << e.what() << std::endl;
