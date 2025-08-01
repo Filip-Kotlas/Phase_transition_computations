@@ -104,8 +104,8 @@ class BoundaryPlotter2D(Plotter):
 
         x, y, _ = self._load_data(self.file_paths[0])
         self.fig, self.ax = plt.subplots()
-        self.ax.set_xlabel("x")
-        self.ax.set_ylabel("y")
+        self.ax.set_xlabel(r"$x$")
+        self.ax.set_ylabel(r"$y$")
         self.ax.set_xlim(x.min(), x.max())
         self.ax.set_ylim(y.min(), y.max())
         self.ax.set_aspect('equal')
@@ -135,8 +135,7 @@ class BoundaryPlotter2D(Plotter):
     def update(self, frame: int):
         x, y, value = self._load_data(self.file_paths[frame])
         time_step = (self.configuration["solver"]["final_time"] - self.configuration["solver"]["initial_time"]) / max(len(self.file_paths)-1, self.configuration["solver"]["frame_num"])
-        time_decimal_places = math.ceil(math.log(time_step, 0.1))
-        self.title.set_text(f"t = {self.configuration["solver"]["initial_time"] + time_step*frame:.{time_decimal_places}f}")
+        self.title.set_text(f"t = {self.configuration["solver"]["initial_time"] + time_step*frame:g}")
         print("Updating frame: ", frame)
         artist = []
 
@@ -322,9 +321,16 @@ class SurfacePlotter(Plotter):
         self.ax.set_xlim(x.min(), x.max())
         self.ax.set_ylim(y.min(), y.max())
         self.ax.set_zlim(min(0, value.min()*1.5), value.max()*1.5)
-        self.ax.set_xlabel("x")
-        self.ax.set_ylabel("y")
-        self.ax.set_zlabel("p")
+
+        self.ax.set_xlabel(r"$x$")
+        self.ax.set_ylabel(r"$y$")
+        if data_drawn == "concentration":
+            self.ax.set_zlabel(r"$c$")
+        elif data_drawn == "phase":
+            self.ax.set_zlabel(r"$\phi$")
+        else:
+            raise ValueError("Wrong type of plot data.")
+
         self.title = self.ax.set_title("t = 0")
         self.output_name_tag = "_" + self.data_drawn + "_3D"
 
@@ -336,8 +342,7 @@ class SurfacePlotter(Plotter):
         val_grid = value.reshape(x_grid.shape)
 
         time_step = (self.configuration["solver"]["final_time"] - self.configuration["solver"]["initial_time"]) / max(len(self.file_paths)-1, self.configuration["solver"]["frame_num"])
-        time_decimal_places = math.ceil(math.log(time_step, 0.1))
-        self.title.set_text(f"t = {self.configuration["solver"]["initial_time"] + time_step*frame:.{time_decimal_places}f}")
+        self.title.set_text(f"t = {self.configuration["solver"]["initial_time"] + time_step*frame:g}")
         print("Updating frame: ", frame)
         artist = []
 
@@ -406,9 +411,8 @@ class CutPlotter(Plotter):
     def update(self, frame: int):
         x, y, value = self._load_data(self.file_paths[frame])
         time_step = (self.configuration["solver"]["final_time"] - self.configuration["solver"]["initial_time"]) / max(len(self.file_paths)-1, self.configuration["solver"]["frame_num"])
-        time_decimal_places = math.ceil(math.log(time_step, 0.1))
         self.ax.set_ylim(min(0, value.min()*1.5), math.floor(value.max()*1.2 / 0.01)*0.01)
-        self.title.set_text(f"t = {self.configuration["solver"]["initial_time"] + time_step*frame:.{time_decimal_places}f}")
+        self.title.set_text(f"t = {self.configuration["solver"]["initial_time"] + time_step*frame:g}")
         print("Updating frame: ", frame)
         artist = []
 
