@@ -3,22 +3,30 @@
 #define COMPUTE_PHASE
 #define COMPUTE_CONCENTRATION
 
-#define C_INIT 4
-/*
-*  0 - Linear by parts in circle around the middle
-*  1 - Constant on the whole domain
-*  2 - Fourier along x axis
-*  3 - Fourier along y axis
-*  4 - Constant in halves
-*/
+#define INIT 6
 
-#define P_INIT 3
+#define P_INIT INIT
 /*
 *  All based on radius
 *  0 - Hyperbolic tangent
 *  1 - Linear by parts
 *  2 - Constant in circle
-*  3 - Constant in halves
+*  4 - Constant in halves
+*  5 - Stripe to the left of 0.2
+*  6 - Two bumbs at the left side
+*/
+
+#define C_INIT INIT
+/*
+*  0 - Constant on the whole domain
+*  1 - Linear by parts in circle around the middle
+*  2 - Constant in circle
+*  4 - Constant in halves
+*  5 - Stripe to the left of 0.2
+*  6 - Two bumbs at the left side
+*
+*  20 - Fourier along x axis
+*  30 - Fourier along y axis
 */
 
 #define C_BOUND 3
@@ -191,9 +199,33 @@ void ACEProblem::set_phase_initial_condition(double *u)
             u[j*sizeX + i] = constants::p_beta;
          }
 
-         #elif P_INIT == 3
-         //Constant in circle
+         #elif P_INIT == 4
+         //Constant in halves
          if( i < sizeX/2 )
+         {
+            u[j*sizeX + i] = constants::p_alpha;
+         }
+         else
+         {
+            u[j*sizeX + i] = constants::p_beta;
+         }
+
+         #elif P_INIT == 5
+         // Stripe to the left of 0.2
+         if( i*hx < 0.2 )
+         {
+            u[j*sizeX + i] = constants::p_alpha;
+         }
+         else
+         {
+            u[j*sizeX + i] = constants::p_beta;
+         }
+
+         #elif P_INIT == 6
+         // Two bumbs at the left side
+         double y = 2*j*hy;
+         if( (y < 1 && i*hx < y*y*(1-2*y+y*y)/0.625+0.1) ||
+             (y >= 1 && i*hx < (y-1)*(y-1)*(1-2*(y-1)+(y-1)*(y-1))/0.625+0.1))
          {
             u[j*sizeX + i] = constants::p_alpha;
          }
@@ -218,6 +250,9 @@ void ACEProblem::set_concentration_initial_condition(double *u)
       for(int j = 0; j < sizeY; j++)
       {         
          #if C_INIT == 0
+         u[offset + j*sizeX + i] = constants::c_init_alpha;
+         
+         #elif C_INIT == 1
          double radius = sqrt(pow(i*hx - (domain.x_right - domain.x_left)/2, 2) + pow(j*hy - (domain.y_right-domain.y_left)/2, 2));
          if(radius < r1)
             u[offset + j*sizeX + i] = constants::c_init_alpha;
@@ -226,10 +261,19 @@ void ACEProblem::set_concentration_initial_condition(double *u)
          else
             u[offset + j*sizeX + i] = constants::c_init_beta;
 
-         #elif C_INIT == 1
-         u[offset + j*sizeX + i] = constants::c_init_alpha;
-
          #elif C_INIT == 2
+         //Constant in circle
+         double radius = sqrt(pow(i*hx - (domain.x_right - domain.x_left)/2, 2) + pow(j*hy - (domain.y_right-domain.y_left)/2, 2));
+         if( radius < r )
+         {
+            u[offset + j*sizeX + i] = constants::c_init_alpha;
+         }
+         else
+         {
+            u[offset + j*sizeX + i] = constants::c_init_beta;
+         }
+
+         #elif C_INIT == 20
          u[offset + j*sizeX + i] = 0;
          for(int n = 1; n < 5; n++)
          {
@@ -238,7 +282,7 @@ void ACEProblem::set_concentration_initial_condition(double *u)
             u[offset + j*sizeX + i] += C_n * sin(sqrt(lambda_n) * (i*hx));
          }
 
-         #elif C_INIT == 3
+         #elif C_INIT == 30
          u[offset + j*sizeX + i] = 0;
          for(int n = 1; n < 5; n++)
          {
@@ -248,8 +292,32 @@ void ACEProblem::set_concentration_initial_condition(double *u)
          }
 
          #elif C_INIT == 4
-         //Constant in halfes
+         //Constant in halves
          if( i < sizeX/2 )
+         {
+            u[offset + j*sizeX + i] = constants::c_init_alpha;
+         }
+         else
+         {
+            u[offset + j*sizeX + i] = constants::c_init_beta;
+         }
+
+         #elif C_INIT == 5
+         // Stripe to the left of 0.2
+         if( i*hx < 0.2 )
+         {
+            u[offset + j*sizeX + i] = constants::c_init_alpha;
+         }
+         else
+         {
+            u[offset + j*sizeX + i] = constants::c_init_beta;
+         }
+
+         #elif C_INIT == 6
+         // Two bumbs at the left side
+         double y = 2*j*hy;
+         if( (y < 1 && i*hx < y*y*(1-2*y+y*y)/0.625+0.1) ||
+             (y >= 1 && i*hx < (y-1)*(y-1)*(1-2*(y-1)+(y-1)*(y-1))/0.625+0.1))
          {
             u[offset + j*sizeX + i] = constants::c_init_alpha;
          }
@@ -429,12 +497,7 @@ double ACEProblem::get_rhs_phase_at(const double* u, int i, int j)
    
    else if(model == MODEL::MODEL_4)
       rhs = laplace(u, i, j) + f_0(u, i , j) / ksi / ksi + 10/sqrt(8)*sqrt(par_a)*1.0/ksi*grade_4_polynom(u, i, j)*F(u, i, j);
-      /*
-      if(i == sizeX/2 && j < sizeY/2)
-      {
-         std::cout << "f_0: " << 1 / ksi / ksi << ", F: " << 10/sqrt(8)*sqrt(par_a)*1.0/ksi*F(u, i, j) << std::endl;
-      }
-      */
+
    return rhs;
 }
 
