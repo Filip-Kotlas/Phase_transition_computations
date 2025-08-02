@@ -321,6 +321,7 @@ class SurfacePlotter(Plotter):
         self.ax.set_xlim(x.min(), x.max())
         self.ax.set_ylim(y.min(), y.max())
         self.ax.set_zlim(min(0, value.min()*1.5), value.max()*1.5)
+        self.ax.set_aspect('equal')
 
         self.ax.set_xlabel(r"$x$")
         self.ax.set_ylabel(r"$y$")
@@ -392,8 +393,7 @@ class CutPlotter(Plotter):
         self.function, = self.ax.plot([],
                                       [],
                                       color='orange',
-                                      linestyle='-',
-                                      label=self.axis + "-cut of c at " + str(int(self.part*100)) + "%")
+                                      linestyle='-')
         if self.axis == "x":
             self.function.set_data(x, value)
         elif self.axis == "y":
