@@ -80,7 +80,7 @@ class Plotter():
         self.check_for_info_folder()
         self.update(frame)
         output_file = Path(self.folder) / "info" / ("ACE" + self.output_name_tag + f"_{frame:05d}.jpg")
-        self.fig.savefig(output_file, dpi=300)
+        self.fig.savefig(output_file, dpi=300, bbox_inches='tight')
         print(f"Frame {frame} saved at:", output_file)
 
     def show_frame(self, frame: int) -> None:
