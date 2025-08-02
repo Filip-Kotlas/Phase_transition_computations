@@ -3,7 +3,7 @@
 #define COMPUTE_PHASE
 #define COMPUTE_CONCENTRATION
 
-#define INIT 6
+#define INIT 5
 
 #define P_INIT INIT
 /*
