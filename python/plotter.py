@@ -5,6 +5,7 @@ import json
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib import animation
+from matplotlib.transforms import Bbox
 
 
 class Plotter():
@@ -80,7 +81,17 @@ class Plotter():
         self.check_for_info_folder()
         self.update(frame)
         output_file = Path(self.folder) / "info" / ("ACE" + self.output_name_tag + f"_{frame:05d}.jpg")
-        self.fig.savefig(output_file, dpi=300, bbox_inches='tight')
+        
+        # Surface pro comp1
+        bbox = Bbox([[1.2, 0.5], [5.9, 4.5]])  # levý dolní a pravý horní roh
+        #self.fig.savefig(output_file, dpi=300,  bbox_inches=bbox)
+
+        # Surface pro comp3, comp2
+        bbox = Bbox([[1.5, 0.2], [5.5, 4.5]])  # levý dolní a pravý horní roh
+        #self.fig.savefig(output_file, dpi=300,  bbox_inches=bbox)
+
+        # Standard
+        self.fig.savefig(output_file, dpi=300, bbox_inches="tight")
         print(f"Frame {frame} saved at:", output_file)
 
     def show_frame(self, frame: int) -> None:
@@ -120,7 +131,8 @@ class BoundaryPlotter2D(Plotter):
         self.draw_analit_boundary = draw_analit_boundary
 
         if self.draw_function:
-            self.function_sc = self.ax.scatter([], [], c=[], cmap='viridis', s=40)
+            self.function_sc = self.ax.scatter([], [], c=[], cmap='viridis', s=5, vmin=0.0, vmax=0.09)
+            self.colorbar = self.fig.colorbar(self.function_sc, ax=self.ax, label=r"$c$")
             self.function_sc.set_offsets(np.column_stack((x, y)))
             self.output_name_tag = self.output_name_tag + "f"
         if self.draw_num_boundary:
@@ -130,7 +142,7 @@ class BoundaryPlotter2D(Plotter):
             self.anal_bound_sc, = self.ax.plot([], [], color='blue', linestyle=":", label='Analytické řešení')
             self.output_name_tag = self.output_name_tag + "a"
 
-        self.ax.legend()
+        #self.ax.legend()
 
     def update(self, frame: int):
         x, y, value = self._load_data(self.file_paths[frame])
@@ -320,8 +332,14 @@ class SurfacePlotter(Plotter):
 
         self.ax.set_xlim(x.min(), x.max())
         self.ax.set_ylim(y.min(), y.max())
-        self.ax.set_zlim(min(0, value.min()*1.5), value.max()*1.5)
-        self.ax.set_aspect('equal')
+        if( data_drawn == "phase"):
+            self.ax.set_zlim(0, 1.1)
+            self.ax.set_box_aspect([1, 1, 1])
+        elif( data_drawn == "concentration"):
+            self.ax.set_zlim(0, 0.08)
+            self.ax.set_box_aspect([1, 1, 1])
+        else:
+            raise ValueError("Wrong data_drawn given.")
 
         self.ax.set_xlabel(r"$x$")
         self.ax.set_ylabel(r"$y$")
@@ -341,6 +359,8 @@ class SurfacePlotter(Plotter):
         x, y, value = self._load_data(self.file_paths[frame])
         x_grid, y_grid = np.meshgrid(np.unique(x), np.unique(y))
         val_grid = value.reshape(x_grid.shape)
+        if( self.data_drawn == "concentration"):
+            self.ax.set_zlim(0, 0.08)
 
         time_step = (self.configuration["solver"]["final_time"] - self.configuration["solver"]["initial_time"]) / max(len(self.file_paths)-1, self.configuration["solver"]["frame_num"])
         self.title.set_text(f"t = {self.configuration["solver"]["initial_time"] + time_step*frame:g}")
@@ -385,8 +405,11 @@ class CutPlotter(Plotter):
         else:
             raise ValueError("Invalid axis given")
 
-        self.ax.set_ylim(min(0, value.min()*1.5), value.max()*1.2)
+        self.ax.set_ylim(min(0, value.min()*1.5), max(0.08, value.max()*1.2))
         self.ax.set_aspect('auto')
+
+        self.ax.set_xlabel(r"$x$")
+        self.ax.set_ylabel(r"$c$")
         self.title = self.ax.set_title("t = 0")
         self.output_name_tag = "_" + self.data_drawn + "_" + self.axis + "-cut"
 
@@ -406,12 +429,10 @@ class CutPlotter(Plotter):
                                         linestyle=':',
                                         label="Analytic solution")
 
-        self.ax.legend()
-
     def update(self, frame: int):
         x, y, value = self._load_data(self.file_paths[frame])
         time_step = (self.configuration["solver"]["final_time"] - self.configuration["solver"]["initial_time"]) / max(len(self.file_paths)-1, self.configuration["solver"]["frame_num"])
-        self.ax.set_ylim(min(0, value.min()*1.5), math.floor(value.max()*1.2 / 0.01)*0.01)
+        self.ax.set_ylim(min(0, value.min()*1.5), max(0.08, math.floor(value.max()*1.2 / 0.01)*0.01))
         self.title.set_text(f"t = {self.configuration["solver"]["initial_time"] + time_step*frame:g}")
         print("Updating frame: ", frame)
         artist = []

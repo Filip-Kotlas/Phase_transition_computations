@@ -3,7 +3,7 @@
 #define COMPUTE_PHASE
 #define COMPUTE_CONCENTRATION
 
-#define INIT 5
+#define INIT 7
 
 #define P_INIT INIT
 /*
@@ -14,6 +14,7 @@
 *  4 - Constant in halves
 *  5 - Stripe to the left of 0.2
 *  6 - Two bumbs at the left side
+*  7 - Stripe to the left of 0.8
 */
 
 #define C_INIT INIT
@@ -24,6 +25,7 @@
 *  4 - Constant in halves
 *  5 - Stripe to the left of 0.2
 *  6 - Two bumbs at the left side
+*  7 - Stripe to the left of 0.8
 *
 *  20 - Fourier along x axis
 *  30 - Fourier along y axis
@@ -240,6 +242,17 @@ void ACEProblem::set_phase_initial_condition(double *u)
             u[j*sizeX + i] = constants::p_beta;
          }
 
+         #elif P_INIT == 7
+         // Stripe to the left of 0.8
+         if( i*hx < 0.8 )
+         {
+            u[j*sizeX + i] = constants::p_alpha;
+         }
+         else
+         {
+            u[j*sizeX + i] = constants::p_beta;
+         }
+
          #endif
       }
    }
@@ -325,6 +338,17 @@ void ACEProblem::set_concentration_initial_condition(double *u)
          double y = 2*j*hy;
          if( (y < 1 && i*hx < y*y*(1-2*y+y*y)/0.625+0.1) ||
              (y >= 1 && i*hx < (y-1)*(y-1)*(1-2*(y-1)+(y-1)*(y-1))/0.625+0.1))
+         {
+            u[offset + j*sizeX + i] = constants::c_init_alpha;
+         }
+         else
+         {
+            u[offset + j*sizeX + i] = constants::c_init_beta;
+         }
+
+         #elif C_INIT == 7
+         // Stripe to the left of 0.8
+         if( i*hx < 0.8 )
          {
             u[offset + j*sizeX + i] = constants::c_init_alpha;
          }
