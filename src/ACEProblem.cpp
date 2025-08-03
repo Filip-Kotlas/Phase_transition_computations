@@ -49,12 +49,12 @@
 //#define C_TEST_X
 
 #ifdef C_TEST_X
-#define C_INIT 2
+#define C_INIT 20
 #define C_BOUND 1
 #endif
 
 #ifdef C_TEST_Y
-#define C_INIT 3
+#define C_INIT 30
 #define C_BOUND 2
 #endif
 

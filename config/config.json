@@ -15,7 +15,7 @@
         "custom_integration_time_step": false,
         "integration_time_step": 5.0e-6,
         "sizeX": 101,
-        "sizeY": 11,
+        "sizeY": 101,
         "frame_num": 100,
         "model": 4
     },

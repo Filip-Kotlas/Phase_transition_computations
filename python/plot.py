@@ -23,7 +23,7 @@ results_path = Path()
 results_path = results_path.parent / "results" / args.name
 
 if args.type == "phase":
-    plotter = BoundaryPlotter2D(results_path, False, True, False)
+    plotter = BoundaryPlotter2D(results_path, False, True, False, data_drawn="phase")
     plotter.show_frame(args.frame)
     plotter = SurfacePlotter(results_path, "phase")
     plotter.show_frame(args.frame)

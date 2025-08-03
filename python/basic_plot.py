@@ -19,7 +19,7 @@ args = parser.parse_args()
 results_path = Path()
 results_path = results_path.parent / "results" / args.name
 
-boundary_plotter = BoundaryPlotter2D(results_path, True, False, False, "phase")
+boundary_plotter = BoundaryPlotter2D(results_path, False, True, False, "phase")
 phase_surface_plotter = SurfacePlotter(results_path, "phase")
 concentration_surface_plotter = SurfacePlotter(results_path, "concentration")
 concentration_cut_plotter = CutPlotter(results_path, "concentration", "x", 0.5, False)
