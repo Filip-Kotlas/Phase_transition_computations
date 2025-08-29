@@ -1,16 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
-import math
-import argparse
 
-parser = argparse.ArgumentParser()
-parser.add_argument("--name",
-                    type=str,
-                    help="Name of the folder with results. Has to be in results folder.",
-                    default="Results")
-args = parser.parse_args()
-
-def my_function(x, param):
+def my_function(x):
     return x**3*(6*x**2 -15*x + 10)
 
 dim = [-0.15, 1.15, -0.1, 1.1]
@@ -24,7 +15,7 @@ x = np.linspace(dim[0], dim[1], 1000)
 fig, ax = plt.subplots(figsize=(8, 6))
 
 for param in param_values:
-    y = my_function(x, param)
+    y = my_function(x)
     ax.plot(x, y, color='black', linewidth=1.5)
 
 
@@ -62,4 +53,4 @@ ax.grid(True)
 ax.set_aspect("auto")
 
 plt.tight_layout()
-plt.savefig("fig\\" + args.name, dpi=300)
+plt.savefig("fig\\p.png", dpi=300)
