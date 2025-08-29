@@ -40,7 +40,6 @@ bool solve( const double initialTime,
       problem->writeSolution( time, k, u );
 
       auto stepEnd = std::chrono::high_resolution_clock::now();
-      std::chrono::duration<double> stepDuration = stepEnd - stepStart;
       
       double time_per_step = (std::chrono::duration<double>(stepEnd - stepStart).count());
       double remaining_time = time_per_step * (timeStepsCount - k);
