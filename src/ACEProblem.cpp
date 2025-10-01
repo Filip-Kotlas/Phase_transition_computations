@@ -70,7 +70,7 @@ ACEProblem::ACEProblem(int sizeX,
                        double par_a,
                        double ksi,
                        MODEL model,
-                       std::string output_folder)
+                       std::filesystem::path output_folder)
 :  sizeX(sizeX),
    sizeY(sizeY),
    domain(domain),
@@ -123,7 +123,7 @@ bool ACEProblem::writeSolution(const double &t, int step, const double *u)
     * Filename with step index
     */
    std::stringstream str;
-   str << output_folder << "\\ACE-equation-" << std::setw( 5 ) << std::setfill( '0' ) << step << ".txt";
+   str << output_folder.string() << "\\ACE-equation-" << std::setw( 5 ) << std::setfill( '0' ) << step << ".txt";
    
    /****
     * Open file
@@ -153,13 +153,13 @@ bool ACEProblem::writeSolution(const double &t, int step, const double *u)
    return true;
 }
 
-void ACEProblem::set_init_cond_manually(double *u)
+void ACEProblem::set_init_cond_manually(double *u, InitialCondition ic)
 {
-   set_phase_initial_condition(u);
-   set_concentration_initial_condition(u);
+   set_phase_initial_condition(u, ic);
+   set_concentration_initial_condition(u, ic);
 }
 
-void ACEProblem::set_phase_initial_condition(double *u)
+void ACEProblem::set_phase_initial_condition(double *u, InitialCondition ic)
 {
    double r1 = (domain.x_right - domain.x_left)/4 - 0.5*ksi;
    double r2 = r1 + ksi;
@@ -169,111 +169,149 @@ void ACEProblem::set_phase_initial_condition(double *u)
       {
          double radius = sqrt(pow(i*hx - (domain.x_right - domain.x_left)/2, 2) + pow(j*hy - (domain.y_right-domain.y_left)/2, 2));
 
-         #if P_INIT == 0
-         //Hyperbolic tangent
-         u[j*sizeX + i] = 1.0/2 * tanh(-3/ksi*(radius - r1)) + 1.0/2; //needs to be changed according to the correct phases
+         switch(ic) {
+            case InitialCondition::HyperbolicTangent:
+               u[j*sizeX + i] = 1.0/2 * tanh(-3/ksi*(radius - r1)) + 1.0/2; //needs to be changed according to the correct phases
+               break;
 
-         #elif P_INIT == 1
-         //Linear by parts
-         if( radius < r1 )
-         {
-            u[j*sizeX + i] = constants::p_alpha;
-         }
-         else if( radius < r2 )
-         {
-            u[j*sizeX + i] = constants::p_alpha - (constants::p_alpha - constants::p_beta)*(radius - r1) / (r2 - r1);
-         }
-         else
-         {
-            u[j*sizeX + i] = constants::p_beta;
-         }
-         
-         #elif P_INIT == 2
-         //Constant in circle
-         if( radius < r1 )
-         {
-            u[j*sizeX + i] = constants::p_alpha;
-         }
-         else
-         {
-            u[j*sizeX + i] = constants::p_beta;
-         }
+            case InitialCondition::LinearByParts:
+               if( radius < r1 )
+               {
+                  u[j*sizeX + i] = constants::p_alpha;
+               }
+               else if( radius < r2 )
+               {
+                  u[j*sizeX + i] = constants::p_alpha - (constants::p_alpha - constants::p_beta)*(radius - r1) / (r2 - r1);
+               }
+               else
+               {
+                  u[j*sizeX + i] = constants::p_beta;
+               }
+               break;
+            
+            case InitialCondition::ConstantCircle:
+               if( radius < r1 )
+               {
+                  u[j*sizeX + i] = constants::p_alpha;
+               }
+               else
+               {
+                  u[j*sizeX + i] = constants::p_beta;
+               }
+               break;
 
-         #elif P_INIT == 4
-         //Constant in halves
-         if( i < sizeX/2 )
-         {
-            u[j*sizeX + i] = constants::p_alpha;
-         }
-         else
-         {
-            u[j*sizeX + i] = constants::p_beta;
-         }
+            case InitialCondition::ConstantHalves:
+               if( i < sizeX/2 )
+               {
+                  u[j*sizeX + i] = constants::p_alpha;
+               }
+               else
+               {
+                  u[j*sizeX + i] = constants::p_beta;
+               }
+               break;
 
-         #elif P_INIT == 5
-         // Stripe to the left of 0.2
-         if( i*hx < 0.2 )
-         {
-            u[j*sizeX + i] = constants::p_alpha;
-         }
-         else
-         {
-            u[j*sizeX + i] = constants::p_beta;
-         }
+            case InitialCondition::Stripe:
+               if( i*hx < 0.2 )
+               {
+                  u[j*sizeX + i] = constants::p_alpha;
+               }
+               else
+               {
+                  u[j*sizeX + i] = constants::p_beta;
+               }
+               break;
 
-         #elif P_INIT == 6
-         // Two bumbs at the left side
-         double y = 2*j*hy;
-         if( (y < 1 && i*hx < y*y*(1-2*y+y*y)/0.625+0.1) ||
-             (y >= 1 && i*hx < (y-1)*(y-1)*(1-2*(y-1)+(y-1)*(y-1))/0.625+0.1))
-         {
-            u[j*sizeX + i] = constants::p_alpha;
+            case InitialCondition::TwoBumps:
+               double y = 2*j*hy;
+               if( (y < 1 && i*hx < y*y*(1-2*y+y*y)/0.625+0.1) ||
+                  (y >= 1 && i*hx < (y-1)*(y-1)*(1-2*(y-1)+(y-1)*(y-1))/0.625+0.1))
+               {
+                  u[j*sizeX + i] = constants::p_alpha;
+               }
+               else
+               {
+                  u[j*sizeX + i] = constants::p_beta;
+               }
+               break;
          }
-         else
-         {
-            u[j*sizeX + i] = constants::p_beta;
-         }
-
-         #endif
       }
    }
 }
 
-void ACEProblem::set_concentration_initial_condition(double *u)
+void ACEProblem::set_concentration_initial_condition(double *u, InitialCondition ic)
 {
    int offset = sizeX * sizeY;
    double r1 = (domain.x_right - domain.x_left)/4 - 0.5*ksi;
    double r2 = r1 + ksi;
+   double r = (r1 + r2) * 0.5;
 
    for(int i = 0; i < sizeX; i++)
    {
       for(int j = 0; j < sizeY; j++)
-      {         
-         #if C_INIT == 0
-         u[offset + j*sizeX + i] = constants::c_init_alpha;
-         
-         #elif C_INIT == 1
+      {       
          double radius = sqrt(pow(i*hx - (domain.x_right - domain.x_left)/2, 2) + pow(j*hy - (domain.y_right-domain.y_left)/2, 2));
-         if(radius < r1)
-            u[offset + j*sizeX + i] = constants::c_init_alpha;
-         else if(radius < r2)
-            u[offset + j*sizeX + i] = constants::c_init_alpha - (constants::c_init_alpha - constants::c_init_beta) * (radius - r1) / (r2 - r1);
-         else
-            u[offset + j*sizeX + i] = constants::c_init_beta;
+         switch(ic) {
+            case InitialCondition::HyperbolicTangent:
+               u[offset + j*sizeX + i] = constants::c_init_alpha; // TODO: Nutno předělat je to špatně.
+               break;
 
-         #elif C_INIT == 2
-         //Constant in circle
-         double radius = sqrt(pow(i*hx - (domain.x_right - domain.x_left)/2, 2) + pow(j*hy - (domain.y_right-domain.y_left)/2, 2));
-         if( radius < r )
-         {
-            u[offset + j*sizeX + i] = constants::c_init_alpha;
-         }
-         else
-         {
-            u[offset + j*sizeX + i] = constants::c_init_beta;
-         }
+            case InitialCondition::LinearByParts:
+               if(radius < r1)
+                  u[offset + j*sizeX + i] = constants::c_init_alpha;
+               else if(radius < r2)
+                  u[offset + j*sizeX + i] = constants::c_init_alpha - (constants::c_init_alpha - constants::c_init_beta) * (radius - r1) / (r2 - r1);
+               else
+                  u[offset + j*sizeX + i] = constants::c_init_beta;
+               break;
+            
+            case InitialCondition::ConstantCircle:
+               if( radius < r )
+               {
+                  u[offset + j*sizeX + i] = constants::c_init_alpha;
+               }
+               else
+               {
+                  u[offset + j*sizeX + i] = constants::c_init_beta;
+               }
+               break;
 
-         #elif C_INIT == 20
+            case InitialCondition::ConstantHalves:
+               if( i < sizeX/2 )
+               {
+                  u[offset + j*sizeX + i] = constants::c_init_alpha;
+               }
+               else
+               {
+                  u[offset + j*sizeX + i] = constants::c_init_beta;
+               }
+               break;
+
+            case InitialCondition::Stripe:
+               if( i*hx < 0.2 )
+               {
+                  u[offset + j*sizeX + i] = constants::c_init_alpha;
+               }
+               else
+               {
+                  u[offset + j*sizeX + i] = constants::c_init_beta;
+               }
+               break;
+
+            case InitialCondition::TwoBumps:
+               double y = 2*j*hy;
+               if( (y < 1 && i*hx < y*y*(1-2*y+y*y)/0.625+0.1) ||
+                  (y >= 1 && i*hx < (y-1)*(y-1)*(1-2*(y-1)+(y-1)*(y-1))/0.625+0.1))
+               {
+                  u[offset + j*sizeX + i] = constants::c_init_alpha;
+               }
+               else
+               {
+                  u[offset + j*sizeX + i] = constants::c_init_beta;
+               }
+               break;
+         }
+         #if C_INIT == 20
          u[offset + j*sizeX + i] = 0;
          for(int n = 1; n < 5; n++)
          {
@@ -290,48 +328,12 @@ void ACEProblem::set_concentration_initial_condition(double *u)
             double lambda_n = pow(n*M_PI/(domain.y_right-domain.y_left), 2);
             u[offset + j*sizeX + i] += C_n * sin(sqrt(lambda_n) * (j*hy));
          }
-
-         #elif C_INIT == 4
-         //Constant in halves
-         if( i < sizeX/2 )
-         {
-            u[offset + j*sizeX + i] = constants::c_init_alpha;
-         }
-         else
-         {
-            u[offset + j*sizeX + i] = constants::c_init_beta;
-         }
-
-         #elif C_INIT == 5
-         // Stripe to the left of 0.2
-         if( i*hx < 0.2 )
-         {
-            u[offset + j*sizeX + i] = constants::c_init_alpha;
-         }
-         else
-         {
-            u[offset + j*sizeX + i] = constants::c_init_beta;
-         }
-
-         #elif C_INIT == 6
-         // Two bumbs at the left side
-         double y = 2*j*hy;
-         if( (y < 1 && i*hx < y*y*(1-2*y+y*y)/0.625+0.1) ||
-             (y >= 1 && i*hx < (y-1)*(y-1)*(1-2*(y-1)+(y-1)*(y-1))/0.625+0.1))
-         {
-            u[offset + j*sizeX + i] = constants::c_init_alpha;
-         }
-         else
-         {
-            u[offset + j*sizeX + i] = constants::c_init_beta;
-         }
-
          #endif
       }
    }
 }
 
-bool ACEProblem::set_init_cond_from_file(double *u, const std::string& filename)
+bool ACEProblem::set_init_cond_from_file(double *u, const std::filesystem::path& filename)
 {
    std::ifstream file(filename);
    if (!file)
