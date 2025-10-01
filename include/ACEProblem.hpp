@@ -16,42 +16,7 @@
 
 #include "ODEProblem.hpp"
 #include "constants.hpp"
-
-struct Domain
-{
-    double x_left;
-    double x_right;
-    double y_left;
-    double y_right;
-};
-
-enum class MODEL
-{
-    MODEL_1 = 1,
-    MODEL_2 = 2,
-    MODEL_3 = 3,
-    MODEL_4 = 4
-};
-
-struct Parameters{
-    std::string type;
-    double initial_time;
-    double final_time;
-    Domain domain;
-    int sizeX;
-    int sizeY;
-    int frame_num;
-    bool init_cond_from_file;
-    std::string init_cond_file_path;
-    double timeStep;
-    double integrationTimeStep;
-    double alpha;
-    double beta;
-    double par_a;
-    double ksi;
-    MODEL model;
-};
-
+#include "Parameters.hpp"
 
 class ACEProblem : public ODEProblem
 {
@@ -65,7 +30,7 @@ class ACEProblem : public ODEProblem
                double par_a,
                double ksi,
                MODEL model,
-               std::string output_folder);
+               std::filesystem::path output_folder);
       
     int getDegreesOfFreedom();           
     bool writeSolution( const double& t, int step, const double* u );
@@ -91,10 +56,10 @@ class ACEProblem : public ODEProblem
     /*
     * Initial conditions
     */
-    void set_init_cond_manually( double* u );
-    void set_phase_initial_condition( double* u);
-    void set_concentration_initial_condition( double* u);
-    bool set_init_cond_from_file(double *u, const std::string& filename);
+    void set_init_cond_manually( double* u, InitialCondition ic);
+    void set_phase_initial_condition( double* u, InitialCondition ic);
+    void set_concentration_initial_condition( double* u, InitialCondition ic);
+    bool set_init_cond_from_file(double *u, const std::filesystem::path& filename);
 
     /*
     * Boundary conditions
@@ -148,5 +113,5 @@ class ACEProblem : public ODEProblem
     
     const MODEL model;
     
-    const std::string output_folder;
+    const std::filesystem::path output_folder;
 };
