@@ -102,10 +102,11 @@ void ACEProblem::getRightHandSide(const double &t, double *u, double *fu)
 bool ACEProblem::writeSolution(const double &t, int step, const double *u)
 {
    std::stringstream str;
-   str << output_folder.string() << "\\ACE-equation-" << std::setw( 5 ) << std::setfill( '0' ) << step << ".txt";
-   
+   str << "ACE-equation-" << std::setw( 5 ) << std::setfill( '0' ) << step << ".txt";
+   std::filesystem::path file_path = output_folder / str.str();
+
    std::fstream file;
-   file.open( str.str(), std::fstream::out | std::fstream::trunc );
+   file.open( file_path, std::fstream::out | std::fstream::trunc );
    if( ! file )
    {
       std::cerr << "Unable to open the file " << str.str() << std::endl;

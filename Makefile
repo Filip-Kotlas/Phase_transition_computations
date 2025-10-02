@@ -1,4 +1,4 @@
-TARGET ?= Phase-field.exe
+TARGET ?= Phase-field
 FOLDER ?= Results
 
 BUILD_DIR := ./build
@@ -15,18 +15,20 @@ SRC := $(wildcard $(SRC_DIR)/*.cpp)
 INCLUDE := $(wildcard $(INCLUDE_DIR)/*.hpp)
 OBJ := $(SRC:$(SRC_DIR)/%.cpp=$(BUILD_DIR)/%.o)
 
+# pravidlo pro překlad .cpp -> .o
 $(BUILD_DIR)/%.o: $(SRC_DIR)/%.cpp
-	@if not exist "$(BUILD_DIR)" mkdir $(BUILD_DIR)
+	@mkdir -p $(BUILD_DIR)
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
+# linkování
 $(BUILD_DIR)/$(TARGET): $(OBJ)
 	$(CXX) $(CXXFLAGS) -o $@ $^
 
-.PHONY:run
+.PHONY: run
 run: $(BUILD_DIR)/$(TARGET)
 	$(BUILD_DIR)/$(TARGET) $(RESULTS_DIR)/$(FOLDER)
-	python $(PYTHON_DIR)/basic_plot.py --name $(FOLDER) --type both
+	python3 $(PYTHON_DIR)/basic_plot.py --name $(FOLDER) --type both
 
-.PHONY:clean
+.PHONY: clean
 clean:
-	if exist "$(BUILD_DIR)\*" del /Q /S "$(BUILD_DIR)\*"
+	rm -rf $(BUILD_DIR)/*
