@@ -3,28 +3,8 @@
 #define COMPUTE_PHASE
 #define COMPUTE_CONCENTRATION
 
-#define INIT 6
-
-#define P_INIT INIT
+#define C_INIT 0
 /*
-*  All based on radius
-*  0 - Hyperbolic tangent
-*  1 - Linear by parts
-*  2 - Constant in circle
-*  4 - Constant in halves
-*  5 - Stripe to the left of 0.2
-*  6 - Two bumbs at the left side
-*/
-
-#define C_INIT INIT
-/*
-*  0 - Constant on the whole domain
-*  1 - Linear by parts in circle around the middle
-*  2 - Constant in circle
-*  4 - Constant in halves
-*  5 - Stripe to the left of 0.2
-*  6 - Two bumbs at the left side
-*
 *  20 - Fourier along x axis
 *  30 - Fourier along y axis
 */
@@ -47,11 +27,13 @@
 //#define C_TEST_X
 
 #ifdef C_TEST_X
+#undef COMPUTE_PHASE
 #define C_INIT 2
 #define C_BOUND 1
 #endif
 
 #ifdef C_TEST_Y
+#undef COMPUTE_PHASE
 #define C_INIT 3
 #define C_BOUND 2
 #endif
@@ -119,15 +101,9 @@ void ACEProblem::getRightHandSide(const double &t, double *u, double *fu)
 
 bool ACEProblem::writeSolution(const double &t, int step, const double *u)
 {
-   /****
-    * Filename with step index
-    */
    std::stringstream str;
    str << output_folder.string() << "\\ACE-equation-" << std::setw( 5 ) << std::setfill( '0' ) << step << ".txt";
    
-   /****
-    * Open file
-    */
    std::fstream file;
    file.open( str.str(), std::fstream::out | std::fstream::trunc );
    if( ! file )
@@ -136,9 +112,6 @@ bool ACEProblem::writeSolution(const double &t, int step, const double *u)
       return false;
    }
 
-   /****
-    * Write solution
-    */
    file << std::scientific << std::setprecision(15);
    for( int j = 0; j < sizeY; j++ )
    {
