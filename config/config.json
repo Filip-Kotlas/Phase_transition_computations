@@ -11,7 +11,8 @@
             "y_right": 1
         },
         "init_cond_from_file": false,
-        "init_cond_file_path": "ACE-equation-00506.txt",
+        "init_cond_file_path": "ACE-equation-00100.txt",
+        "initial_condition": "two_bumps",
         "custom_integration_time_step": false,
         "integration_time_step": 5.0e-6,
         "sizeX": 101,
