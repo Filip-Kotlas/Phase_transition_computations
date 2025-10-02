@@ -254,7 +254,6 @@ void ACEProblem::set_concentration_initial_condition(double *u, InitialCondition
    double r = (domain.x_right - domain.x_left)/6;
    double r1 = r - 0.5*ksi;
    double r2 = r1 + ksi;
-   double r = (r1 + r2) * 0.5;
 
    for(int i = 0; i < sizeX; i++)
    {
