@@ -3,7 +3,7 @@
     {
         "type": "Runge-Kutta",
         "initial_time": 0.0,
-        "final_time": 0.2,
+        "final_time": 0.06,
         "domain": {
             "x_left": 0,
             "x_right": 1,
@@ -12,11 +12,11 @@
         },
         "init_cond_from_file": false,
         "init_cond_file_path": "ACE-equation-00100.txt",
-        "initial_condition": "two_bumps",
+        "initial_condition": "star",
         "custom_integration_time_step": false,
         "integration_time_step": 5.0e-6,
-        "sizeX": 101,
-        "sizeY": 101,
+        "sizeX": 301,
+        "sizeY": 301,
         "frame_num": 100,
         "model": 4
     },
@@ -25,9 +25,9 @@
     {
         "alpha": 1,
         "a": 1,
-        "b": 0.1,
-        "d": 5e15,
-        "T": 1200,
+        "b": 3.53553391,
+        "d": 1.6e15,
+        "T": 1000,
         "ksi": 0.05
     }
 }

@@ -25,6 +25,7 @@ enum class InitialCondition {
     ConstantHalves,
     Stripe,
     TwoBumps,
+    Star,
     FourierX,
     FourierY
 };
@@ -47,6 +48,9 @@ public:
     double alpha{};
     double beta{};
     double par_a{};
+    double par_b{};
+    double par_d{};
+    double T{};
     double ksi{};
     MODEL model{MODEL::MODEL_1};
 

@@ -45,7 +45,6 @@ int main(int argc, char** argv) {
                        parameters.sizeY,
                        parameters.domain,
                        parameters.alpha,
-                       parameters.beta,
                        parameters.par_a,
                        parameters.par_b,
                        parameters.par_d,

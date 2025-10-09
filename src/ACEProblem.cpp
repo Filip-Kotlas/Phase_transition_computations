@@ -130,7 +130,7 @@ bool ACEProblem::writeSolution(const double &t, int step, const double *u)
     * Filename with step index
     */
    std::stringstream str;
-   str << "ACE-equation-" << std::setw( 5 ) << std::setfill( '0' ) << step << ".txt";
+   str << "Result-" << std::setw( 5 ) << std::setfill( '0' ) << step << ".txt";
    std::filesystem::path file_path = output_folder / str.str();
 
    /****
@@ -176,8 +176,14 @@ void ACEProblem::set_phase_initial_condition(double *u, InitialCondition ic)
    {
       for(int j = 0; j < sizeY; j++)
       {
-         double radius = sqrt(pow(i*hx - (domain.x_right - domain.x_left)/2, 2) + pow(j*hy - (domain.y_right-domain.y_left)/2, 2));
-
+         double radius = sqrt(pow(i*hx - (domain.x_right - domain.x_left)/2, 2) + pow(j*hy - (domain.y_right - domain.y_left)/2, 2));
+         double phi = atan( (j*hy - (domain.y_right-domain.y_left)/2) / (i*hx - (domain.x_right - domain.x_left)/2));
+         if ((i*hx - (domain.x_right - domain.x_left)/2) < 0 )
+            phi = phi + M_PI;
+         else if ( (i*hx - (domain.x_right - domain.x_left)/2) > 0 && (j*hy - (domain.y_right-domain.y_left)/2) < 0)
+            phi = phi + 2 * M_PI;
+         double y = 2*j*hy;
+         
          switch(ic) {
             case InitialCondition::HyperbolicTangent:
                u[j*sizeX + i] = 1.0/2 * tanh(-3/ksi*(radius - r1)) + 1.0/2; //needs to be changed according to the correct phases
@@ -232,9 +238,19 @@ void ACEProblem::set_phase_initial_condition(double *u, InitialCondition ic)
                break;
 
             case InitialCondition::TwoBumps:
-               double y = 2*j*hy;
                if( (y < 1 && i*hx < y*y*(1-2*y+y*y)/0.625+0.1) ||
                   (y >= 1 && i*hx < (y-1)*(y-1)*(1-2*(y-1)+(y-1)*(y-1))/0.625+0.1))
+               {
+                  u[j*sizeX + i] = constants::p_alpha;
+               }
+               else
+               {
+                  u[j*sizeX + i] = constants::p_beta;
+               }
+               break;
+            
+            case InitialCondition::Star:
+               if ( radius < 0.15 + 0.1 * sin(6 * phi) )
                {
                   u[j*sizeX + i] = constants::p_alpha;
                }
@@ -260,6 +276,14 @@ void ACEProblem::set_concentration_initial_condition(double *u, InitialCondition
       for(int j = 0; j < sizeY; j++)
       {       
          double radius = sqrt(pow(i*hx - (domain.x_right - domain.x_left)/2, 2) + pow(j*hy - (domain.y_right-domain.y_left)/2, 2));
+         double phi = atan( (j*hy - (domain.y_right-domain.y_left)/2) / (i*hx - (domain.x_right - domain.x_left)/2));
+         if ((i*hx - (domain.x_right - domain.x_left)/2) < 0 )
+            phi = phi + M_PI;
+         else if ( (i*hx - (domain.x_right - domain.x_left)/2) > 0 && (j*hy - (domain.y_right-domain.y_left)/2) < 0)
+            phi = phi + 2 * M_PI;
+
+         double y = 2*j*hy;
+
          switch(ic) {
             case InitialCondition::HyperbolicTangent:
                u[offset + j*sizeX + i] = constants::c_init_alpha; // TODO: Nutno předělat je to špatně.
@@ -308,9 +332,19 @@ void ACEProblem::set_concentration_initial_condition(double *u, InitialCondition
                break;
 
             case InitialCondition::TwoBumps:
-               double y = 2*j*hy;
                if( (y < 1 && i*hx < y*y*(1-2*y+y*y)/0.625+0.1) ||
                   (y >= 1 && i*hx < (y-1)*(y-1)*(1-2*(y-1)+(y-1)*(y-1))/0.625+0.1))
+               {
+                  u[offset + j*sizeX + i] = constants::c_init_alpha;
+               }
+               else
+               {
+                  u[offset + j*sizeX + i] = constants::c_init_beta;
+               }
+               break;
+
+            case InitialCondition::Star:
+               if ( radius < 0.1 + 0.1 * sin(6 * phi) )
                {
                   u[offset + j*sizeX + i] = constants::c_init_alpha;
                }
