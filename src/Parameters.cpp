@@ -42,7 +42,7 @@ Parameters Parameters::load(const std::filesystem::path& filename) {
 
     double computed_dt = pow(std::min((p.domain.x_right - p.domain.x_left) / (p.sizeX - 1),
                                       (p.domain.y_right - p.domain.y_left) / (p.sizeY - 1)),
-                             2) / 4.0;
+                             2) / 5.0;
 
     if (solver.value("custom_integration_time_step", false)) {
         p.integrationTimeStep = solver.value("integration_time_step", computed_dt);
