@@ -25,6 +25,7 @@ enum class InitialCondition {
     ConstantHalves,
     Stripe,
     TwoBumps,
+    Star,
     FourierX,
     FourierY
 };
@@ -39,7 +40,7 @@ public:
     int sizeX{};
     int sizeY{};
     int frame_num{};
-    InitialCondition init_condition{InitialCondition::HyperbolicTangent};
+    InitialCondition init_condition{};
     bool init_cond_from_file{};
     std::string init_cond_file_path;
     double timeStep{};
@@ -47,6 +48,9 @@ public:
     double alpha{};
     double beta{};
     double par_a{};
+    double par_b{};
+    double par_d{};
+    double T{};
     double ksi{};
     MODEL model{MODEL::MODEL_1};
 

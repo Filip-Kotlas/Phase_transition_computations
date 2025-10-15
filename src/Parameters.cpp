@@ -42,7 +42,7 @@ Parameters Parameters::load(const std::filesystem::path& filename) {
 
     double computed_dt = pow(std::min((p.domain.x_right - p.domain.x_left) / (p.sizeX - 1),
                                       (p.domain.y_right - p.domain.y_left) / (p.sizeY - 1)),
-                             2) / 4.0;
+                             2) / 5.0;
 
     if (solver.value("custom_integration_time_step", false)) {
         p.integrationTimeStep = solver.value("integration_time_step", computed_dt);
@@ -61,6 +61,7 @@ Parameters Parameters::load(const std::filesystem::path& filename) {
     else if (ic_str == "constant_halves")    p.init_condition = InitialCondition::ConstantHalves;
     else if (ic_str == "stripe")             p.init_condition = InitialCondition::Stripe;
     else if (ic_str == "two_bumps")          p.init_condition = InitialCondition::TwoBumps;
+    else if (ic_str == "star")               p.init_condition = InitialCondition::Star;
     else if (ic_str == "fourier_x")          p.init_condition = InitialCondition::FourierX;
     else if (ic_str == "fourier_y")          p.init_condition = InitialCondition::FourierY;
     else throw std::runtime_error("Unknown initial_condition in config: " + ic_str);
@@ -69,6 +70,9 @@ Parameters Parameters::load(const std::filesystem::path& filename) {
     p.alpha = problem.value("alpha", 1.0);
     p.beta  = problem.value("beta", 1.0);
     p.par_a = problem.value("a", 1.0);
+    p.par_b = problem.value("b", 0.1);
+    p.par_d = problem.value("d", 5e15);
+    p.T = problem.value("T", 1200);
     p.ksi   = problem.value("ksi", 0.01);
 
     return p;
@@ -97,6 +101,9 @@ void Parameters::save_human_readable(const std::filesystem::path& filename) cons
     file << std::left << std::setw(24) << "Alpha:" << std::right << std::setw(28) << alpha << std::endl;
     file << std::left << std::setw(24) << "Beta:"  << std::right << std::setw(28) << beta << std::endl;
     file << std::left << std::setw(24) << "Par_a:" << std::right << std::setw(28) << par_a << std::endl;
+    file << std::left << std::setw(24) << "Par_b:" << std::right << std::setw(28) << par_b << std::endl;
+    file << std::left << std::setw(24) << "Par_d:" << std::right << std::setw(28) << par_d << std::endl;
+    file << std::left << std::setw(24) << "T:" << std::right << std::setw(28) << T << std::endl;
     file << std::left << std::setw(24) << "Ksi:"   << std::right << std::setw(28) << ksi << std::endl;
     file << std::left << std::setw(24) << "Model:" << std::right << std::setw(28) << static_cast<int>(model) << std::endl;
 }

@@ -8,7 +8,7 @@ RESULTS_DIR := ./results
 PYTHON_DIR := ./python
 
 COMPILER = nvcc
-COMPILER_FLAGS = -std=c++17 $(INCLUDE_DIR) -O3 --expt-relaxed-constexpr --extended-lambda $(TNL_FLAGS)
+COMPILER_FLAGS = -std=c++17 $(INCLUDE_DIR) -O3 --expt-relaxed-constexpr --extended-lambda -rdc=true $(TNL_FLAGS)
 
 # Potlačení zbytečných varování
 # -diag-suppress 20012 = "annotation ignored" (ArrayView apod.)

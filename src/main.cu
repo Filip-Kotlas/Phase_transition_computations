@@ -1,101 +1,100 @@
+#include <cstdlib>
+#include <cassert>
 #include <iostream>
-#include <TNL/Containers/Vector.h>
-#include <TNL/Solvers/ODE/ODESolver.h>
-#include <TNL/Solvers/ODE/Methods/OriginalRungeKutta.h>
-#include <TNL/Solvers/IterativeSolverMonitor.h>
-#include "write.h"
+#include <vector>
+#include <filesystem>
+#include <json.hpp>
+#include <string>
 
-using Real = double;
-using Index = int;
+#include "Problem.hpp"
+#include "Parameters.hpp"
+#include "types.hpp"
 
-template< typename Device >
-void
-solveHeatEquation( const char* file_name )
-{
-   using Vector = TNL::Containers::Vector< Real, Device, Index >;
-   using VectorView = typename Vector::ViewType;
-   using Method = TNL::Solvers::ODE::Methods::OriginalRungeKutta< Real >;
-   using ODESolver = TNL::Solvers::ODE::ODESolver< Method, Vector >;
+int main(int argc, char** argv) {
+    Parameters parameters = Parameters::load("config/config.json");
 
-   /***
-    * Parameters of the discertisation
-    */
-   const Real final_t = 0.05;
-   const Real output_time_step = 0.005;
-   const Index n = 41;
-   const Real h = 1.0 / ( n - 1 );
-   const Real tau = 0.001 * h * h;
-   const Real h_sqr_inv = 1.0 / ( h * h );
+    std::filesystem::path result_path = "Results";
+    if (argc == 2)
+        result_path = argv[1];
 
-   /***
-    * Initial condition
-    */
-   Vector u( n );
-   u.forAllElements(
-      [ = ] __cuda_callable__( Index i, Real & value )
-      {
-         const Real x = i * h;
-         if( x >= 0.4 && x <= 0.6 )
-            value = 1.0;
-         else
-            value = 0.0;
-      } );
-   std::fstream file;
-   file.open( file_name, std::ios::out );
-   write( file, u, n, h, (Real) 0.0 );
+    std::filesystem::path info_path   = result_path / "info";
+    std::filesystem::path setup_path  = info_path / "parameters.txt";
+    std::filesystem::path calc_path   = result_path / "calculations";
+    std::filesystem::path config_path = info_path / "config.json";
+    
+    try {
+        std::filesystem::create_directories(result_path);
+        std::filesystem::create_directories(info_path);
+        std::filesystem::create_directories(calc_path);
+    }
+    catch (const std::filesystem::filesystem_error& e) {
+        std::cerr << "Error creating folders: " << e.what() << std::endl;
+        return EXIT_FAILURE;
+    }
 
-   /***
-    * Setup monitor for the ODE solver.
-    */
-   using IterativeSolverMonitorType = TNL::Solvers::IterativeSolverMonitor< Real >;
-   IterativeSolverMonitorType monitor;
-   TNL::Solvers::SolverMonitorThread monitorThread( monitor );
-   monitor.setRefreshRate( 10 );  // refresh rate in milliseconds
-   monitor.setVerbose( 1 );
-   monitor.setStage( "ODE solver stage:" );
+    parameters.save_human_readable(setup_path);
+    parameters.save_copy_of_config("config/config.json", config_path);
 
-   /***
-    * Setup of the solver
-    */
-   ODESolver solver;
-   solver.setTau( tau );
-   solver.setTime( 0.0 );
-   solver.setSolverMonitor( monitor );
+    Problem problem(parameters);
+    Vector u(problem.getDegreesOfFreedom());
 
-   /***
-    * Time loop
-    */
-   while( solver.getTime() < final_t ) {
-      solver.setStopTime( TNL::min( solver.getTime() + output_time_step, final_t ) );
-      auto f = [ = ] __cuda_callable__( Index i, const VectorView& u, VectorView& fu ) mutable
-      {
-         if( i == 0 || i == n - 1 )  // boundary nodes -> boundary conditions
-            fu[ i ] = 0.0;
-         else  // interior nodes -> approximation of the second derivative
-            fu[ i ] = h_sqr_inv * ( u[ i - 1 ] - 2.0 * u[ i ] + u[ i + 1 ] );
-      };
-      auto time_stepping = [ = ]( const Real& t, const Real& tau, const VectorView& u, VectorView& fu )
-      {
-         TNL::Algorithms::parallelFor< Device >( 0, n, f, u, fu );
-      };
-      solver.solve( u, time_stepping );
-      write( file, u, n, h, solver.getTime() );  // write the current state to a file
-   }
-   monitor.stopMainLoop();
-}
+    if (!parameters.init_cond_from_file ||
+        !problem.set_init_cond_from_file(u, calc_path / parameters.init_cond_file_path)) {
+        std::cout << "Setting initial condition by code." << std::endl;
+        problem.set_init_cond_manually(u, parameters.init_condition);
+    }
 
-int
-main( int argc, char* argv[] )
-{
-   if( argc != 2 ) {
-      std::cout << "Usage: " << argv[ 0 ] << " <path to output directory>" << std::endl;
-      return EXIT_FAILURE;
-   }
-   TNL::String file_name( argv[ 1 ] );
-   file_name += "/ODESolver-HeatEquationExampleWithMonitor-result.out";
+    problem.writeSolution(0.0, 0, u, calc_path);
 
-   solveHeatEquation< TNL::Devices::Host >( file_name.getString() );
-#ifdef __CUDACC__
-   solveHeatEquation< TNL::Devices::Cuda >( file_name.getString() );
-#endif
+    ODESolver solver;
+    solver.setTau( parameters.integrationTimeStep );
+    solver.setTime( parameters.initial_time );
+
+    while( solver.getTime() < parameters.final_time ) {
+        solver.setStopTime( TNL::min( solver.getTime() + parameters.timeStep, parameters.final_time ) );
+
+        auto rhs = [ = ] __cuda_callable__( const TNL::Containers::StaticArray< 2, Index >& ind, const VectorView& u, VectorView& fu ) mutable {
+            problem.set_rhs_at(u, fu, ind.x(), ind.y());
+        };
+
+        auto boundary_xdir = [ = ] __cuda_callable__( const Index ind, VectorView& u, VectorView& fu ) mutable {
+            problem.apply_boundary_condition_xdir(ind , u, fu);
+        };
+
+        auto boundary_ydir = [ = ] __cuda_callable__( const Index ind, VectorView& u, VectorView& fu ) mutable {
+            problem.apply_boundary_condition_ydir(ind , u, fu);
+        };
+
+        auto time_stepping = [ = ]( const Real& t, const Real& tau, const VectorView& u, VectorView& fu )
+        {
+            // iterate over inner points only
+            TNL::Containers::StaticArray< 2, Index > begin = {1, 1};
+            TNL::Containers::StaticArray< 2, Index > end = {parameters.sizeX - 1, parameters.sizeY - 1};
+            TNL::Algorithms::parallelFor< Device >(begin, end, rhs, u, fu );
+
+            // iterate over boundary points
+            TNL::Algorithms::parallelFor< Device >(0, parameters.sizeX, boundary_xdir, u, fu );
+            TNL::Algorithms::parallelFor< Device >(0, parameters.sizeY, boundary_ydir, u, fu );
+        };
+        auto stepStart = std::chrono::high_resolution_clock::now();
+        solver.solve( u, time_stepping );
+        auto stepEnd = std::chrono::high_resolution_clock::now();
+        Index step_number = static_cast<Index>(round(solver.getTime() / parameters.timeStep));
+        problem.writeSolution(solver.getTime(), step_number, u, calc_path);
+
+        
+        double time_per_step = (std::chrono::duration<double>(stepEnd - stepStart).count());
+
+        double remaining_time = time_per_step * (parameters.frame_num - step_number);
+      
+        int hours = static_cast<int>(remaining_time) / 3600;
+        int minutes = (static_cast<int>(remaining_time) % 3600) / 60;
+        int seconds = remaining_time - (hours * 3600 + minutes * 60);
+        
+        std::cout << "Steps completed: " << step_number << " / " << parameters.frame_num << " => " << std::fixed
+                  << std::setprecision(2) << ( double ) step_number / ( double ) parameters.frame_num * 100.0 << "% ";
+        std::cout << "     Time remaining: " 
+                  << hours << "h " << minutes << "m " << seconds << "s"
+                  << std::endl;
+    }
 }
