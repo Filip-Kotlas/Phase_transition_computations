@@ -3,32 +3,7 @@
 #include <string>
 #include <json.hpp>
 #include <filesystem>
-
-struct Domain {
-    double x_left;
-    double x_right;
-    double y_left;
-    double y_right;
-};
-
-enum class MODEL {
-    MODEL_1 = 1,
-    MODEL_2 = 2,
-    MODEL_3 = 3,
-    MODEL_4 = 4
-};
-
-enum class InitialCondition {
-    HyperbolicTangent,
-    LinearByParts,
-    ConstantCircle,
-    ConstantHalves,
-    Stripe,
-    TwoBumps,
-    Star,
-    FourierX,
-    FourierY
-};
+#include "constants.hpp"
 
 class Parameters {
 public:
@@ -40,7 +15,7 @@ public:
     int sizeX{};
     int sizeY{};
     int frame_num{};
-    InitialCondition init_condition{};
+    ICType init_condition{};
     bool init_cond_from_file{};
     std::string init_cond_file_path;
     double timeStep{};

@@ -2,6 +2,34 @@
 #include <cmath>
 #include "types.hpp"
 
+struct Domain {
+    double x_left;
+    double x_right;
+    double y_left;
+    double y_right;
+};
+
+enum class MODEL {
+    MODEL_1 = 1,
+    MODEL_2 = 2,
+    MODEL_3 = 3,
+    MODEL_4 = 4
+};
+
+enum class ICType {
+        HyperbolicTangent,
+        LinearByParts,
+        ConstantCircle,
+        ConstantHalves,
+        Stripe,
+        TwoBumps,
+        Star,
+        FourierX,
+        FourierY,
+        ThreeBumps,
+        Count 
+    };
+
 namespace constants {
     inline constexpr Real R = 8.31446261815324;
     inline constexpr Real Cal_to_joule = 4.184;
@@ -13,8 +41,10 @@ namespace constants {
     inline constexpr Real sigma = 0.3;
     inline constexpr Real l = 50*delta;
 
-    inline constexpr Real p_alpha = 1;
-    inline constexpr Real p_beta = 0;
+    enum class Phase {
+        alpha = 1,
+        beta = 0
+    };
 
     inline constexpr Real c_min = 0.0001;
     inline constexpr Real c_max = 1 - c_min;

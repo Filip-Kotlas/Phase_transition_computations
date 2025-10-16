@@ -45,7 +45,7 @@ $(BUILD_DIR)/$(TARGET): $(OBJ)
 .PHONY: run
 run: $(BUILD_DIR)/$(TARGET)
 	$(BUILD_DIR)/$(TARGET) $(RESULTS_DIR)/$(FOLDER)
-#python3 $(PYTHON_DIR)/basic_plot.py --name $(FOLDER) --type both
+	python3 $(PYTHON_DIR)/basic_plot.py --name $(FOLDER) --type both
 
 .PHONY: clean
 clean:

@@ -9,6 +9,7 @@
 #include "Problem.hpp"
 #include "Parameters.hpp"
 #include "types.hpp"
+#include "InitialCondition.hpp"
 
 int main(int argc, char** argv) {
     Parameters parameters = Parameters::load("config/config.json");
@@ -41,15 +42,17 @@ int main(int argc, char** argv) {
     if (!parameters.init_cond_from_file ||
         !problem.set_init_cond_from_file(u, calc_path / parameters.init_cond_file_path)) {
         std::cout << "Setting initial condition by code." << std::endl;
-        problem.set_init_cond_manually(u, parameters.init_condition);
+        InitialCondition init_cond(parameters.init_condition, parameters.domain, parameters.sizeX, parameters.sizeY, parameters.ksi);
+        problem.set_init_cond_manually(u, init_cond);
     }
-
-    problem.writeSolution(0.0, 0, u, calc_path);
 
     ODESolver solver;
     solver.setTau( parameters.integrationTimeStep );
     solver.setTime( parameters.initial_time );
-
+    
+    Index step_number = static_cast<Index>(round(solver.getTime() / parameters.timeStep));
+    problem.writeSolution(0.0, step_number, u, calc_path);
+    
     while( solver.getTime() < parameters.final_time ) {
         solver.setStopTime( TNL::min( solver.getTime() + parameters.timeStep, parameters.final_time ) );
 
@@ -79,13 +82,14 @@ int main(int argc, char** argv) {
         auto stepStart = std::chrono::high_resolution_clock::now();
         solver.solve( u, time_stepping );
         auto stepEnd = std::chrono::high_resolution_clock::now();
-        Index step_number = static_cast<Index>(round(solver.getTime() / parameters.timeStep));
+        step_number = static_cast<Index>(round(solver.getTime() / parameters.timeStep));
         problem.writeSolution(solver.getTime(), step_number, u, calc_path);
 
-        
         double time_per_step = (std::chrono::duration<double>(stepEnd - stepStart).count());
 
-        double remaining_time = time_per_step * (parameters.frame_num - step_number);
+        double remaining_time = time_per_step * (parameters.frame_num * parameters.final_time
+                                                 / (parameters.final_time - parameters.initial_time)
+                                                 - step_number);
       
         int hours = static_cast<int>(remaining_time) / 3600;
         int minutes = (static_cast<int>(remaining_time) % 3600) / 60;
