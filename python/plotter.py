@@ -120,7 +120,8 @@ class BoundaryPlotter2D(Plotter):
         self.draw_analit_boundary = draw_analit_boundary
 
         if self.draw_function:
-            self.function_sc = self.ax.scatter([], [], c=[], cmap='viridis', s=40)
+            self.function_sc = self.ax.scatter([], [], c=[], cmap='viridis', s=5, vmin=0.0, vmax=0.09)
+            self.colorbar = self.fig.colorbar(self.function_sc, ax=self.ax, label=r"$c$")
             self.function_sc.set_offsets(np.column_stack((x, y)))
             self.output_name_tag = self.output_name_tag + "f"
         if self.draw_num_boundary:
@@ -130,7 +131,7 @@ class BoundaryPlotter2D(Plotter):
             self.anal_bound_sc, = self.ax.plot([], [], color='blue', linestyle=":", label='Analytické řešení')
             self.output_name_tag = self.output_name_tag + "a"
 
-        self.ax.legend()
+        #self.ax.legend()
 
     def update(self, frame: int):
         x, y, value = self._load_data(self.file_paths[frame])
@@ -320,8 +321,14 @@ class SurfacePlotter(Plotter):
 
         self.ax.set_xlim(x.min(), x.max())
         self.ax.set_ylim(y.min(), y.max())
-        self.ax.set_zlim(min(0, value.min()*1.5), value.max()*1.5)
-        self.ax.set_aspect('equal')
+        if( data_drawn == "phase"):
+            self.ax.set_zlim(0, 1.1)
+            self.ax.set_box_aspect([x.max() - x.min(), y.max() - y.min(), 1])
+        elif( data_drawn == "concentration"):
+            self.ax.set_zlim(0, 0.09)
+            self.ax.set_box_aspect([x.max() - x.min(), y.max() - y.min(), 0.5])
+        else:
+            raise ValueError("Wrong data_drawn given.")
 
         self.ax.set_xlabel(r"$x$")
         self.ax.set_ylabel(r"$y$")
@@ -378,15 +385,17 @@ class CutPlotter(Plotter):
         x, y, value = self._load_data(self.file_paths[0])
         self.fig, self.ax = plt.subplots()
 
+        self.ax.set_ylim(0, max(0.1, value.max()*1.2))
         if self.axis == "x":
             self.ax.set_xlim(x.min(), x.max())
+            self.ax.set_box_aspect(1/(x.max() - x.min()))
         elif self.axis == "y":
             self.ax.set_xlim(y.min(), y.max())
+            self.ax.set_box_aspect(1/(y.max() - y.min()))
         else:
             raise ValueError("Invalid axis given")
 
-        self.ax.set_ylim(min(0, value.min()*1.5), value.max()*1.2)
-        self.ax.set_aspect('auto')
+        #self.ax.set_aspect('auto')
         self.title = self.ax.set_title("t = 0")
         self.output_name_tag = "_" + self.data_drawn + "_" + self.axis + "-cut"
 
@@ -406,12 +415,13 @@ class CutPlotter(Plotter):
                                         linestyle=':',
                                         label="Analytic solution")
 
-        self.ax.legend()
+        #self.ax.legend()
 
     def update(self, frame: int):
         x, y, value = self._load_data(self.file_paths[frame])
         time_step = (self.configuration["solver"]["final_time"] - self.configuration["solver"]["initial_time"]) / max(len(self.file_paths)-1, self.configuration["solver"]["frame_num"])
-        self.ax.set_ylim(min(0, value.min()*1.5), math.floor(value.max()*1.2 / 0.01)*0.01)
+        #self.ax.set_ylim(min(0, value.min()*1.5), math.floor(value.max()*1.2 / 0.01)*0.01)
+        self.ax.set_ylim(0, max(0.11, value.max()*1.1))
         self.title.set_text(f"t = {self.configuration["solver"]["initial_time"] + time_step*frame:g}")
         print("Updating frame: ", frame)
         artist = []

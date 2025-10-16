@@ -17,6 +17,7 @@
 #include "constants.hpp"
 #include "Parameters.hpp"
 #include "types.hpp"
+#include "InitialCondition.hpp"
 
 class Problem
 {
@@ -57,9 +58,8 @@ class Problem
     /*
     * Initial conditions
     */
-    void set_init_cond_manually( Vector &u, InitialCondition ic);
-    void set_phase_initial_condition( Vector &u, InitialCondition ic);
-    void set_concentration_initial_condition( Vector& u, InitialCondition ic);
+    void set_init_cond_manually( Vector &u, InitialCondition& init_cond);
+    void set_phase_initial_condition( Vector &u, InitialCondition& init_cond);
     bool set_init_cond_from_file(Vector& u, const std::filesystem::path& filename);
 
     /*
