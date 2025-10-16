@@ -2,7 +2,7 @@
 #include <cassert>
 #include <iostream>
 #include <vector>
-#include <filesystem>   // moderní práce s cestami
+#include <filesystem>
 
 #include <json.hpp>
 
