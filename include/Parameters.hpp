@@ -27,7 +27,8 @@ enum class InitialCondition {
     TwoBumps,
     Star,
     FourierX,
-    FourierY
+    FourierY,
+    Perpendicular_Stripes
 };
 
 class Parameters {

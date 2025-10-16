@@ -254,6 +254,23 @@ void Problem::set_phase_initial_condition(Vector& u, InitialCondition ic)
                     }
                 } );
             break;
+
+            case InitialCondition::Perpendicular_Stripes:
+                u.forElements( 0, sizeX*sizeY,
+                    [ = ] __cuda_callable__( Index ind, Real & value )
+                    {
+                        Index i = ind % sizeX;
+                        Index j = ind / sizeX;
+                        if ( (i*hx < 0.1) || (j*hy < 0.1 ) )
+                        {
+                            value = constants::p_alpha;
+                        }
+                        else
+                        {
+                            value = constants::p_beta;
+                        }
+                    } );
+                break;
     }   
 }
 
@@ -421,6 +438,23 @@ void Problem::set_concentration_initial_condition(Vector& u, InitialCondition ic
                         Real C_n = pow(1.0/2, n);
                         Real lambda_n = pow(n*M_PI/(domain.y_right-domain.y_left), 2);
                         value += C_n * sin(sqrt(lambda_n) * (j*hy));
+                    }
+                } );
+            break;
+
+        case InitialCondition::Perpendicular_Stripes:
+            u.forElements( sizeX*sizeY, sizeX*sizeY*2,
+                [ = ] __cuda_callable__( Index ind, Real & value )
+                {
+                    Index i = ind % sizeX;
+                    Index j = ind / sizeX - sizeY;
+                    if ( (i*hx < 0.1) || (j*hy < 0.1 ) )
+                    {
+                        value = constants::c_init_alpha;
+                    }
+                    else
+                    {
+                        value = constants::c_init_beta;
                     }
                 } );
             break;

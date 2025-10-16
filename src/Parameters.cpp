@@ -55,15 +55,16 @@ Parameters Parameters::load(const std::filesystem::path& filename) {
 
     std::string ic_str = solver.value("initial_condition", "hyperbolic_tangent");
 
-    if (ic_str == "hyperbolic_tangent")      p.init_condition = InitialCondition::HyperbolicTangent;
-    else if (ic_str == "linear_by_parts")    p.init_condition = InitialCondition::LinearByParts;
-    else if (ic_str == "constant_circle")    p.init_condition = InitialCondition::ConstantCircle;
-    else if (ic_str == "constant_halves")    p.init_condition = InitialCondition::ConstantHalves;
-    else if (ic_str == "stripe")             p.init_condition = InitialCondition::Stripe;
-    else if (ic_str == "two_bumps")          p.init_condition = InitialCondition::TwoBumps;
-    else if (ic_str == "star")               p.init_condition = InitialCondition::Star;
-    else if (ic_str == "fourier_x")          p.init_condition = InitialCondition::FourierX;
-    else if (ic_str == "fourier_y")          p.init_condition = InitialCondition::FourierY;
+    if (ic_str == "hyperbolic_tangent")         p.init_condition = InitialCondition::HyperbolicTangent;
+    else if (ic_str == "linear_by_parts")       p.init_condition = InitialCondition::LinearByParts;
+    else if (ic_str == "constant_circle")       p.init_condition = InitialCondition::ConstantCircle;
+    else if (ic_str == "constant_halves")       p.init_condition = InitialCondition::ConstantHalves;
+    else if (ic_str == "stripe")                p.init_condition = InitialCondition::Stripe;
+    else if (ic_str == "two_bumps")             p.init_condition = InitialCondition::TwoBumps;
+    else if (ic_str == "star")                  p.init_condition = InitialCondition::Star;
+    else if (ic_str == "fourier_x")             p.init_condition = InitialCondition::FourierX;
+    else if (ic_str == "fourier_y")             p.init_condition = InitialCondition::FourierY;
+    else if (ic_str == "perpendicular_stripes") p.init_condition = InitialCondition::Perpendicular_Stripes;
     else throw std::runtime_error("Unknown initial_condition in config: " + ic_str);
 
     auto problem = j.at("problem");

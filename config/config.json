@@ -3,7 +3,7 @@
     {
         "type": "Runge-Kutta",
         "initial_time": 0.0,
-        "final_time": 0.0348,
+        "final_time": 0.1,
         "domain": {
             "x_left": 0,
             "x_right": 1,
@@ -12,11 +12,11 @@
         },
         "init_cond_from_file": false,
         "init_cond_file_path": "ACE-equation-00100.txt",
-        "initial_condition": "star",
+        "initial_condition": "perpendicular_stripes",
         "custom_integration_time_step": false,
         "integration_time_step": 5.0e-6,
-        "sizeX": 301,
-        "sizeY": 301,
+        "sizeX": 201,
+        "sizeY": 201,
         "frame_num": 100,
         "model": 4
     },
