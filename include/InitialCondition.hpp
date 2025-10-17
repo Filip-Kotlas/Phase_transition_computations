@@ -7,21 +7,20 @@ public:
 
     InitialCondition() = default;
 
-    InitialCondition(ICType type, Domain domain, Index sizeX, Index SizeY, Real ksi)
+    InitialCondition(ICType type, Domain domain, Index sizeX, Index sizeY, Real ksi)
     : type(type), domain(domain), sizeX(sizeX), sizeY(sizeY), ksi(ksi) {
-        r = (domain.x_right - domain.x_left)/6;
+        r = (domain.x_right - domain.x_left)/6.0;
         r1 = r - 0.5*ksi;
         r2 = r1 + ksi;
         hx = (domain.x_right - domain.x_left) / (sizeX - 1);
         hy = (domain.y_right - domain.y_left) / (sizeY - 1);
-
     }
 
     __cuda_callable__
     Real get_phase(Index ind) const
     {
         Index i = ind % sizeX;
-        Index j = ind / sizeX - sizeY;
+        Index j = ind / sizeX;
         Real radius = sqrt(pow(i*hx - (domain.x_right - domain.x_left)/2, 2) + pow(j*hy - (domain.y_right-domain.y_left)/2, 2));
 
         switch (type)
@@ -127,7 +126,7 @@ public:
         }
 
         default:
-            throw std::invalid_argument("Unknown initial condition type");
+            return static_cast<Real>(constants::Phase::beta);
             break;
         }
     }
