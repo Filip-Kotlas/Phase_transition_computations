@@ -2,22 +2,22 @@
     "solver":
     {
         "type": "Runge-Kutta",
-        "initial_time": 0.8,
-        "final_time": 1.2,
+        "initial_time": 0.0,
+        "final_time": 0.001,
         "domain": {
             "x_left": 0,
-            "x_right": 4,
+            "x_right": 1,
             "y_left": 0,
             "y_right": 1
         },
-        "init_cond_from_file": true,
+        "init_cond_from_file": false,
         "init_cond_file_path": "init.txt",
-        "initial_condition": "three_bumps",
+        "initial_condition": "two_bumps",
         "custom_integration_time_step": false,
         "integration_time_step": 5.0e-6,
-        "sizeX": 801,
+        "sizeX": 201,
         "sizeY": 201,
-        "frame_num": 100,
+        "frame_num": 1,
         "model": 4
     },
 

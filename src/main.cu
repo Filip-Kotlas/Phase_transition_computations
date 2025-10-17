@@ -13,7 +13,6 @@
 
 int main(int argc, char** argv) {
     Parameters parameters = Parameters::load("config/config.json");
-
     std::filesystem::path result_path = "Results";
     if (argc == 2)
         result_path = argv[1];
