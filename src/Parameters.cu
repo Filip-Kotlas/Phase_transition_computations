@@ -34,12 +34,14 @@ Parameters Parameters::load(const std::filesystem::path& filename) {
     p.domain.y_left  = domain.value("y_left", -1.0);
     p.domain.y_right = domain.value("y_right", 1.0);
 
+    /*
     int model_value = solver.value("model", 1);
     if (!(model_value >= 1 && model_value <= 4)) {
         throw std::runtime_error("Neplatná hodnota 'model' v JSON.");
     }
     p.model = static_cast<MODEL>(model_value);
-
+    */
+   
     double computed_dt = pow(std::min((p.domain.x_right - p.domain.x_left) / (p.sizeX - 1),
                                       (p.domain.y_right - p.domain.y_left) / (p.sizeY - 1)),
                              2) / 5.0;
@@ -55,16 +57,17 @@ Parameters Parameters::load(const std::filesystem::path& filename) {
 
     std::string ic_str = solver.value("initial_condition", "hyperbolic_tangent");
     
-    if (ic_str == "hyperbolic_tangent")      p.init_condition = ICType::HyperbolicTangent;
-    else if (ic_str == "linear_by_parts")    p.init_condition = ICType::LinearByParts;
-    else if (ic_str == "constant_circle")    p.init_condition = ICType::ConstantCircle;
-    else if (ic_str == "constant_halves")    p.init_condition = ICType::ConstantHalves;
-    else if (ic_str == "stripe")             p.init_condition = ICType::Stripe;
-    else if (ic_str == "two_bumps")          p.init_condition = ICType::TwoBumps;
-    else if (ic_str == "three_bumps")        p.init_condition = ICType::ThreeBumps;
-    else if (ic_str == "star")               p.init_condition = ICType::Star;
-    else if (ic_str == "fourier_x")          p.init_condition = ICType::FourierX;
-    else if (ic_str == "fourier_y")          p.init_condition = ICType::FourierY;
+    if (ic_str == "hyperbolic_tangent")         p.init_condition = ICType::HyperbolicTangent;
+    else if (ic_str == "linear_by_parts")       p.init_condition = ICType::LinearByParts;
+    else if (ic_str == "constant_circle")       p.init_condition = ICType::ConstantCircle;
+    else if (ic_str == "constant_halves")       p.init_condition = ICType::ConstantHalves;
+    else if (ic_str == "stripe")                p.init_condition = ICType::Stripe;
+    else if (ic_str == "two_bumps")             p.init_condition = ICType::TwoBumps;
+    else if (ic_str == "three_bumps")           p.init_condition = ICType::ThreeBumps;
+    else if (ic_str == "star")                  p.init_condition = ICType::Star;
+    else if (ic_str == "perpendicular_stripes") p.init_condition = ICType::PerpendicularStripes;
+    else if (ic_str == "fourier_x")             p.init_condition = ICType::FourierX;
+    else if (ic_str == "fourier_y")             p.init_condition = ICType::FourierY;
     else throw std::runtime_error("Unknown initial_condition in config: " + ic_str);
 
     auto problem = j.at("problem");
@@ -106,7 +109,7 @@ void Parameters::save_human_readable(const std::filesystem::path& filename) cons
     file << std::left << std::setw(24) << "Par_d:" << std::right << std::setw(28) << par_d << std::endl;
     file << std::left << std::setw(24) << "T:" << std::right << std::setw(28) << T << std::endl;
     file << std::left << std::setw(24) << "Ksi:"   << std::right << std::setw(28) << ksi << std::endl;
-    file << std::left << std::setw(24) << "Model:" << std::right << std::setw(28) << static_cast<int>(model) << std::endl;
+    //file << std::left << std::setw(24) << "Model:" << std::right << std::setw(28) << static_cast<int>(model) << std::endl;
 }
 
 void Parameters::save_copy_of_config(const std::filesystem::path& original_path,

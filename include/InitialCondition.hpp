@@ -125,6 +125,18 @@ public:
             break;
         }
 
+        case ICType::PerpendicularStripes: {
+            if( (i*hx < 0.1) || (j*hy > domain.y_right - 0.1) )
+            {
+                return static_cast<Real>(constants::Phase::alpha);
+            }
+            else
+            {
+                return static_cast<Real>(constants::Phase::beta);
+            }
+            break;
+        }
+
         default:
             return static_cast<Real>(constants::Phase::beta);
             break;

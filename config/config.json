@@ -3,7 +3,7 @@
     {
         "type": "Runge-Kutta",
         "initial_time": 0.0,
-        "final_time": 0.001,
+        "final_time": 1.5,
         "domain": {
             "x_left": 0,
             "x_right": 1,
@@ -12,13 +12,12 @@
         },
         "init_cond_from_file": false,
         "init_cond_file_path": "init.txt",
-        "initial_condition": "two_bumps",
+        "initial_condition": "perpendicular_stripes",
         "custom_integration_time_step": false,
         "integration_time_step": 5.0e-6,
         "sizeX": 201,
         "sizeY": 201,
-        "frame_num": 1,
-        "model": 4
+        "frame_num": 600
     },
 
     "problem":
