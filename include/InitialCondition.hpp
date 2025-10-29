@@ -150,27 +150,46 @@ public:
             break;
 
         case ICType::RandomBumps: {
-            Real x = i*hx;
-            Real y = j*hy;
+            const Real x = i * hx;
+            const Real y = j * hy;
+
+            // Poloměr kruhů
+            const Real cr = static_cast<Real>(0.03);
+
+            // Fixní x souřadnice všech kruhů
+            const Real cx = static_cast<Real>(0.1);
+
+            // y-interval pro rozmístění (stejný rozsah jako původně: 0.1 .. 0.9)
+            const Real y_min = static_cast<Real>(domain.y_left + 0.03);
+            const Real y_max = static_cast<Real>(domain.y_right - 0.03);
+            const Real y_range = y_max - y_min;
+
+
+            // Reprodukovatelný seed (změň pro jiné rozložení nebo předej z hostu)
+            const uint32_t seed = 1337u;
 
             bool inside_circle = false;
 
-            for (Index n = 0; n < 20; n++) {
-                Real cx = 0.1 + static_cast<Real>(n % 5) * 0.2;
-                Real cy = 0.1 + static_cast<Real>(n / 5) * 0.2;
-                Real cr = 0.05;
+            Index number_of_circles = (domain.y_right - domain.y_left) * 10;
 
-                if ( (pow(x - cx, 2) + pow(y - cy, 2)) < cr * cr ) {
+            // 20 kruhů, stratifikované vzorkování: rozsekáme y-interval na 20 binů a v každém náhodně posuneme střed
+            for (Index n = 0; n < number_of_circles; ++n) {
+                // t ∈ (n/20 .. (n+1)/20) s náhodným „jitterem“
+                const Real t = (static_cast<Real>(n) + rnd01(static_cast<uint32_t>(n), seed)) / static_cast<Real>(number_of_circles);
+                const Real cy = y_min + t * y_range;
+
+                const Real dx = x - cx;
+                const Real dy = y - cy;
+
+                if (dx * dx + dy * dy < cr * cr) {
                     inside_circle = true;
                     break;
                 }
             }
-            if( inside_circle )
-            {
+
+            if (inside_circle) {
                 return static_cast<Real>(constants::Phase::alpha);
-            }
-            else
-            {
+            } else {
                 return static_cast<Real>(constants::Phase::beta);
             }
             break;
@@ -183,9 +202,26 @@ public:
     }
 
     __cuda_callable__
-    Real get_concentration(Index index) const
-    {
+    Real get_concentration(Index index) const {
         return 0.007 + (static_cast<Real>(constants::Phase::alpha) - get_phase(index)) * (0.025-0.007);
+    }
+
+    // Pomocné funkce: jednoduchý hash a uniformní [0,1)
+    __cuda_callable__ static
+    uint32_t wang_hash(uint32_t x) {
+        x = (x ^ 61u) ^ (x >> 16);
+        x *= 9u;
+        x ^= (x >> 4);
+        x *= 0x27d4eb2du;
+        x ^= (x >> 15);
+        return x;
+    }
+
+    __cuda_callable__ static
+    Real rnd01(uint32_t idx, uint32_t seed) {
+        uint32_t h = wang_hash(idx ^ seed);
+        // 24bit frakce -> (0,1)
+        return (h & 0x00FFFFFFu) / static_cast<Real>(16777216.0);
     }
 
 private:
