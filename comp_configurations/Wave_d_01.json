@@ -1,0 +1,31 @@
+{
+    "solver":
+    {
+        "initial_time": 0.0,
+        "final_time": 0.6,
+        "domain": {
+            "x_left": 0,
+            "x_right": 3,
+            "y_left": 0,
+            "y_right": 1
+        },
+        "init_cond_from_file": false,
+        "init_cond_file_path": "init.txt",
+        "initial_condition": "stripe",
+        "custom_integration_time_step": false,
+        "integration_time_step": 5.0e-6,
+        "sizeX": 601,
+        "sizeY": 5,
+        "frame_num": 100
+    },
+
+    "problem":
+    {
+        "alpha": 1,
+        "a": 1,
+        "b": 3.53553391,
+        "d": 0.8e15,
+        "T": 1000,
+        "ksi": 0.05
+    }
+}
