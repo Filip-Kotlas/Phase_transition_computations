@@ -65,6 +65,8 @@ Parameters Parameters::load(const std::filesystem::path& filename) {
     else if (ic_str == "three_bumps")           p.init_condition = ICType::ThreeBumps;
     else if (ic_str == "star")                  p.init_condition = ICType::Star;
     else if (ic_str == "perpendicular_stripes") p.init_condition = ICType::PerpendicularStripes;
+    else if (ic_str == "box")                   p.init_condition = ICType::Box;
+    else if (ic_str == "random_bumps")          p.init_condition = ICType::RandomBumps;
     else throw std::runtime_error("Unknown initial_condition in config: " + ic_str);
 
     auto problem = j.at("problem");

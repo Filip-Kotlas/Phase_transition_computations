@@ -28,6 +28,8 @@ enum class ICType {
         FourierY,
         ThreeBumps,
         PerpendicularStripes,
+        Box,
+        RandomBumps,
         Count 
     };
 

@@ -126,7 +126,46 @@ public:
         }
 
         case ICType::PerpendicularStripes: {
-            if( (i*hx < 0.1) || (j*hy > domain.y_right - 0.1) )
+            if( (i*hx < domain.x_left + 0.1) || (j*hy > domain.y_right - 0.1) )
+            {
+                return static_cast<Real>(constants::Phase::alpha);
+            }
+            else
+            {
+                return static_cast<Real>(constants::Phase::beta);
+            }
+            break;
+        }
+
+        case ICType::Box:
+            if( (i*hx < domain.x_left + 0.1 || i*hx > domain.x_right - 0.1) ||
+                (j*hy < domain.y_left + 0.1 || j*hy > domain.y_right - 0.1) )
+            {
+                return static_cast<Real>(constants::Phase::alpha);
+            }
+            else
+            {
+                return static_cast<Real>(constants::Phase::beta);
+            }
+            break;
+
+        case ICType::RandomBumps: {
+            Real x = i*hx;
+            Real y = j*hy;
+
+            bool inside_circle = false;
+
+            for (Index n = 0; n < 20; n++) {
+                Real cx = 0.1 + static_cast<Real>(n % 5) * 0.2;
+                Real cy = 0.1 + static_cast<Real>(n / 5) * 0.2;
+                Real cr = 0.05;
+
+                if ( (pow(x - cx, 2) + pow(y - cy, 2)) < cr * cr ) {
+                    inside_circle = true;
+                    break;
+                }
+            }
+            if( inside_circle )
             {
                 return static_cast<Real>(constants::Phase::alpha);
             }
