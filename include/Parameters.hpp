@@ -8,7 +8,6 @@
 class Parameters {
 public:
     // data
-    std::string type;
     double initial_time{};
     double final_time{};
     Domain domain;
@@ -37,6 +36,9 @@ public:
 
     // uložení do textového souboru (pro info/parameters.txt)
     void save_human_readable(const std::filesystem::path& filename) const;
+
+    // uložení do textového souboru ve formátu vhodném pro zkopírování do LateXu
+    void save_for_latex(const std::filesystem::path& filename) const;
 
     // uloží přesnou kopii původního JSON
     void save_copy_of_config(const std::filesystem::path& original_path,

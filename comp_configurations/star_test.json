@@ -6,7 +6,7 @@
         "final_time": 0.0005,
         "domain": {
             "x_left": 0,
-            "x_right": 1.5,
+            "x_right": 1,
             "y_left": 0,
             "y_right": 1
         },

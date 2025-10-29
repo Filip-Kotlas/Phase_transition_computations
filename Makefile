@@ -6,6 +6,10 @@ INCLUDE_DIR := -I./include -I~/.local/include
 SRC_DIR := ./src
 RESULTS_DIR := ./results
 PYTHON_DIR := ./python
+PARAM_PATH := info/parameters.txt
+
+CONFIGS_DIR := ./comp_configurations
+CONFIG_TARGET := ./config/config.json
 
 COMPILER = nvcc
 COMPILER_FLAGS = -std=c++17 $(INCLUDE_DIR) -O3 --expt-relaxed-constexpr --extended-lambda -rdc=true $(TNL_FLAGS)
@@ -45,7 +49,31 @@ $(BUILD_DIR)/$(TARGET): $(OBJ)
 .PHONY: run
 run: $(BUILD_DIR)/$(TARGET)
 	$(BUILD_DIR)/$(TARGET) $(RESULTS_DIR)/$(FOLDER)
+	echo "" >> $(RESULTS_DIR)/$(FOLDER)/$(PARAM_PATH)
+	echo -n "Run date: " >> $(RESULTS_DIR)/$(FOLDER)/$(PARAM_PATH)
+	date "+%d.%m.%Y %H:%M:%S" >> $(RESULTS_DIR)/$(FOLDER)/$(PARAM_PATH)
+	echo -n "Git commit: " >> $(RESULTS_DIR)/$(FOLDER)/$(PARAM_PATH)
+	git rev-parse --short HEAD >> $(RESULTS_DIR)/$(FOLDER)/$(PARAM_PATH)
 	python3 $(PYTHON_DIR)/basic_plot.py --name $(FOLDER) --type both
+
+.PHONY: run_all
+run_all:
+	@for cfg in $(CONFIGS_DIR)/*.json; do \
+		name=$$(basename $$cfg .json); \
+		echo "Spouštím výpočet pro konfiguraci: $$name"; \
+		echo "========================================"; \
+		cp $$cfg $(CONFIG_TARGET); \
+		$(MAKE) run FOLDER=$$name; \
+		dir="$(RESULTS_DIR)/$$name/calculations"; \
+		if [ -d "$$dir" ]; then \
+			files=($$(ls -1 "$$dir")); \
+			count=$${#files[@]}; \
+			if [ $$count -gt 2 ]; then \
+				to_delete=$$(printf "%s\n" "$${files[@]:1:$$(($$count-2))}"); \
+				for f in $$to_delete; do rm -rf "$$dir/$$f"; done; \
+			fi; \
+		fi; \
+	done
 
 .PHONY: clean
 clean:

@@ -21,6 +21,7 @@ int main(int argc, char** argv) {
     std::filesystem::path setup_path  = info_path / "parameters.txt";
     std::filesystem::path calc_path   = result_path / "calculations";
     std::filesystem::path config_path = info_path / "config.json";
+    std::filesystem::path latex_path = info_path / "parameters.tex";
     
     try {
         std::filesystem::create_directories(result_path);
@@ -34,6 +35,7 @@ int main(int argc, char** argv) {
 
     parameters.save_human_readable(setup_path);
     parameters.save_copy_of_config("config/config.json", config_path);
+    parameters.save_for_latex(latex_path);
 
     Problem problem(parameters);
     Vector u(problem.getDegreesOfFreedom());

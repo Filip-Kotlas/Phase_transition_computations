@@ -22,8 +22,11 @@ class Plotter():
         self.data_drawn = data_drawn
         self.output_name_tag = None
         self.configuration = None
+        
         config_path = Path(self.folder) / "info" / "config.json"
         self._load_configuration(config_path)
+
+        self.time_step = self.calculate_time_step()
 
     def _load_data(self, file_path: str) -> Tuple[List[float], List[float], List[float]]:
         """
@@ -55,11 +58,39 @@ class Plotter():
         with file_path.open("r", encoding="utf-8") as file:
             self.configuration = json.load(file)
 
+    def get_max_frame_number(self) -> int:
+        return len(self.file_paths) - 1
+
     def check_for_info_folder(self) -> None:
         path_to_visual = Path(self.folder) / "info"
         if not path_to_visual.exists():
             path_to_visual.mkdir(parents=True, exist_ok=True)
             print("Creating folder \"info\" in ", self.folder)
+
+    def calculate_time_step(self) -> float:
+        t0 = self.configuration["solver"]["initial_time"]
+        tf = self.configuration["solver"]["final_time"]
+        n  = max(len(self.file_paths) - 1, self.configuration["solver"]["frame_num"])
+        time_step = (tf - t0) / n
+        return time_step
+
+    def set_time_title(self, frame: int, title) -> None:
+        t0 = self.configuration["solver"]["initial_time"]
+        tf = self.configuration["solver"]["final_time"]
+        t = t0 + self.time_step * frame
+
+        # Zvol přesnost podle kroku (max 6 desetin)
+        prec = max(0, -int(math.floor(math.log10(self.time_step)))) if self.time_step != 0 else 0
+        prec = min(6, prec)
+
+        # Spočítej maximální počet celých číslic v rozsahu pro fixní šířku
+        max_abs = max(abs(t0), abs(tf))
+        int_digits = 1 if max_abs < 1 else int(math.floor(math.log10(max_abs))) + 1
+        width = int_digits + (1 if min(t0, tf) < 0 else 0) + 1 + prec  # znaménko + tečka
+
+        # Monospace zajistí, že každý znak má stejnou šířku
+        title.set_fontfamily('monospace')
+        title.set_text(f"t = {t:>{width}.{prec}f}")
 
     def update(self, frame: int):
         pass
@@ -67,11 +98,22 @@ class Plotter():
     def save_animation(self) -> None:
         print("Preparing animation for", str(self.output_name_tag)[1:])
         self.check_for_info_folder()
+
+        duration_s = 10
+        max_fps = 30  # horní limit kvůli velikosti souboru
         num_frames = len(self.file_paths)
-        ani = animation.FuncAnimation(self.fig, self.update, frames=num_frames, blit=True)
+
+        # podvzorkování snímků tak, aby výsledné fps nepřekročilo max_fps
+        step = max(1, int(np.ceil(num_frames / (duration_s * max_fps))))
+        frames = list(range(0, num_frames, step))
+
+        fps = max(1, int(round(len(frames) / duration_s)))
+
+        ani = animation.FuncAnimation(self.fig, self.update, frames=frames, blit=True)
         output_file = Path(self.folder) / "info" / ("ACE" + self.output_name_tag + ".gif")
-        ani.save(output_file, writer='pillow', fps=max(num_frames/10, 10))
+        ani.save(output_file, writer=animation.PillowWriter(fps=fps))
         print("Finished the animation. Saved at:", output_file)
+
 
     def save_frame(self, frame: int) -> None:
         if frame >= len(self.file_paths):
@@ -135,8 +177,8 @@ class BoundaryPlotter2D(Plotter):
 
     def update(self, frame: int):
         x, y, value = self._load_data(self.file_paths[frame])
-        time_step = (self.configuration["solver"]["final_time"] - self.configuration["solver"]["initial_time"]) / max(len(self.file_paths)-1, self.configuration["solver"]["frame_num"])
-        self.title.set_text(f"t = {self.configuration["solver"]["initial_time"] + time_step*frame:g}")
+        self.set_time_title(frame, self.title)
+
         print("Updating frame: ", frame)
         artist = []
 
@@ -151,7 +193,7 @@ class BoundaryPlotter2D(Plotter):
             artist.append(self.num_bound_sc)
 
         if self.draw_analit_boundary:
-            analytic_boundary_x, analytic_boundary_y = self.get_analytic_solution(frame*time_step)
+            analytic_boundary_x, analytic_boundary_y = self.get_analytic_solution(frame*self.time_step)
             analytic_sorted_x, analytic_sorted_y = self.sort_boundary_points(analytic_boundary_x, analytic_boundary_y)
             self.anal_bound_sc.set_data(analytic_sorted_x, analytic_sorted_y)
             artist.append(self.anal_bound_sc)
@@ -349,8 +391,8 @@ class SurfacePlotter(Plotter):
         x_grid, y_grid = np.meshgrid(np.unique(x), np.unique(y))
         val_grid = value.reshape(x_grid.shape)
 
-        time_step = (self.configuration["solver"]["final_time"] - self.configuration["solver"]["initial_time"]) / max(len(self.file_paths)-1, self.configuration["solver"]["frame_num"])
-        self.title.set_text(f"t = {self.configuration["solver"]["initial_time"] + time_step*frame:g}")
+        self.set_time_title(frame, self.title)
+
         print("Updating frame: ", frame)
         artist = []
 
@@ -419,10 +461,11 @@ class CutPlotter(Plotter):
 
     def update(self, frame: int):
         x, y, value = self._load_data(self.file_paths[frame])
-        time_step = (self.configuration["solver"]["final_time"] - self.configuration["solver"]["initial_time"]) / max(len(self.file_paths)-1, self.configuration["solver"]["frame_num"])
         #self.ax.set_ylim(min(0, value.min()*1.5), math.floor(value.max()*1.2 / 0.01)*0.01)
         self.ax.set_ylim(0, max(0.11, value.max()*1.1))
-        self.title.set_text(f"t = {self.configuration["solver"]["initial_time"] + time_step*frame:g}")
+
+        self.set_time_title(frame, self.title)
+
         print("Updating frame: ", frame)
         artist = []
 
@@ -432,7 +475,7 @@ class CutPlotter(Plotter):
         artist.append(self.function)
 
         if self.draw_analytic_solution:
-            self.ana_sol.set_data(self.get_analytic_solution(frame*time_step, 4))
+            self.ana_sol.set_data(self.get_analytic_solution(frame*self.time_step, 4))
             artist.append(self.ana_sol)
 
         artist.append(self.title)
