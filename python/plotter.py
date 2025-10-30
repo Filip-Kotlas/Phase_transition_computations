@@ -5,6 +5,7 @@ import json
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib import animation
+from mpl_toolkits.axes_grid1 import make_axes_locatable
 
 
 class Plotter():
@@ -163,9 +164,11 @@ class BoundaryPlotter2D(Plotter):
 
         if self.draw_function:
             self.function_sc = self.ax.scatter([], [], c=[], cmap='viridis', s=5, vmin=0.0, vmax=0.09)
-            self.colorbar = self.fig.colorbar(self.function_sc, ax=self.ax, label=r"$c$")
+            divider = make_axes_locatable(self.ax)
+            cax = divider.append_axes("right", size="5%", pad=0.05)  # stejné výšky
+            self.colorbar = self.fig.colorbar(self.function_sc, cax=cax, label=r"$c$")
             self.function_sc.set_offsets(np.column_stack((x, y)))
-            self.output_name_tag = self.output_name_tag + "f"
+            self.output_name_tag += "f"
         if self.draw_num_boundary:
             self.num_bound_sc, = self.ax.plot([], [], color='orange', linestyle="-", label='Numerické řešení')
             self.output_name_tag = self.output_name_tag + "n"
