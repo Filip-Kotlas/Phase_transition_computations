@@ -55,7 +55,7 @@ run: $(BUILD_DIR)/$(TARGET)
 	echo -n "Git commit: " >> $(RESULTS_DIR)/$(FOLDER)/$(PARAM_PATH)
 	git rev-parse --short HEAD >> $(RESULTS_DIR)/$(FOLDER)/$(PARAM_PATH)
 	python3 $(PYTHON_DIR)/basic_plot.py --name $(FOLDER) --type both
-	dir="$(RESULTS_DIR)/$$name/calculations"; \
+	dir="$(RESULTS_DIR)/$(FOLDER)/calculations"; \
 	if [ -d "$$dir" ]; then \
 		files=($$(ls -1 "$$dir")); \
 		count=$${#files[@]}; \
