@@ -14,7 +14,7 @@
         "initial_condition": "stripe",
         "custom_integration_time_step": false,
         "integration_time_step": 5.0e-6,
-        "sizeX": 601,
+        "sizeX": 1201,
         "sizeY": 5,
         "frame_num": 100
     },
