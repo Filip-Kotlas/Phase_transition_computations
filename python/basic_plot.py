@@ -24,9 +24,11 @@ concentration_2D_plotter = BoundaryPlotter2D(results_path, True, False, False, "
 phase_surface_plotter = SurfacePlotter(results_path, "phase")
 concentration_surface_plotter = SurfacePlotter(results_path, "concentration")
 concentration_cut_plotter = CutPlotter(results_path, "concentration", "x", 0.5, False)
+phase_cut_plotter = CutPlotter(results_path, "phase", "x", 0.5, False)
 for i in [0, 1, 5, 10, 25, 50, 75, 100, 250, 500, 1000, boundary_plotter.get_max_frame_number()]:
     if args.type in ("phase", "both"):
         #boundary_plotter.save_frame(i)
+        phase_cut_plotter.save_frame(i)
         phase_surface_plotter.save_frame(i)
 
     if args.type in ("conc", "both"):
@@ -41,6 +43,7 @@ if args.type in ("conc", "both"):
 
 if args.type in ("phase", "both"):
     phase_surface_plotter.save_animation()
+    phase_cut_plotter.save_animation()
     #boundary_plotter.save_animation()
 
 if args.type not in ("phase", "conc", "both"):
