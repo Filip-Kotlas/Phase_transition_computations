@@ -58,7 +58,7 @@ Parameters Parameters::load(const std::filesystem::path& filename) {
     
     if (ic_str == "hyperbolic_tangent")         p.init_condition = ICType::HyperbolicTangent;
     else if (ic_str == "linear_by_parts")       p.init_condition = ICType::LinearByParts;
-    else if (ic_str == "constant_circle")       p.init_condition = ICType::ConstantCircle;
+    else if (ic_str == "circle")                p.init_condition = ICType::ConstantCircle;
     else if (ic_str == "constant_halves")       p.init_condition = ICType::ConstantHalves;
     else if (ic_str == "stripe")                p.init_condition = ICType::Stripe;
     else if (ic_str == "two_bumps")             p.init_condition = ICType::TwoBumps;

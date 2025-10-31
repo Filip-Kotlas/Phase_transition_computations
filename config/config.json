@@ -2,27 +2,27 @@
     "solver":
     {
         "initial_time": 0.0,
-        "final_time": 0.6,
+        "final_time": 0.2,
         "domain": {
             "x_left": 0,
-            "x_right": 3,
+            "x_right": 1,
             "y_left": 0,
             "y_right": 1
         },
         "init_cond_from_file": false,
         "init_cond_file_path": "init.txt",
-        "initial_condition": "stripe",
+        "initial_condition": "circle",
         "custom_integration_time_step": false,
         "integration_time_step": 5.0e-6,
-        "sizeX": 1201,
-        "sizeY": 5,
+        "sizeX": 201,
+        "sizeY": 201,
         "frame_num": 100
     },
 
     "problem":
     {
         "alpha": 1,
-        "a": 0.4,
+        "a": 0.25,
         "b": 3.53553391,
         "d": 1.6e15,
         "T": 1000,
