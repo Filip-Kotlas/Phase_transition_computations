@@ -469,7 +469,7 @@ __cuda_callable__
 Real Problem::F(const VectorView& u, Index i, Index j)
 {
    #if FORCE == 0
-   return 20;
+   return -20;
 
    #elif FORCE == 1
    Real mid_x = (domain.x_right - domain.x_left)/2;
