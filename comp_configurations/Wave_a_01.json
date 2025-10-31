@@ -2,7 +2,7 @@
     "solver":
     {
         "initial_time": 0.0,
-        "final_time": 0.2,
+        "final_time": 0.05,
         "domain": {
             "x_left": 0,
             "x_right": 1,
