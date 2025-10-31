@@ -45,5 +45,4 @@ build/
 .vscode/
 __pycache__/
 test
-
 output.log

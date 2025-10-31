@@ -7,7 +7,7 @@
             "x_left": 0,
             "x_right": 1,
             "y_left": 0,
-            "y_right": 1
+            "y_right": 6
         },
         "init_cond_from_file": false,
         "init_cond_file_path": "init.txt",
