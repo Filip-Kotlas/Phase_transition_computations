@@ -2,12 +2,12 @@
     "solver":
     {
         "initial_time": 0.0,
-        "final_time": 0.2,
+        "final_time": 0.05,
         "domain": {
             "x_left": 0,
             "x_right": 1,
             "y_left": 0,
-            "y_right": 6
+            "y_right": 1
         },
         "init_cond_from_file": false,
         "init_cond_file_path": "init.txt",
@@ -22,7 +22,7 @@
     "problem":
     {
         "alpha": 1,
-        "a": 0.5,
+        "a": 4,
         "b": 3.53553391,
         "d": 1.6e15,
         "T": 1000,
