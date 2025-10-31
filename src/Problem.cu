@@ -41,7 +41,7 @@
 #define C_BOUND 2
 #endif
 
-#define FORCE 1
+#define FORCE 0
 /*
 *  0 - Force equal 40
 *  1 - Force inversely proportional to the distance from the middle
