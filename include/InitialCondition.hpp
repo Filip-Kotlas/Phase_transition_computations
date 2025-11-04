@@ -67,7 +67,7 @@ public:
             break;
 
         case ICType::Stripe:
-            if( i*hx < 0.3 )
+            if( i*hx < 0.2 )
             {
                 return static_cast<Real>(constants::Phase::alpha);
             }
