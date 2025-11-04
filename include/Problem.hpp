@@ -96,6 +96,20 @@ class Problem
     __cuda_callable__
     Real laplace(const VectorView& u, Index i, Index j);
     __cuda_callable__
+    Real grad_p_1(const VectorView& u, Index i, Index j);
+    __cuda_callable__
+    Real grad_p_2(const VectorView& u, Index i, Index j);
+    __cuda_callable__
+    Real div_T0(const VectorView& u, Index i, Index j);
+    __cuda_callable__
+    Real T0_1(const Real grad_p_1, const Real grad_p_2);
+    __cuda_callable__
+    Real T0_2(const Real grad_p_1, const Real grad_p_2);
+    __cuda_callable__
+    Real psi(const Real theta);
+    __cuda_callable__
+    Real der_psi(const Real theta);
+    __cuda_callable__
     Real div_D_grad_concentration(const VectorView& u, Index i, Index j);
     __cuda_callable__
     Real div_D_grad_phase(const VectorView& u, Index i, Index j);
@@ -126,19 +140,25 @@ class Problem
 
     protected:
 
+    //characteristics
     const Index sizeX;
     const Index sizeY;
     Domain domain;
     Real hx;
     Real hy;
 
+    //phase field parameters
     const Real alpha;
     const Real par_a;
     const Real par_b;
     const Real par_d;
     const Real ksi;
-
     const Real T;
-    
+
+    //anisotropy parameters
+    const Real A;
+    const Real m;
+    const Real theta_0;
+
     const MODEL model;
 };

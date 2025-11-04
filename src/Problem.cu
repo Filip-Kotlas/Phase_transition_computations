@@ -60,6 +60,9 @@ Problem::Problem(Parameters param)
    par_d(param.par_d),
    T(param.T),
    ksi(param.ksi),
+   A(param.A),
+   m(param.m),
+   theta_0(param.theta_0),
    model(param.model)
 {
 }
@@ -389,7 +392,7 @@ void Problem::apply_concentration_physical_condition(double *u)
 __cuda_callable__
 Real Problem::get_rhs_phase_at(const VectorView& u, Index i, Index j)
 {
-    return 1.0/alpha * (laplace(u, i, j) + f_0(u, i , j) / ksi / ksi - par_b/ksi*grade_4_polynom(u, i, j)*F(u, i, j));
+    return 1.0/alpha * (div_T0(u, i, j) + f_0(u, i , j) / ksi / ksi - par_b/ksi*grade_4_polynom(u, i, j)*F(u, i, j));
 }
 
 __cuda_callable__
@@ -403,6 +406,52 @@ Real Problem::laplace(const VectorView& u, Index i, Index j)
 {
    return (phase_at(u, i - 1, j) - 2*phase_at(u, i, j) + phase_at(u, i + 1, j))/hx/hx +
           (phase_at(u, i, j - 1) - 2*phase_at(u, i, j) + phase_at(u, i, j + 1))/hy/hy;
+}
+
+__cuda_callable__
+Real Problem::grad_p_1(const VectorView& u, Index i, Index j)
+{
+   return phase_at(u, i+1, j) - phase_at(u, i, j);
+}
+
+__cuda_callable__
+Real Problem::grad_p_2(const VectorView& u, Index i, Index j)
+{
+   return phase_at(u, i, j+1) - phase_at(u, i, j);
+}
+
+
+__cuda_callable__
+Real Problem::div_T0(const VectorView& u, Index i, Index j)
+{
+    return (T0_1(grad_p_1(u, i, j), grad_p_2(u, i, j)) - T0_1(grad_p_1(u, i-1, j), grad_p_2(u, i-1, j)))/hx
+           + (T0_2(grad_p_1(u, i, j), grad_p_2(u, i, j)) - T0_2(grad_p_1(u, i, j-1), grad_p_2(u, i, j-1)))/hy;
+}
+
+__cuda_callable__
+Real Problem::T0_1(const Real grad_p_1, const Real grad_p_2)
+{
+    Real theta = atan(grad_p_2/grad_p_1);
+    return psi(theta) * psi(theta) * grad_p_1  - psi(theta) * der_psi(theta) * grad_p_2;
+}
+
+__cuda_callable__
+Real Problem::T0_2(const Real grad_p_1, const Real grad_p_2)
+{
+    Real theta = atan(grad_p_2/grad_p_1);
+    return psi(theta) * psi(theta) * grad_p_2  + psi(theta) * der_psi(theta) * grad_p_1;
+}
+
+__cuda_callable__
+Real Problem::psi(const Real theta)
+{
+    return 1 + A*sin(m*(theta - theta_0));
+}
+
+__cuda_callable__
+Real Problem::der_psi(const Real theta)
+{
+    return A*m*cos(theta);
 }
 
 __cuda_callable__

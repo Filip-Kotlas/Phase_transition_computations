@@ -77,6 +77,15 @@ Parameters Parameters::load(const std::filesystem::path& filename) {
     p.par_d = problem.value("d", 5e15);
     p.T = problem.value("T", 1200);
     p.ksi   = problem.value("ksi", 0.01);
+
+    p.A = problem.value("A", 1);
+    p.m = problem.value("m", 2);
+    p.theta_0 = problem.value("theta_0", 0);
+
+    if (p.m <= 1)
+        throw std::runtime_error("The number m is lower than 2.");
+    if (p.A > 1.0/(p.m*p.m - 1))
+        throw std::runtime_error("Parameters A and m do not fulfill the convexity condition.");
     
     return p;
 }
@@ -102,11 +111,15 @@ void Parameters::save_human_readable(const std::filesystem::path& filename) cons
     file << std::left << std::setw(24) << "Integration time step:" << std::right << std::setw(28) << integrationTimeStep << std::endl;
     file << std::left << std::setw(24) << "Alpha:" << std::right << std::setw(28) << alpha << std::endl;
     file << std::left << std::setw(24) << "Beta:"  << std::right << std::setw(28) << beta << std::endl;
-    file << std::left << std::setw(24) << "Par_a:" << std::right << std::setw(28) << par_a << std::endl;
-    file << std::left << std::setw(24) << "Par_b:" << std::right << std::setw(28) << par_b << std::endl;
-    file << std::left << std::setw(24) << "Par_d:" << std::right << std::setw(28) << par_d << std::endl;
+    file << std::left << std::setw(24) << "a:" << std::right << std::setw(28) << par_a << std::endl;
+    file << std::left << std::setw(24) << "b:" << std::right << std::setw(28) << par_b << std::endl;
+    file << std::left << std::setw(24) << "d:" << std::right << std::setw(28) << par_d << std::endl;
     file << std::left << std::setw(24) << "T:" << std::right << std::setw(28) << T << std::endl;
     file << std::left << std::setw(24) << "Ksi:"   << std::right << std::setw(28) << ksi << std::endl;
+    file << std::left << std::setw(24) << "A:"   << std::right << std::setw(28) << A << std::endl;
+    file << std::left << std::setw(24) << "m:"   << std::right << std::setw(28) << m << std::endl;
+    file << std::left << std::setw(24) << "theta_0:"   << std::right << std::setw(28) << theta_0 << std::endl;
+
     //file << std::left << std::setw(24) << "Model:" << std::right << std::setw(28) << static_cast<int>(model) << std::endl;
 }
 
@@ -124,12 +137,14 @@ void Parameters::save_for_latex(const std::filesystem::path& filename) const {
     file << "\\(N_x\\) & " << sizeX << " \\\\" << std::endl;
     file << "\\(N_y\\) & " << sizeY << " \\\\" << std::endl;
     file << "\\end{tabular}" << std::endl << std::endl;
+
     file << "\\textbf{Časové parametry:}" << std::endl << std::endl;
     file << "\\begin{tabular}{ll}" << std::endl;
     file << "\\(t_{0}\\) & " << initial_time << " \\\\" << std::endl;
     file << "\\(t_{max}\\) & " << final_time << " \\\\" << std::endl;
     file << "\\(\\tau\\) & " << integrationTimeStep << " \\\\" << std::endl;
     file << "\\end{tabular}" << std::endl << std::endl;
+
     file << "\\textbf{Parametry simulace:}" << std::endl << std::endl;
     file << "\\begin{tabular}{ll}" << std::endl;
     file << "\\(\\alpha\\) & " << alpha << " \\\\" << std::endl;
@@ -141,6 +156,14 @@ void Parameters::save_for_latex(const std::filesystem::path& filename) const {
     file << "\\(\\xi\\) & " << ksi << " \\\\" << std::endl;
     //file << "Model & " << static_cast<int>(  model) << " \\\\" << std::endl;
     file << "\\end{tabular}" << std::endl;
+
+    file << "\\textbf{Parametry simulace:}" << std::endl << std::endl;
+    file << "\\begin{tabular}{ll}" << std::endl;
+    file << "\\(\\A\\) & " << A << " \\\\" << std::endl;
+    file << "\\(\\m\\) & " << m << " \\\\" << std::endl;
+    file << "\\(\theta_0\\) & " << theta_0 << " \\\\" << std::endl;
+    file << "\\end{tabular}" << std::endl;
+
 }
 
 void Parameters::save_copy_of_config(const std::filesystem::path& original_path,

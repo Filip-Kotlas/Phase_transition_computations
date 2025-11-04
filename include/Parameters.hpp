@@ -26,6 +26,9 @@ public:
     double par_d{};
     double T{};
     double ksi{};
+    double A{};
+    double m{};
+    double theta_0{};
     MODEL model{MODEL::MODEL_1};
 
     // --- metody ---
