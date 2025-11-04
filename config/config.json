@@ -2,7 +2,7 @@
     "solver":
     {
         "initial_time": 0.0,
-        "final_time": 0.1,
+        "final_time": 0.03,
         "domain": {
             "x_left": 0,
             "x_right": 1,
@@ -27,9 +27,8 @@
         "d": 1.6e15,
         "T": 1000,
         "ksi": 0.05,
-
         "A": 0.3,
         "m": 2,
-        "theat_0": 0
+        "theta_0": 0
     }
 }

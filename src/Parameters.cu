@@ -78,7 +78,7 @@ Parameters Parameters::load(const std::filesystem::path& filename) {
     p.T = problem.value("T", 1200);
     p.ksi   = problem.value("ksi", 0.01);
 
-    p.A = problem.value("A", 1);
+    p.A = problem.value("A", 0.3);
     p.m = problem.value("m", 2);
     p.theta_0 = problem.value("theta_0", 0);
 
@@ -161,7 +161,7 @@ void Parameters::save_for_latex(const std::filesystem::path& filename) const {
     file << "\\begin{tabular}{ll}" << std::endl;
     file << "\\(\\A\\) & " << A << " \\\\" << std::endl;
     file << "\\(\\m\\) & " << m << " \\\\" << std::endl;
-    file << "\\(\theta_0\\) & " << theta_0 << " \\\\" << std::endl;
+    file << "\\(\\theta_0\\) & " << theta_0 << " \\\\" << std::endl;
     file << "\\end{tabular}" << std::endl;
 
 }
