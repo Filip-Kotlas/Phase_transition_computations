@@ -47,3 +47,6 @@ __pycache__/
 test
 
 output.log
+
+comp_configurations/*
+!comp_configurations/.gitkeep

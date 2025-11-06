@@ -14,8 +14,8 @@
         "initial_condition": "circle",
         "custom_integration_time_step": false,
         "integration_time_step": 5.0e-6,
-        "sizeX": 201,
-        "sizeY": 201,
+        "sizeX": 401,
+        "sizeY": 401,
         "frame_num": 100
     },
 
