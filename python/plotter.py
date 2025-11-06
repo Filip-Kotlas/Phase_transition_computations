@@ -163,7 +163,7 @@ class BoundaryPlotter2D(Plotter):
         self.draw_analit_boundary = draw_analit_boundary
 
         if self.draw_function:
-            self.function_sc = self.ax.scatter([], [], c=[], cmap='viridis', s=5, vmin=0.0, vmax=0.09)
+            self.function_sc = self.ax.scatter([], [], c=[], cmap='viridis', s=1, vmin=0.0, vmax=0.09)
             divider = make_axes_locatable(self.ax)
             cax = divider.append_axes("right", size="5%", pad=0.05)  # stejné výšky
             self.colorbar = self.fig.colorbar(self.function_sc, cax=cax, label=r"$c$")
