@@ -1,7 +1,7 @@
 #include "Problem.hpp"
 
 #define COMPUTE_PHASE
-#define COMPUTE_CONCENTRATION
+//#define COMPUTE_CONCENTRATION
 
 #define INIT 7
 
@@ -41,9 +41,9 @@
 #define C_BOUND 2
 #endif
 
-#define FORCE 2
+#define FORCE 0
 /*
-*  0 - Force equal 40
+*  0 - Force equal -20
 *  1 - Force inversely proportional to the distance from the middle
 *  2 - Force for zirconium model
 */
@@ -392,13 +392,17 @@ void Problem::apply_concentration_physical_condition(double *u)
 __cuda_callable__
 Real Problem::get_rhs_phase_at(const VectorView& u, Index i, Index j)
 {
+    #ifdef COMPUTE_PHASE
     return 1.0/alpha * (div_T0(u, i, j) + f_0(u, i , j) / ksi / ksi - par_b/ksi*grade_4_polynom(u, i, j)*F(u, i, j));
+    #endif
 }
 
 __cuda_callable__
 Real Problem::get_rhs_concentration_at(const VectorView& u, Index i, Index j)
 {
+    #ifdef COMPUTE_CONCENTRATION
     return div_D_grad_concentration(u, i, j) + div_D_grad_phase(u, i, j);
+    #endif
 }
 
 __cuda_callable__
@@ -409,57 +413,77 @@ Real Problem::laplace(const VectorView& u, Index i, Index j)
 }
 
 __cuda_callable__
-Real Problem::grad_p_1(const VectorView& u, Index i, Index j)
+Real Problem::grad_p_1_central(const VectorView& u, Index i, Index j)
+{
+    //if (i+1 >= sizeX || i-1 < 0)
+    //    printf("%d, %d \n", i-1, i+1);
+    return (phase_at(u, i+1, j) - phase_at(u, i-1, j))/(2*hx);
+}
+
+__cuda_callable__
+Real Problem::grad_p_2_central(const VectorView& u, Index i, Index j)
+{
+    //if (j+1 >= sizeY || j-1 < 0)
+    //    printf("%d, %d \n", j-1, j+1);
+
+    return (phase_at(u, i, j+1) - phase_at(u, i, j-1))/(2*hy);
+}
+
+__cuda_callable__
+Real Problem::grad_p_1_forward(const VectorView& u, Index i, Index j)
 {
     return (phase_at(u, i+1, j) - phase_at(u, i, j))/hx;
 }
 
 __cuda_callable__
-Real Problem::grad_p_2(const VectorView& u, Index i, Index j)
+Real Problem::grad_p_2_forward(const VectorView& u, Index i, Index j)
 {
    return (phase_at(u, i, j+1) - phase_at(u, i, j))/hy;
 }
 
+__cuda_callable__
+Real Problem::grad_p_1_backward(const VectorView& u, Index i, Index j)
+{
+    return (phase_at(u, i, j) - phase_at(u, i-1, j))/hx;
+}
+
+__cuda_callable__
+Real Problem::grad_p_2_backward(const VectorView& u, Index i, Index j)
+{
+   return (phase_at(u, i, j) - phase_at(u, i, j-1))/hy;
+}
 
 __cuda_callable__
 Real Problem::div_T0(const VectorView& u, Index i, Index j)
 {
-    //if (grad_p_1(u, i, j) > 0 || grad_p_2(u, i, j) > 0)
-        //printf("%d, %d: %f, %f\n", i, j, grad_p_1(u, i, j), grad_p_2(u, i, j));
+    //if (i == 1 || i == sizeX-2 || j == 1 || j == sizeY-2)
+        //forward
+        return (T0_1(grad_p_1_forward(u, i, j), grad_p_2_forward(u, i, j)) - T0_1(grad_p_1_forward(u, i-1, j), grad_p_2_forward(u, i-1, j)))/hx
+               + (T0_2(grad_p_1_forward(u, i, j), grad_p_2_forward(u, i, j)) - T0_2(grad_p_1_forward(u, i, j-1), grad_p_2_forward(u, i, j-1)))/hy;
+        //backward
+        //return (T0_1(grad_p_1_backward(u, i+1, j), grad_p_2_backward(u, i+1, j)) - T0_1(grad_p_1_backward(u, i, j), grad_p_2_backward(u, i, j)))/hx
+        //       + (T0_2(grad_p_1_backward(u, i, j+1), grad_p_2_backward(u, i, j+1)) - T0_2(grad_p_1_backward(u, i, j), grad_p_2_backward(u, i, j)))/hy;
 
-    return (T0_1(grad_p_1(u, i, j), grad_p_2(u, i, j)) - T0_1(grad_p_1(u, i-1, j), grad_p_2(u, i-1, j)))/hx
-           + (T0_2(grad_p_1(u, i, j), grad_p_2(u, i, j)) - T0_2(grad_p_1(u, i, j-1), grad_p_2(u, i, j-1)))/hy;
+    // both central, has to fulfill conditions on i and j
+    //else
+        //return (T0_1(grad_p_1_central(u, i+1, j), grad_p_2_central(u, i+1, j)) - T0_1(grad_p_1_central(u, i-1, j), grad_p_2_central(u, i-1, j)))/(2*hx)
+        //       + (T0_2(grad_p_1_central(u, i, j+1), grad_p_2_central(u, i, j+1)) - T0_2(grad_p_1_central(u, i, j-1), grad_p_2_central(u, i, j-1)))/(2*hy);
+
+    
+    
 }
 
 __cuda_callable__
 Real Problem::T0_1(const Real grad_p_1, const Real grad_p_2)
 {
-    Real theta = 0;
-    if (grad_p_1 < 0.0000001) {
-        if (grad_p_2 * grad_p_1 > 0)
-            theta = 3.141592653589793 / 2;
-        else
-            theta = - 3.141592653589793 / 2;
-    }
-    else {
-        theta = atan(grad_p_2/grad_p_1);
-    }
+    Real theta = atan2(grad_p_2, grad_p_1);
     return psi(theta) * psi(theta) * grad_p_1  - psi(theta) * der_psi(theta) * grad_p_2;
 }
 
 __cuda_callable__
 Real Problem::T0_2(const Real grad_p_1, const Real grad_p_2)
 {
-    Real theta = 0;
-    if (grad_p_1 < 0.0000001) {
-        if (grad_p_2 * grad_p_1 > 0)
-            theta = 3.141592653589793 / 2;
-        else
-            theta = - 3.141592653589793 / 2;
-    }
-    else {
-        theta = atan(grad_p_2/grad_p_1);
-    }
+    Real theta = atan2(grad_p_2, grad_p_1);
     return psi(theta) * psi(theta) * grad_p_2  + psi(theta) * der_psi(theta) * grad_p_1;
 }
 
@@ -539,7 +563,7 @@ __cuda_callable__
 Real Problem::F(const VectorView& u, Index i, Index j)
 {
    #if FORCE == 0
-   return -20;
+   return 0;
 
    #elif FORCE == 1
    Real mid_x = (domain.x_right - domain.x_left)/2;

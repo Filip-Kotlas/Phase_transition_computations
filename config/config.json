@@ -2,7 +2,7 @@
     "solver":
     {
         "initial_time": 0.0,
-        "final_time": 0.03,
+        "final_time": 0.1,
         "domain": {
             "x_left": 0,
             "x_right": 1,
@@ -14,8 +14,8 @@
         "initial_condition": "circle",
         "custom_integration_time_step": false,
         "integration_time_step": 5.0e-6,
-        "sizeX": 401,
-        "sizeY": 401,
+        "sizeX": 201,
+        "sizeY": 201,
         "frame_num": 100
     },
 
@@ -27,8 +27,8 @@
         "d": 1.6e15,
         "T": 1000,
         "ksi": 0.05,
-        "A": 0.3,
-        "m": 2,
+        "A": 0.015,
+        "m": 8,
         "theta_0": 0
     }
 }

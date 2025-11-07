@@ -9,7 +9,7 @@ public:
 
     InitialCondition(ICType type, Domain domain, Index sizeX, Index sizeY, Real ksi)
     : type(type), domain(domain), sizeX(sizeX), sizeY(sizeY), ksi(ksi) {
-        r = (domain.x_right - domain.x_left)/6.0;
+        r = (domain.x_right - domain.x_left)/2.5;
         r1 = r - 0.5*ksi;
         r2 = r1 + ksi;
         hx = (domain.x_right - domain.x_left) / (sizeX - 1);

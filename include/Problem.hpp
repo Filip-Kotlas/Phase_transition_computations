@@ -96,9 +96,17 @@ class Problem
     __cuda_callable__
     Real laplace(const VectorView& u, Index i, Index j);
     __cuda_callable__
-    Real grad_p_1(const VectorView& u, Index i, Index j);
+    Real grad_p_1_central(const VectorView& u, Index i, Index j);
     __cuda_callable__
-    Real grad_p_2(const VectorView& u, Index i, Index j);
+    Real grad_p_2_central(const VectorView& u, Index i, Index j);
+    __cuda_callable__
+    Real grad_p_1_forward(const VectorView& u, Index i, Index j);
+    __cuda_callable__
+    Real grad_p_2_forward(const VectorView& u, Index i, Index j);
+    __cuda_callable__
+    Real grad_p_1_backward(const VectorView& u, Index i, Index j);
+    __cuda_callable__
+    Real grad_p_2_backward(const VectorView& u, Index i, Index j);
     __cuda_callable__
     Real div_T0(const VectorView& u, Index i, Index j);
     __cuda_callable__

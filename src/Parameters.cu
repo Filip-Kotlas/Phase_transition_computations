@@ -80,7 +80,7 @@ Parameters Parameters::load(const std::filesystem::path& filename) {
 
     p.A = problem.value("A", 0.3);
     p.m = problem.value("m", 2);
-    p.theta_0 = problem.value("theta_0", 0);
+    p.theta_0 = problem.value("theta_0", 0.0);
 
     if (p.m <= 1)
         throw std::runtime_error("The number m is lower than 2.");
@@ -98,7 +98,7 @@ void Parameters::save_human_readable(const std::filesystem::path& filename) cons
 
     file << std::left << std::setw(24) << "Initial time:" << std::right << std::setw(28) << initial_time << std::endl;
     file << std::left << std::setw(24) << "Final time:"   << std::right << std::setw(28) << final_time << std::endl;
-
+    
     std::ostringstream oss;
     oss << "[(" << std::fixed << std::setprecision(2) 
         << domain.x_left << ", " << domain.x_right << ")"
