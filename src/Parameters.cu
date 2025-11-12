@@ -145,7 +145,7 @@ void Parameters::save_for_latex(const std::filesystem::path& filename) const {
     file << "\\(\\tau\\) & " << integrationTimeStep << " \\\\" << std::endl;
     file << "\\end{tabular}" << std::endl << std::endl;
 
-    file << "\\textbf{Parametry simulace:}" << std::endl << std::endl;
+    file << "\\textbf{Parametry modelu:}" << std::endl << std::endl;
     file << "\\begin{tabular}{ll}" << std::endl;
     file << "\\(\\alpha\\) & " << alpha << " \\\\" << std::endl;
     file << "\\(\\beta\\) & " << beta << " \\\\" << std::endl;
@@ -157,7 +157,7 @@ void Parameters::save_for_latex(const std::filesystem::path& filename) const {
     //file << "Model & " << static_cast<int>(  model) << " \\\\" << std::endl;
     file << "\\end{tabular}" << std::endl;
 
-    file << "\\textbf{Parametry simulace:}" << std::endl << std::endl;
+    file << "\\textbf{Parametry anizotropie:}" << std::endl << std::endl;
     file << "\\begin{tabular}{ll}" << std::endl;
     file << "\\(\\A\\) & " << A << " \\\\" << std::endl;
     file << "\\(\\m\\) & " << m << " \\\\" << std::endl;
