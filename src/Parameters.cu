@@ -159,8 +159,8 @@ void Parameters::save_for_latex(const std::filesystem::path& filename) const {
 
     file << "\\textbf{Parametry anizotropie:}" << std::endl << std::endl;
     file << "\\begin{tabular}{ll}" << std::endl;
-    file << "\\(\\A\\) & " << A << " \\\\" << std::endl;
-    file << "\\(\\m\\) & " << m << " \\\\" << std::endl;
+    file << "\\(A\\) & " << A << " \\\\" << std::endl;
+    file << "\\(m\\) & " << m << " \\\\" << std::endl;
     file << "\\(\\theta_0\\) & " << theta_0 << " \\\\" << std::endl;
     file << "\\end{tabular}" << std::endl;
 
