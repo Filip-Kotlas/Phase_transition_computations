@@ -129,7 +129,7 @@ void Parameters::save_for_latex(const std::filesystem::path& filename) const {
         throw std::runtime_error("Unable to open the file " + filename.string());
     }
 
-    file << "\\textbf{Oblast:}" << std::endl << std::endl;
+    file << "\\textbf{Oblast:}" << std::endl;
     file << "\\begin{tabular}{ll}" << std::endl;
     file << "\\(\\Omega\\) & \\((" << std::defaultfloat 
     << domain.x_left << ", " << domain.x_right << ") \\times "
@@ -138,14 +138,14 @@ void Parameters::save_for_latex(const std::filesystem::path& filename) const {
     file << "\\(N_y\\) & " << sizeY << " \\\\" << std::endl;
     file << "\\end{tabular}" << std::endl << std::endl;
 
-    file << "\\textbf{Časové parametry:}" << std::endl << std::endl;
+    file << "\\textbf{Časové parametry:}" << std::endl;
     file << "\\begin{tabular}{ll}" << std::endl;
     file << "\\(t_{0}\\) & " << initial_time << " \\\\" << std::endl;
     file << "\\(t_{max}\\) & " << final_time << " \\\\" << std::endl;
     file << "\\(\\tau\\) & " << integrationTimeStep << " \\\\" << std::endl;
     file << "\\end{tabular}" << std::endl << std::endl;
 
-    file << "\\textbf{Parametry modelu:}" << std::endl << std::endl;
+    file << "\\textbf{Parametry modelu:}" << std::endl;
     file << "\\begin{tabular}{ll}" << std::endl;
     file << "\\(\\alpha\\) & " << alpha << " \\\\" << std::endl;
     file << "\\(\\beta\\) & " << beta << " \\\\" << std::endl;
@@ -155,9 +155,9 @@ void Parameters::save_for_latex(const std::filesystem::path& filename) const {
     file << "\\(T\\) & " << T << " \\\\" << std::endl;
     file << "\\(\\xi\\) & " << ksi << " \\\\" << std::endl;
     //file << "Model & " << static_cast<int>(  model) << " \\\\" << std::endl;
-    file << "\\end{tabular}" << std::endl;
+    file << "\\end{tabular}" << std::endl << std::endl;
 
-    file << "\\textbf{Parametry anizotropie:}" << std::endl << std::endl;
+    file << "\\textbf{Parametry anizotropie:}" << std::endl;
     file << "\\begin{tabular}{ll}" << std::endl;
     file << "\\(\\A\\) & " << A << " \\\\" << std::endl;
     file << "\\(\\m\\) & " << m << " \\\\" << std::endl;
