@@ -1,7 +1,7 @@
 #include "Problem.hpp"
 
 #define COMPUTE_PHASE
-//#define COMPUTE_CONCENTRATION
+#define COMPUTE_CONCENTRATION
 
 #define INIT 7
 
@@ -41,7 +41,7 @@
 #define C_BOUND 2
 #endif
 
-#define FORCE 1
+#define FORCE 2
 /*
 *  0 - Force equal -20
 *  1 - Force inversely proportional to the distance from the middle
