@@ -82,24 +82,35 @@ int main(int argc, char** argv) {
         };
         auto stepStart = std::chrono::high_resolution_clock::now();
         solver.solve( u, time_stepping );
-        auto stepEnd = std::chrono::high_resolution_clock::now();
         step_number = static_cast<Index>(round(solver.getTime() / parameters.timeStep));
         problem.writeSolution(solver.getTime(), step_number, u, calc_path);
+        auto stepEnd = std::chrono::high_resolution_clock::now();
 
-        double time_per_step = (std::chrono::duration<double>(stepEnd - stepStart).count());
+        int elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(stepEnd - stepStart).count();
 
-        double remaining_time = time_per_step * (parameters.frame_num * parameters.final_time
+        double remaining_time = elapsed / 1000 * (parameters.frame_num * parameters.final_time
                                                  / (parameters.final_time - parameters.initial_time)
                                                  - step_number);
       
-        int hours = static_cast<int>(remaining_time) / 3600;
-        int minutes = (static_cast<int>(remaining_time) % 3600) / 60;
-        int seconds = remaining_time - (hours * 3600 + minutes * 60);
+        int remain_hours = static_cast<int>(remaining_time) / 3600;
+        int remain_minutes = (static_cast<int>(remaining_time) % 3600) / 60;
+        int remain_seconds = remaining_time - (remain_hours * 3600 + remain_minutes * 60);
+
+        int elapsed_hours = elapsed / 3600000;
+        int elapsed_minutes = (elapsed % 3600000) / 60000;
+        int elapsed_seconds = (elapsed % 60000) / 1000;
+        int elapsed_milisec = elapsed % 1000;
         
-        std::cout << "Steps completed: " << step_number << " / " << parameters.frame_num << " => " << std::fixed
+        std::cout << "Steps completed: " << std::setw(2) << step_number << " / " << std::setw(2) << parameters.frame_num << " => " << std::setw(5) << std::fixed
                   << std::setprecision(2) << ( double ) step_number / ( double ) parameters.frame_num * 100.0 << "% ";
-        std::cout << "     Time remaining: " 
-                  << hours << "h " << minutes << "m " << seconds << "s"
-                  << std::endl;
+        std::cout << "    Time remaining: "
+                  << remain_hours << "h "
+                  << std::setw(2) << remain_minutes << "m "
+                  << std::setw(2) << remain_seconds << "s";
+        std::cout << "    Elapsed time: " 
+                  << elapsed_hours << "h "
+                  << std::setw(2) << elapsed_minutes << "m "
+                  << std::setw(2) << elapsed_seconds << "s "
+                  << std::setw(3) << elapsed_milisec << "ms" << std::endl;
     }
 }
