@@ -43,8 +43,9 @@ int main(int argc, char** argv) {
     if (!parameters.init_cond_from_file ||
         !problem.set_init_cond_from_file(u, calc_path / parameters.init_cond_file_path)) {
         std::cout << "Setting initial condition by code." << std::endl;
-        InitialCondition init_cond(parameters.init_condition, parameters.domain, parameters.sizeX, parameters.sizeY, parameters.ksi);
+        InitialCondition init_cond(parameters);
         problem.set_init_cond_manually(u, init_cond);
+        std::cout << "Initial condition set." << std::endl;
     }
 
     ODESolver solver;

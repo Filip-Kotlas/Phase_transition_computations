@@ -30,6 +30,7 @@ enum class ICType {
         PerpendicularStripes,
         Box,
         RandomBumps,
+        WulffShape,
         Count 
     };
 
