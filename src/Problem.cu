@@ -62,10 +62,8 @@ Problem::Problem(Parameters param)
    ksi(param.ksi),
    A(param.A),
    m(param.m),
-   theta_0(param.theta_0),
-   model(param.model)
-{
-}
+   theta_0(param.theta_0)
+{}
 
 Index Problem::getDegreesOfFreedom()
 {

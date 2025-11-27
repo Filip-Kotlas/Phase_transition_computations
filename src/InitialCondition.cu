@@ -183,7 +183,6 @@ Real InitialCondition::get_phase(Index ind) const
         Real x = i*hx - (domain.x_right - domain.x_left)/2;
         Real y = j*hy - (domain.y_right - domain.y_left)/2;
         Real theta_origin = atan2(y, x);
-        Real r = 0.4;
         Real x_wulff = 0;
         Real y_wulff = 0;
 

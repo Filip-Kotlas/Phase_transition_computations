@@ -10,7 +10,7 @@ public:
 
     InitialCondition(Parameters param)
     : type(param.init_condition), domain(param.domain), sizeX(param.sizeX), sizeY(param.sizeY), ksi(param.ksi), param(param) {
-        r = (domain.x_right - domain.x_left)/6;
+        r = param.r*(domain.x_right - domain.x_left);
         r1 = r - 0.5*ksi;
         r2 = r1 + ksi;
         hx = (domain.x_right - domain.x_left) / (sizeX - 1);

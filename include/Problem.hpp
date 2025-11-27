@@ -167,6 +167,4 @@ class Problem
     const Real A;
     const Real m;
     const Real theta_0;
-
-    const MODEL model;
 };

@@ -2,7 +2,7 @@
     "solver":
     {
         "initial_time": 0.0,
-        "final_time": 0.001,
+        "final_time": 0.0001,
         "domain": {
             "x_left": 0,
             "x_right": 1,
@@ -14,8 +14,8 @@
         "initial_condition": "wulff_shape",
         "custom_integration_time_step": false,
         "integration_time_step": 5.0e-6,
-        "sizeX": 401,
-        "sizeY": 401,
+        "sizeX": 201,
+        "sizeY": 201,
         "frame_num": 1
     },
 
@@ -29,6 +29,7 @@
         "ksi": 0.05,
         "A": 0.066,
         "m": 4,
-        "theta_0": 0.0
+        "theta_0": 0.0,
+        "r": 0.3
     }
 }

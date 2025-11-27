@@ -82,6 +82,7 @@ Parameters Parameters::load(const std::filesystem::path& filename) {
     p.A = problem.value("A", 0.3);
     p.m = problem.value("m", 2);
     p.theta_0 = problem.value("theta_0", 0.0);
+    p.r = problem.value("r", 0.5);
 
     if (p.m <= 1)
         throw std::runtime_error("The number m is lower than 2.");
@@ -120,6 +121,7 @@ void Parameters::save_human_readable(const std::filesystem::path& filename) cons
     file << std::left << std::setw(24) << "A:"   << std::right << std::setw(28) << A << std::endl;
     file << std::left << std::setw(24) << "m:"   << std::right << std::setw(28) << m << std::endl;
     file << std::left << std::setw(24) << "theta_0:"   << std::right << std::setw(28) << theta_0 << std::endl;
+    file << std::left << std::setw(24) << "r:"   << std::right << std::setw(28) << r << std::endl;
 
     //file << std::left << std::setw(24) << "Model:" << std::right << std::setw(28) << static_cast<int>(model) << std::endl;
 }
@@ -156,6 +158,7 @@ void Parameters::save_for_latex(const std::filesystem::path& filename) const {
     file << "\\(T\\) & " << T << " \\\\" << std::endl;
     file << "\\(\\xi\\) & " << ksi << " \\\\" << std::endl;
     //file << "Model & " << static_cast<int>(  model) << " \\\\" << std::endl;
+    file << "\\(r\\) & " << r << " \\\\" << std::endl;
     file << "\\end{tabular}" << std::endl << std::endl;
 
     file << "\\textbf{Parametry anizotropie:}" << std::endl << std::endl;

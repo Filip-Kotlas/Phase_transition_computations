@@ -29,8 +29,7 @@ public:
     double A{};
     double m{};
     double theta_0{};
-    MODEL model{MODEL::MODEL_1};
-
+    double r{};
     // --- metody ---
     Parameters() = default;
 
