@@ -48,20 +48,7 @@ Parameters Parameters::load(const std::filesystem::path& filename) {
     auto initial_condition = config.at("init_cond");
     p.init_cond_from_file = initial_condition.value("init_cond_from_file", false);
     p.init_cond_file_path = initial_condition.value("init_cond_file_path", "");
-    std::string ic_str = initial_condition.value("initial_condition", "hyperbolic_tangent");
-    if (ic_str == "hyperbolic_tangent")         p.init_condition = ICType::HyperbolicTangent;
-    else if (ic_str == "linear_by_parts")       p.init_condition = ICType::LinearByParts;
-    else if (ic_str == "circle")                p.init_condition = ICType::ConstantCircle;
-    else if (ic_str == "half")                  p.init_condition = ICType::ConstantHalves;
-    else if (ic_str == "stripe")                p.init_condition = ICType::Stripe;
-    else if (ic_str == "two_bumps")             p.init_condition = ICType::TwoBumps;
-    else if (ic_str == "three_bumps")           p.init_condition = ICType::ThreeBumps;
-    else if (ic_str == "star")                  p.init_condition = ICType::Star;
-    else if (ic_str == "perpendicular_stripes") p.init_condition = ICType::PerpendicularStripes;
-    else if (ic_str == "box")                   p.init_condition = ICType::Box;
-    else if (ic_str == "random_bumps")          p.init_condition = ICType::RandomBumps;
-    else if (ic_str == "wulff_shape")           p.init_condition = ICType::WulffShape;
-    else throw std::runtime_error("Unknown initial_condition in config: " + ic_str);
+    p.init_condition = string_to_ICType(initial_condition.value("initial_condition", "constant_circle"));
     double smaller_side = std::min(p.domain.x_right - p.domain.x_left,
                                    p.domain.y_right - p.domain.y_left);
     p.init_cond_radius = smaller_side * initial_condition.value("radius_proportion", 0.5);

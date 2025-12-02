@@ -107,7 +107,6 @@ void Problem::set_init_cond_manually(Vector& u, InitialCondition& init_cond)
         } );
 }
 
-
 bool Problem::set_init_cond_from_file(Vector& u, const std::filesystem::path& filename)
 {
     std::ifstream file(filename);
@@ -239,17 +238,16 @@ void Problem::apply_concentration_boundary_condition_ydir(Index ind, VectorView 
 __cuda_callable__
 Real Problem::get_rhs_phase_at(const VectorView& u, Index i, Index j)
 {
-    #ifdef COMPUTE_PHASE
     return 1.0/param.alpha * (div_T0(u, i, j) + f_0(u, i , j) / param.ksi / param.ksi - param.par_b/param.ksi*grade_4_polynom(u, i, j)*F(u, i, j));
-    #endif
 }
 
 __cuda_callable__
 Real Problem::get_rhs_concentration_at(const VectorView& u, Index i, Index j)
 {
-    #ifdef COMPUTE_CONCENTRATION
-    return div_D_grad_concentration(u, i, j) + div_D_grad_phase(u, i, j);
-    #endif
+    if (param.force_term_type != FTType::Zirconium)
+        return div_D_grad_concentration(u, i, j) + div_D_grad_phase(u, i, j);
+    else
+        return 0;
 }
 
 __cuda_callable__

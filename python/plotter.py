@@ -333,9 +333,9 @@ class BoundaryPlotter2D(Plotter):
     def get_analytic_solution(self, t) -> Tuple[np.array, np.array]:
         r0 = (self.configuration["init_cond"]["radius_proportion"] 
              * (self.configuration["solver"]["domain"]["x_right"] - self.configuration["solver"]["domain"]["x_left"]))
-        if self.configuration["init_cond"]["initial_condition"] == "circle":
+        if self.configuration["init_cond"]["initial_condition"] == "ConstantCircle":
             return self.get_analytic_solution_circle(t, r0)
-        elif self.configuration["init_cond"]["initial_condition"] == "wulff_shape":
+        elif self.configuration["init_cond"]["initial_condition"] == "WulffShape":
             return self.get_analytic_solution_wulff_shape(t, r0)
         else:
             raise ValueError("Wrong initial condition for analytic solution.")
@@ -371,11 +371,26 @@ class BoundaryPlotter2D(Plotter):
             A = self.configuration["anisotropy"]["A"]
             return -m*A*math.sin(m*(theta - theta_0))
         
-        coef = 1
-        # There is no shape.
-        if r0**2 + 2*t < 0:
+        def r_squared_for_force_0(t) -> float:
+            return r0**2 - 2*t
+
+        def r_squared_for_force_radial(t) -> float:
+            return r0**2 + 2*t
+
+        def r_used(t) -> float:
+            pass
+
+        if self.configuration["force_term"]["type"] == "constant" and self.configuration["force_term"]["size"] == 0:
+            r_used = r_squared_for_force_0
+        elif self.configuration["force_term"]["type"] == "radial":
+            r_used = r_squared_for_force_radial
+        else:
             return np.array([]), np.array([])
-        r = math.sqrt(r0**2 + coef*2*t)
+
+        # There is no shape.
+        if r_used(t) < 0:
+            return np.array([]), np.array([])
+        r = math.sqrt(r_used(t))
 
         theta_0 = self.configuration["anisotropy"]["theta_0"]
         # Locating boundary points

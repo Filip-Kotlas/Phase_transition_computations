@@ -2,7 +2,7 @@
     "solver":
     {
         "initial_time": 0.0,
-        "final_time": 0.0001,
+        "final_time": 0.05,
         "domain": {
             "x_left": 0,
             "x_right": 1,
@@ -19,7 +19,7 @@
     {
         "init_cond_from_file": false,
         "init_cond_file_path": "init.txt",
-        "initial_condition": "wulff_shape",
+        "initial_condition": "WulffShape",
         "radius_proportion": 0.4
     },
     "bound_cond":
@@ -40,13 +40,13 @@
     },
     "force_term":
     {
-        "type": "zirconium",
+        "type": "constant",
         "size": 0
     },
     "anisotropy":
     {
-        "A": 0.05,
-        "m": 4,
+        "A": 0.1,
+        "m": 3,
         "theta_0": 0.0
     }
 }

@@ -42,9 +42,9 @@ if args.type in ("conc", "both"):
     concentration_2D_plotter.save_animation()
 
 if args.type in ("phase", "both"):
+    boundary_plotter.save_animation()
     phase_surface_plotter.save_animation()
     phase_cut_plotter.save_animation()
-    boundary_plotter.save_animation()
 
 if args.type not in ("phase", "conc", "both"):
     raise ValueError("Wrong argument for type.")
