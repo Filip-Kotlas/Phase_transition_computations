@@ -90,7 +90,7 @@ int main(int argc, char** argv) {
 
         int elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(stepEnd - stepStart).count();
 
-        double remaining_time = elapsed / 1000 * (parameters.frame_num * parameters.final_time
+        double remaining_time = elapsed / 1000.0 * (parameters.frame_num * parameters.final_time
                                                  / (parameters.final_time - parameters.initial_time)
                                                  - step_number);
       
