@@ -2,6 +2,7 @@
 #include "types.hpp"
 #include "constants.hpp"
 #include "Parameters.hpp"
+#include "enums.hpp"
 
 class InitialCondition {
 public:

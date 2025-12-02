@@ -4,6 +4,7 @@
 #include <json.hpp>
 #include <filesystem>
 #include "constants.hpp"
+#include "enums.hpp"
 
 class Parameters {
 public:
@@ -22,10 +23,10 @@ public:
     std::string init_cond_file_path;
     double init_cond_radius;
     // boundary conditions
-    std::string bc_phase_x;
-    std::string bc_phase_y;
-    std::string bc_conc_x;
-    std::string bc_conc_y;
+    BCType bc_phase_x;
+    BCType bc_phase_y;
+    BCType bc_conc_x;
+    BCType bc_conc_y;
     // model parameters
     double alpha;
     double beta;
@@ -34,6 +35,9 @@ public:
     double par_d;
     double T;
     double ksi;
+    // force term parameters
+    FTType force_term_type;
+    double force_term_size;
     // anisotropy parameters
     double A;
     double m;

@@ -2,7 +2,7 @@
     "solver":
     {
         "initial_time": 0.0,
-        "final_time": 0.0001,
+        "final_time": 0.003,
         "domain": {
             "x_left": 0,
             "x_right": 1,
@@ -13,7 +13,7 @@
         "integration_time_step": 5.0e-6,
         "sizeX": 201,
         "sizeY": 201,
-        "frame_num": 1
+        "frame_num": 100
     },
     "init_cond":
     {
@@ -38,10 +38,15 @@
         "T": 1000,
         "ksi": 0.01
     },
+    "force_term":
+    {
+        "type": "zirconium",
+        "size": 0
+    },
     "anisotropy":
     {
-        "A": 0.028,
-        "m": 6,
+        "A": 0.05,
+        "m": 4,
         "theta_0": 0.0
     }
 }

@@ -1,7 +1,7 @@
 #include "Problem.hpp"
 
 #define COMPUTE_PHASE
-//#define COMPUTE_CONCENTRATION
+#define COMPUTE_CONCENTRATION
 
 #define INIT 7
 
@@ -12,21 +12,6 @@
 /*
 *  20 - Fourier along x axis
 *  30 - Fourier along y axis
-*/
-
-#define C_BOUND 3
-/*
-*  0 - Dirichlet everywhere
-*  1 - Neumann along x, Dirichlet along y
-*  2 - Dirichlet along x, Neumann along y
-*  3 - Neumann everywhere
-*  4 - Dirichlet everywhere with c = 0.007
-*/
-
-#define P_BOUND 1
-/*
-*  0 - Dirichlet
-*  1 - Neumann
 */
 
 //#define C_TEST_X
@@ -188,11 +173,11 @@ void Problem::apply_phase_boundary_condition_xdir(Index ind, VectorView u, Vecto
     fu[ind] = 0;
     fu[(sizeY - 1) * sizeX + ind] = 0;
 
-    if (param.bc_phase_x == "dirichlet") {
+    if (param.bc_phase_x == BCType::Dirichlet) {
         u[ind] = 0;
         u[(sizeY - 1) * sizeX + ind] = 0;
     }
-    else if (param.bc_phase_x == "neumann") {
+    else if (param.bc_phase_x == BCType::Neumann) {
         u[ind] = u[ind + sizeX];
         u[(sizeY - 1) * sizeX + ind] = u[(sizeY - 2) * sizeX + ind];
     }
@@ -205,11 +190,11 @@ void Problem::apply_phase_boundary_condition_ydir(Index ind, VectorView u, Vecto
     fu[ind * sizeX] = 0;
     fu[(ind + 1) * sizeX - 1] = 0;
 
-    if (param.bc_phase_y == "dirichlet") {
+    if (param.bc_phase_y == BCType::Dirichlet) {
         u[ind * sizeX] = 0;
         u[(ind + 1) * sizeX - 1] = 0;
     }
-    else if (param.bc_phase_y == "neumann") {
+    else if (param.bc_phase_y == BCType::Neumann) {
         u[ind * sizeX] = u[ind * sizeX + 1];
         u[(ind + 1) * sizeX - 1] = u[(ind + 1) * sizeX - 2];
     }
@@ -223,11 +208,11 @@ void Problem::apply_concentration_boundary_condition_xdir(Index ind, VectorView 
     fu[offset + ind] = 0;
     fu[offset + (sizeY - 1) * sizeX + ind] = 0;
 
-    if (param.bc_conc_x == "dirichlet") {
+    if (param.bc_conc_x == BCType::Dirichlet) {
         u[offset + ind] = constants::c_init_beta;
         u[offset + (sizeY - 1) * sizeX + ind] = constants::c_init_beta;
     }
-    else if (param.bc_conc_x == "neumann") {
+    else if (param.bc_conc_x == BCType::Neumann) {
         u[offset + ind] = u[offset + ind + sizeX];
         u[offset + (sizeY - 1) * sizeX + ind] = u[offset + (sizeY - 2) * sizeX + ind];
     }
@@ -241,134 +226,15 @@ void Problem::apply_concentration_boundary_condition_ydir(Index ind, VectorView 
     fu[offset + ind * sizeX] = 0;
     fu[offset + (ind + 1) * sizeX - 1] = 0;
 
-    if (param.bc_conc_y == "dirichlet") {
+    if (param.bc_conc_y == BCType::Dirichlet) {
         u[offset + ind * sizeX] = constants::c_init_beta;
         u[offset + (ind + 1) * sizeX - 1] = constants::c_init_beta;
     }
-    else if (param.bc_conc_y == "neumann") {
+    else if (param.bc_conc_y == BCType::Neumann) {
         u[offset + ind * sizeX] = u[offset + ind * sizeX + 1];
         u[offset + (ind + 1) * sizeX - 1] = u[offset + (ind + 1) * sizeX - 2];
     }
 }
-
-/*
-void Problem::apply_boundary_condition(double *u, double *fu)
-{
-   apply_phase_boundary_condition(u, fu);
-   apply_concentration_boundary_condition(u, fu);
-}
-
-void Problem::apply_phase_boundary_condition(double *u, double *fu)
-{
-   for(int i = 0; i < this->sizeX; i++)
-   {
-      //Dirichlet
-      #if P_BOUND == 0
-      fu[i] = 0;
-      fu[(sizeY-1)*sizeX + i] = 0;
-
-      //Neumann
-      #elif P_BOUND == 1
-      u[i] = u[i + sizeX];
-      u[(sizeY-1)*sizeX + i] = u[(sizeY-2)*sizeX + i];
-      fu[i] = 0;
-      fu[(sizeY-1)*sizeX + i] = 0;
-      #endif
-   }
-   for(int j = 1; j < this->sizeY-1; j++)
-   {
-      //Dirichlet
-      #if P_BOUND == 0
-      fu[j*sizeX] = 0;
-      fu[(j+1)*sizeX - 1] = 0;
-
-      //Neumann
-      #elif P_BOUND == 1
-      u[j*sizeX] = u[j*sizeX + 1];
-      u[(j+1)*sizeX - 1] = u[(j+1)*sizeX - 2];
-      fu[j*sizeX] = 0;
-      fu[(j+1)*sizeX - 1] = 0;
-      #endif
-   }
-}
-
-void Problem::apply_concentration_boundary_condition(double *u, double *fu)
-{
-   int offset = sizeY * sizeX;
-
-   //Boundary conditions along x direction
-   for(int i = 0; i < this->sizeX; i++)
-   {
-      //Dirichlet 0
-      #if C_BOUND == 0 || C_BOUND == 2
-      u[offset + i] = 0;
-      u[offset + (sizeY-1)*sizeX + i] = 0;
-      fu[offset + i] = 0;
-      fu[offset + (sizeY-1)*sizeX + i] = 0;
-      
-      //Neumann
-      #elif C_BOUND == 1 || C_BOUND == 3
-      u[offset + i] = u[offset + i + sizeX];
-      u[offset + (sizeY-1)*sizeX + i] = u[offset + (sizeY-2)*sizeX + i];
-      fu[offset + i] = 0;
-      fu[offset + (sizeY-1)*sizeX + i] = 0;
-
-      //Dirichlet with c_init_beta
-      #elif C_BOUND == 4
-      u[offset + i] = constants::c_init_beta;
-      u[offset + (sizeY-1)*sizeX + i] = constants::c_init_beta;
-      fu[offset + i] = constants::c_init_beta;
-      fu[offset + (sizeY-1)*sizeX + i] = constants::c_init_beta;
-      #endif
-   }
-
-   //Boundary conditions along y direction
-   for(int j = 0; j < this->sizeY; j++)
-   {
-      //Dirichlet 0
-      #if C_BOUND == 0 || C_BOUND == 1
-      u[offset + j*sizeX] = 0;
-      u[offset + (j+1)*sizeX - 1] = 0;
-      fu[offset + j*sizeX] = 0;
-      fu[offset + (j+1)*sizeX - 1] = 0;
-
-      //Neumann
-      #elif C_BOUND == 2 || C_BOUND == 3
-      u[offset + j*sizeX] = u[offset + j*sizeX + 1];
-      u[offset + (j+1)*sizeX - 1] = u[offset + (j+1)*sizeX - 2];
-      fu[offset + j*sizeX] = 0;
-      fu[offset + (j+1)*sizeX - 1] = 0;
-      
-      //Dirichlet with c_init_beta
-      #elif C_BOUND == 4
-      u[offset + j*sizeX] = constants::c_init_beta;
-      u[offset + (j+1)*sizeX - 1] = constants::c_init_beta;
-      fu[offset + j*sizeX] = constants::c_init_beta;
-      fu[offset + (j+1)*sizeX - 1] = constants::c_init_beta;
-      #endif
-   }
-
-}
-
-void Problem::apply_concentration_physical_condition(double *u)
-{
-   for(int i = 0; i < this->sizeX; i++)
-   {
-      for(int j = 0; j < this->sizeY; j++)
-      {
-         // Check if the concentration is in allowed range of (c_min, c_max).
-         if(u[sizeX*sizeY + j*sizeX + i] < constants::c_min)
-         {
-            u[sizeX*sizeY + j*sizeX + i] = constants::c_min;
-         }
-         else if (u[sizeX*sizeY + j*sizeX + i] > constants::c_max)
-         {
-            u[sizeX*sizeY + j*sizeX + i] = constants::c_max;
-         }
-      }
-   }
-}
-*/
 
 __cuda_callable__
 Real Problem::get_rhs_phase_at(const VectorView& u, Index i, Index j)
@@ -538,19 +404,20 @@ Real Problem::f_0(const VectorView& u, Index i, Index j)
 __cuda_callable__
 Real Problem::F(const VectorView& u, Index i, Index j)
 {
-   #if FORCE == 0
-   return 0;
+    if (param.force_term_type == FTType::Constant)
+        return param.force_term_size;
+    else if (param.force_term_type == FTType::Radial)
+    {
+        Real mid_x = (domain.x_right - domain.x_left)/2;
+        Real mid_y = (domain.y_right - domain.y_left)/2;
+        Real r = sqrt(pow(i*hx - mid_x, 2) + pow(j*hy - mid_y, 2));
+        return -2/std::max(r, 0.1);
+    }
+    else if (param.force_term_type == FTType::Zirconium)
+        return constants::G_m_alpha(conc_at(u, i, j), param.T) - constants::G_m_beta(conc_at(u, i, j), param.T);
+    else
+        return 0;
 
-   #elif FORCE == 1
-   Real mid_x = (domain.x_right - domain.x_left)/2;
-   Real mid_y = (domain.y_right - domain.y_left)/2;
-   Real r = sqrt(pow(i*hx - mid_x, 2) + pow(j*hy - mid_y, 2));
-   return -2/std::max(r, 0.1);
-
-   #elif FORCE == 2
-   return constants::G_m_alpha(conc_at(u, i, j), T) - constants::G_m_beta(conc_at(u, i, j), T);
-   
-   #endif
 }
 
 /*

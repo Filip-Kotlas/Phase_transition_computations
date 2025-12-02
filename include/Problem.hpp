@@ -18,6 +18,7 @@
 #include "Parameters.hpp"
 #include "types.hpp"
 #include "InitialCondition.hpp"
+#include "enums.hpp"
 
 class Problem
 {

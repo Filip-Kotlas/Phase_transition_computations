@@ -10,6 +10,7 @@
 #include "Parameters.hpp"
 #include "types.hpp"
 #include "InitialCondition.hpp"
+#include "enums.hpp"
 
 int main(int argc, char** argv) {
     Parameters parameters = Parameters::load("config/config.json");

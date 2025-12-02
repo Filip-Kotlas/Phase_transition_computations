@@ -29,9 +29,9 @@ Parameters Parameters::load(const std::filesystem::path& filename) {
 
     // domain
     auto domain = solver.at("domain");
-    p.domain.x_left  = domain.value("x_left", -1.0);
+    p.domain.x_left  = domain.value("x_left", 0.0);
     p.domain.x_right = domain.value("x_right", 1.0);
-    p.domain.y_left  = domain.value("y_left", -1.0);
+    p.domain.y_left  = domain.value("y_left", 0.0);
     p.domain.y_right = domain.value("y_right", 1.0);
    
     // integration time step
@@ -67,19 +67,19 @@ Parameters Parameters::load(const std::filesystem::path& filename) {
     p.init_cond_radius = smaller_side * initial_condition.value("radius_proportion", 0.5);
 
     // boundary conditions
-    auto boundary_conditions = config.at("boun_cond");
-    p.bc_phase_x = boundary_conditions.value("x_phase", "neumann");
-    p.bc_phase_y = boundary_conditions.value("y_phase", "neumann");
-    p.bc_conc_x  = boundary_conditions.value("x_conc", "neumann");
-    p.bc_conc_y  = boundary_conditions.value("y_conc", "neumann");
-    if ( (p.bc_phase_x != "neumann") && (p.bc_phase_x != "dirichlet") )
-        throw std::runtime_error("Unknown boundary condition for phase field in x direction: " + p.bc_phase_x);
-    if ( (p.bc_phase_y != "neumann") && (p.bc_phase_y != "dirichlet") )
-        throw std::runtime_error("Unknown boundary condition for phase field in y direction: " + p.bc_phase_y);
-    if ( (p.bc_conc_x != "neumann") && (p.bc_conc_x != "dirichlet") )
-        throw std::runtime_error("Unknown boundary condition for concentration in x direction: " + p.bc_conc_x);
-    if ( (p.bc_conc_y != "neumann") && (p.bc_conc_y != "dirichlet") )
-        throw std::runtime_error("Unknown boundary condition for concentration in y direction: " + p.bc_conc_y);
+    auto boundary_conditions = config.at("bound_cond");
+    p.bc_phase_x = string_to_BCType(boundary_conditions.value("x_phase", "neumann"));
+    p.bc_phase_y = string_to_BCType(boundary_conditions.value("y_phase", "neumann"));
+    p.bc_conc_x  = string_to_BCType(boundary_conditions.value("x_conc", "neumann"));
+    p.bc_conc_y  = string_to_BCType(boundary_conditions.value("y_conc", "neumann"));
+    if ( (p.bc_phase_x != BCType::Neumann) && (p.bc_phase_x != BCType::Dirichlet) )
+        throw std::runtime_error("Unknown boundary condition for phase field in x direction: " + BCType_to_string(p.bc_phase_x));
+    if ( (p.bc_phase_y != BCType::Neumann) && (p.bc_phase_y != BCType::Dirichlet) )
+        throw std::runtime_error("Unknown boundary condition for phase field in y direction: " + BCType_to_string(p.bc_phase_y));
+    if ( (p.bc_conc_x != BCType::Neumann) && (p.bc_conc_x != BCType::Dirichlet) )
+        throw std::runtime_error("Unknown boundary condition for concentration in x direction: " + BCType_to_string(p.bc_conc_x));
+    if ( (p.bc_conc_y != BCType::Neumann) && (p.bc_conc_y != BCType::Dirichlet) )
+        throw std::runtime_error("Unknown boundary condition for concentration in y direction: " + BCType_to_string(p.bc_conc_y));
 
     // problem parameters
     auto problem = config.at("problem");
@@ -90,6 +90,14 @@ Parameters Parameters::load(const std::filesystem::path& filename) {
     p.par_d = problem.value("d", 5e15);
     p.T = problem.value("T", 1200);
     p.ksi   = problem.value("ksi", 0.01);
+
+    // force term parameters
+    auto force_term = config.at("force_term");
+    p.force_term_type = string_to_FTType(force_term.value("type", "zirconium"));
+    p.force_term_size = force_term.value("size", 0.0);
+    if (p.force_term_type != FTType::Zirconium && p.force_term_type != FTType::Constant && p.force_term_type != FTType::Radial) {
+        throw std::runtime_error("Unknown force term type in config: " + FTType_to_string(p.force_term_type));
+    }
 
     // anisotropy parameters
     auto anisotropy = config.at("anisotropy");
@@ -122,7 +130,18 @@ void Parameters::save_human_readable(const std::filesystem::path& filename) cons
     file << std::left << std::setw(24) << "SizeY:"  << std::right << std::setw(28) << sizeY << std::endl;
     file << std::left << std::setw(24) << "Time step:" << std::right << std::setw(28) << timeStep << std::endl;
     file << std::left << std::setw(24) << "Integration time step:" << std::right << std::setw(28) << integrationTimeStep << std::endl;
+    file << std::endl;
     file << std::left << std::setw(24) << "Initial condition radius:"   << std::right << std::setw(28) << init_cond_radius << std::endl;
+    file << std::endl;
+    file << std::left << std::setw(24) << "Boundary condition phase x:"   << std::right << std::setw(28) << BCType_to_string(bc_phase_x) << std::endl;
+    file << std::left << std::setw(24) << "Boundary condition phase y:"   << std::right << std::setw(28) << BCType_to_string(bc_phase_y) << std::endl;
+    file << std::left << std::setw(24) << "Boundary condition conc x:"    << std::right << std::setw(28) << BCType_to_string(bc_conc_x) << std::endl;
+    file << std::left << std::setw(24) << "Boundary condition conc y:"    << std::right << std::setw(28) << BCType_to_string(bc_conc_y) << std::endl;
+    file << std::endl;
+    file << std::left << std::setw(24) << "Force term type:"   << std::right << std::setw(28) << FTType_to_string(force_term_type) << std::endl;
+    if (force_term_type == FTType::Constant || force_term_type == FTType::Radial)
+        file << std::left << std::setw(24) << "Force term size:"   << std::right << std::setw(28) << force_term_size << std::endl;
+    file << std::endl;
     file << std::left << std::setw(24) << "Alpha:" << std::right << std::setw(28) << alpha << std::endl;
     file << std::left << std::setw(24) << "Beta:"  << std::right << std::setw(28) << beta << std::endl;
     file << std::left << std::setw(24) << "a:" << std::right << std::setw(28) << par_a << std::endl;
@@ -155,6 +174,24 @@ void Parameters::save_for_latex(const std::filesystem::path& filename) const {
     file << "\\(t_{0}\\) & " << initial_time << " \\\\" << std::endl;
     file << "\\(t_{max}\\) & " << final_time << " \\\\" << std::endl;
     file << "\\(\\tau\\) & " << integrationTimeStep << " \\\\" << std::endl;
+    file << "\\end{tabular}" << std::endl << std::endl;
+
+    file << "\\textbf{Okrajové podmínky:}" << std::endl << std::endl;
+    file << "\\begin{tabular}{ll}" << std::endl;
+    if (bc_phase_x == BCType::Dirichlet && bc_phase_y == BCType::Dirichlet &&
+        bc_conc_x == BCType::Dirichlet && bc_conc_y == BCType::Dirichlet) {
+        file << "všude & Dirichlet \\\\" << std::endl << std::endl;
+    }
+    else if (bc_phase_x == BCType::Neumann && bc_phase_y == BCType::Neumann &&
+             bc_conc_x == BCType::Neumann && bc_conc_y == BCType::Neumann) {
+        file << "všude & Neumann \\\\" << std::endl << std::endl;
+    }
+    else {            
+        file << "fázové pole v \\(x\\)-ovém směru & " << BCType_to_string(bc_phase_x) << " \\\\" << std::endl;
+        file << "fázové pole v \\(y\\)-ovém směru & " << BCType_to_string(bc_phase_y) << " \\\\" << std::endl;
+        file << "koncentrace v \\(x\\)-ovém směru & " << BCType_to_string(bc_conc_x) << " \\\\" << std::endl;
+        file << "koncentrace v \\(y\\)-ovém směru & " << BCType_to_string(bc_conc_y) << " \\\\" << std::endl;
+    }
     file << "\\end{tabular}" << std::endl << std::endl;
 
     file << "\\textbf{Parametry modelu:}" << std::endl << std::endl;
