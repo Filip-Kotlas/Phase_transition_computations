@@ -9,12 +9,12 @@ public:
     InitialCondition() = default;
 
     InitialCondition(Parameters param)
-    : type(param.init_condition), domain(param.domain), sizeX(param.sizeX), sizeY(param.sizeY), ksi(param.ksi), param(param) {
-        r = param.r*(domain.x_right - domain.x_left);
-        r1 = r - 0.5*ksi;
-        r2 = r1 + ksi;
-        hx = (domain.x_right - domain.x_left) / (sizeX - 1);
-        hy = (domain.y_right - domain.y_left) / (sizeY - 1);
+    : param(param) {
+        init_cond_radius = param.init_cond_radius;
+        r1 = init_cond_radius - 0.5*param.ksi;
+        r2 = r1 + param.ksi;
+        hx = (param.domain.x_right - param.domain.x_left) / (param.sizeX - 1);
+        hy = (param.domain.y_right - param.domain.y_left) / (param.sizeY - 1);
     }
 
     __cuda_callable__
@@ -38,15 +38,10 @@ public:
 
 
 private:
-    ICType type;
-    Domain domain;
-    Index sizeX;
-    Index sizeY;
-    Real ksi;
     Parameters param;
     
 
-    Real r;
+    Real init_cond_radius;
     Real r1;
     Real r2;
     Real hx;

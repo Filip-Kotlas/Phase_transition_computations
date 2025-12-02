@@ -59,7 +59,6 @@ class Problem
     * Initial conditions
     */
     void set_init_cond_manually( Vector &u, InitialCondition& init_cond);
-    void set_phase_initial_condition( Vector &u, InitialCondition& init_cond);
     bool set_init_cond_from_file(Vector& u, const std::filesystem::path& filename);
 
     /*
@@ -155,16 +154,5 @@ class Problem
     Real hx;
     Real hy;
 
-    //phase field parameters
-    const Real alpha;
-    const Real par_a;
-    const Real par_b;
-    const Real par_d;
-    const Real ksi;
-    const Real T;
-
-    //anisotropy parameters
-    const Real A;
-    const Real m;
-    const Real theta_0;
+    Parameters param;
 };

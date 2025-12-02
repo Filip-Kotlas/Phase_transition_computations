@@ -14,12 +14,12 @@ Parameters Parameters::load(const std::filesystem::path& filename) {
         throw std::runtime_error("Unable to open the file " + filename.string());
     }
 
-    json j;
-    file >> j;
-
+    json config;
+    file >> config;
     Parameters p;
 
-    auto solver = j.at("solver");
+    // solver parameters
+    auto solver = config.at("solver");
     p.initial_time  = solver.value("initial_time", 0.0);
     p.final_time    = solver.value("final_time", 0.3);
     p.sizeX         = solver.value("sizeX", 200);
@@ -27,35 +27,28 @@ Parameters Parameters::load(const std::filesystem::path& filename) {
     p.frame_num     = solver.value("frame_num", 100);
     p.timeStep      = (p.final_time - p.initial_time) / p.frame_num;
 
+    // domain
     auto domain = solver.at("domain");
     p.domain.x_left  = domain.value("x_left", -1.0);
     p.domain.x_right = domain.value("x_right", 1.0);
     p.domain.y_left  = domain.value("y_left", -1.0);
     p.domain.y_right = domain.value("y_right", 1.0);
-
-    /*
-    int model_value = solver.value("model", 1);
-    if (!(model_value >= 1 && model_value <= 4)) {
-        throw std::runtime_error("Neplatná hodnota 'model' v JSON.");
-    }
-    p.model = static_cast<MODEL>(model_value);
-    */
    
+    // integration time step
     double computed_integration_step = pow(std::min((p.domain.x_right - p.domain.x_left) / (p.sizeX - 1),
                                                     (p.domain.y_right - p.domain.y_left) / (p.sizeY - 1)),
                                            2) / 5.0;
-
     if (solver.value("custom_integration_time_step", false)) {
         p.integrationTimeStep = solver.value("integration_time_step", computed_integration_step);
     } else {
         p.integrationTimeStep = computed_integration_step;
     }
 
-    p.init_cond_from_file = solver.value("init_cond_from_file", false);
-    p.init_cond_file_path = solver.value("init_cond_file_path", "");
-
-    std::string ic_str = solver.value("initial_condition", "hyperbolic_tangent");
-    
+    // initial condition parameters
+    auto initial_condition = config.at("init_cond");
+    p.init_cond_from_file = initial_condition.value("init_cond_from_file", false);
+    p.init_cond_file_path = initial_condition.value("init_cond_file_path", "");
+    std::string ic_str = initial_condition.value("initial_condition", "hyperbolic_tangent");
     if (ic_str == "hyperbolic_tangent")         p.init_condition = ICType::HyperbolicTangent;
     else if (ic_str == "linear_by_parts")       p.init_condition = ICType::LinearByParts;
     else if (ic_str == "circle")                p.init_condition = ICType::ConstantCircle;
@@ -69,8 +62,27 @@ Parameters Parameters::load(const std::filesystem::path& filename) {
     else if (ic_str == "random_bumps")          p.init_condition = ICType::RandomBumps;
     else if (ic_str == "wulff_shape")           p.init_condition = ICType::WulffShape;
     else throw std::runtime_error("Unknown initial_condition in config: " + ic_str);
+    double smaller_side = std::min(p.domain.x_right - p.domain.x_left,
+                                   p.domain.y_right - p.domain.y_left);
+    p.init_cond_radius = smaller_side * initial_condition.value("radius_proportion", 0.5);
 
-    auto problem = j.at("problem");
+    // boundary conditions
+    auto boundary_conditions = config.at("boun_cond");
+    p.bc_phase_x = boundary_conditions.value("x_phase", "neumann");
+    p.bc_phase_y = boundary_conditions.value("y_phase", "neumann");
+    p.bc_conc_x  = boundary_conditions.value("x_conc", "neumann");
+    p.bc_conc_y  = boundary_conditions.value("y_conc", "neumann");
+    if ( (p.bc_phase_x != "neumann") && (p.bc_phase_x != "dirichlet") )
+        throw std::runtime_error("Unknown boundary condition for phase field in x direction: " + p.bc_phase_x);
+    if ( (p.bc_phase_y != "neumann") && (p.bc_phase_y != "dirichlet") )
+        throw std::runtime_error("Unknown boundary condition for phase field in y direction: " + p.bc_phase_y);
+    if ( (p.bc_conc_x != "neumann") && (p.bc_conc_x != "dirichlet") )
+        throw std::runtime_error("Unknown boundary condition for concentration in x direction: " + p.bc_conc_x);
+    if ( (p.bc_conc_y != "neumann") && (p.bc_conc_y != "dirichlet") )
+        throw std::runtime_error("Unknown boundary condition for concentration in y direction: " + p.bc_conc_y);
+
+    // problem parameters
+    auto problem = config.at("problem");
     p.alpha = problem.value("alpha", 1.0);
     p.beta  = problem.value("beta", 1.0);
     p.par_a = problem.value("a", 1.0);
@@ -79,11 +91,11 @@ Parameters Parameters::load(const std::filesystem::path& filename) {
     p.T = problem.value("T", 1200);
     p.ksi   = problem.value("ksi", 0.01);
 
-    p.A = problem.value("A", 0.3);
-    p.m = problem.value("m", 2);
-    p.theta_0 = problem.value("theta_0", 0.0);
-    p.r = problem.value("r", 0.5);
-
+    // anisotropy parameters
+    auto anisotropy = config.at("anisotropy");
+    p.A = anisotropy.value("A", 0.3);
+    p.m = anisotropy.value("m", 2);
+    p.theta_0 = anisotropy.value("theta_0", 0.0);
     if (p.m <= 1)
         throw std::runtime_error("The number m is lower than 2.");
     if (p.A > 1.0/(p.m*p.m - 1))
@@ -106,11 +118,11 @@ void Parameters::save_human_readable(const std::filesystem::path& filename) cons
         << domain.x_left << ", " << domain.x_right << ")"
         << "(" << domain.y_left << ", " << domain.y_right << ")]";
     file << std::left << std::setw(24) << "Domain:" << std::right << std::setw(28) << oss.str() << std::endl;
-
     file << std::left << std::setw(24) << "SizeX:"  << std::right << std::setw(28) << sizeX << std::endl;
     file << std::left << std::setw(24) << "SizeY:"  << std::right << std::setw(28) << sizeY << std::endl;
     file << std::left << std::setw(24) << "Time step:" << std::right << std::setw(28) << timeStep << std::endl;
     file << std::left << std::setw(24) << "Integration time step:" << std::right << std::setw(28) << integrationTimeStep << std::endl;
+    file << std::left << std::setw(24) << "Initial condition radius:"   << std::right << std::setw(28) << init_cond_radius << std::endl;
     file << std::left << std::setw(24) << "Alpha:" << std::right << std::setw(28) << alpha << std::endl;
     file << std::left << std::setw(24) << "Beta:"  << std::right << std::setw(28) << beta << std::endl;
     file << std::left << std::setw(24) << "a:" << std::right << std::setw(28) << par_a << std::endl;
@@ -121,9 +133,6 @@ void Parameters::save_human_readable(const std::filesystem::path& filename) cons
     file << std::left << std::setw(24) << "A:"   << std::right << std::setw(28) << A << std::endl;
     file << std::left << std::setw(24) << "m:"   << std::right << std::setw(28) << m << std::endl;
     file << std::left << std::setw(24) << "theta_0:"   << std::right << std::setw(28) << theta_0 << std::endl;
-    file << std::left << std::setw(24) << "r:"   << std::right << std::setw(28) << r << std::endl;
-
-    //file << std::left << std::setw(24) << "Model:" << std::right << std::setw(28) << static_cast<int>(model) << std::endl;
 }
 
 void Parameters::save_for_latex(const std::filesystem::path& filename) const {
@@ -157,8 +166,7 @@ void Parameters::save_for_latex(const std::filesystem::path& filename) const {
     file << "\\(d\\) & " << par_d << " \\\\" << std::endl;
     file << "\\(T\\) & " << T << " \\\\" << std::endl;
     file << "\\(\\xi\\) & " << ksi << " \\\\" << std::endl;
-    //file << "Model & " << static_cast<int>(  model) << " \\\\" << std::endl;
-    file << "\\(r\\) & " << r << " \\\\" << std::endl;
+    file << "poloměr počáteční podmínky: & " << init_cond_radius << " \\\\" << std::endl;
     file << "\\end{tabular}" << std::endl << std::endl;
 
     file << "\\textbf{Parametry anizotropie:}" << std::endl << std::endl;

@@ -2,23 +2,33 @@
     "solver":
     {
         "initial_time": 0.0,
-        "final_time": 0.1,
+        "final_time": 0.0001,
         "domain": {
             "x_left": 0,
             "x_right": 1,
             "y_left": 0,
             "y_right": 1
         },
-        "init_cond_from_file": false,
-        "init_cond_file_path": "init.txt",
-        "initial_condition": "wulff_shape",
         "custom_integration_time_step": false,
         "integration_time_step": 5.0e-6,
         "sizeX": 201,
         "sizeY": 201,
-        "frame_num": 100
+        "frame_num": 1
     },
-
+    "init_cond":
+    {
+        "init_cond_from_file": false,
+        "init_cond_file_path": "init.txt",
+        "initial_condition": "wulff_shape",
+        "radius_proportion": 0.4
+    },
+    "bound_cond":
+    {
+        "x_phase": "neumann",
+        "y_phase": "neumann",
+        "x_conc": "neumann",
+        "y_conc": "neumann"
+    },
     "problem":
     {
         "alpha": 1,
@@ -26,10 +36,12 @@
         "b": 3.53553391,
         "d": 1.6e15,
         "T": 1000,
-        "ksi": 0.05,
-        "A": 0.066,
-        "m": 4,
-        "theta_0": 0.0,
-        "r": 0.4
+        "ksi": 0.01
+    },
+    "anisotropy":
+    {
+        "A": 0.028,
+        "m": 6,
+        "theta_0": 0.0
     }
 }

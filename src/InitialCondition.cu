@@ -3,14 +3,15 @@
 __cuda_callable__
 Real InitialCondition::get_phase(Index ind) const
 {
-    Index i = ind % sizeX;
-    Index j = ind / sizeX;
-    Real radius = sqrt(pow(i*hx - (domain.x_right - domain.x_left)/2, 2) + pow(j*hy - (domain.y_right-domain.y_left)/2, 2));
+    Index i = ind % param.sizeX;
+    Index j = ind / param.sizeX;
+    Real radius = sqrt(pow(i*hx - (param.domain.x_right - param.domain.x_left)/2, 2)
+                       + pow(j*hy - (param.domain.y_right - param.domain.y_left)/2, 2));
 
-    switch (type)
+    switch (param.init_condition)
     {
     case ICType::HyperbolicTangent:
-        return 1.0/2 * tanh(-3/ksi*(radius - r1)) + 1.0/2; //needs to be changed according to the correct phases
+        return 1.0/2 * tanh(-3/param.ksi*(radius - r1)) + 1.0/2; //needs to be changed according to the correct phases
         break;
 
     case ICType::LinearByParts:
@@ -40,7 +41,7 @@ Real InitialCondition::get_phase(Index ind) const
         break;
 
     case ICType::ConstantHalves:
-        if( i < sizeX/2 )
+        if( i < param.sizeX/2 )
         {
             return static_cast<Real>(constants::Phase::alpha);
         }
@@ -76,10 +77,10 @@ Real InitialCondition::get_phase(Index ind) const
     }
 
     case ICType::Star: {
-        Real phi = atan( (j*hy - (domain.y_right-domain.y_left)/2) / (i*hx - (domain.x_right - domain.x_left)/2));
-        if ((i*hx - (domain.x_right - domain.x_left)/2) < 0 )
+        Real phi = atan( (j*hy - (param.domain.y_right-param.domain.y_left)/2) / (i*hx - (param.domain.x_right - param.domain.x_left)/2));
+        if ((i*hx - (param.domain.x_right - param.domain.x_left)/2) < 0 )
             phi = phi + M_PI;
-        else if ( (i*hx - (domain.x_right - domain.x_left)/2) > 0 && (j*hy - (domain.y_right-domain.y_left)/2) < 0)
+        else if ( (i*hx - (param.domain.x_right - param.domain.x_left)/2) > 0 && (j*hy - (param.domain.y_right-param.domain.y_left)/2) < 0)
             phi = phi + 2 * M_PI;
         
         if ( radius < 0.15 + 0.1 * sin(6 * phi) )
@@ -110,7 +111,7 @@ Real InitialCondition::get_phase(Index ind) const
     }
 
     case ICType::PerpendicularStripes: {
-        if( (i*hx < domain.x_left + 0.1) || (j*hy > domain.y_right - 0.1) )
+        if( (i*hx < param.domain.x_left + 0.1) || (j*hy > param.domain.y_right - 0.1) )
         {
             return static_cast<Real>(constants::Phase::alpha);
         }
@@ -122,8 +123,8 @@ Real InitialCondition::get_phase(Index ind) const
     }
 
     case ICType::Box:
-        if( (i*hx < domain.x_left + 0.1 || i*hx > domain.x_right - 0.1) ||
-            (j*hy < domain.y_left + 0.1 || j*hy > domain.y_right - 0.1) )
+        if( (i*hx < param.domain.x_left + 0.1 || i*hx > param.domain.x_right - 0.1) ||
+            (j*hy < param.domain.y_left + 0.1 || j*hy > param.domain.y_right - 0.1) )
         {
             return static_cast<Real>(constants::Phase::alpha);
         }
@@ -144,8 +145,8 @@ Real InitialCondition::get_phase(Index ind) const
         const Real cx = static_cast<Real>(0.1);
 
         // y-interval pro rozmístění (stejný rozsah jako původně: 0.1 .. 0.9)
-        const Real y_min = static_cast<Real>(domain.y_left + 0.03);
-        const Real y_max = static_cast<Real>(domain.y_right - 0.03);
+        const Real y_min = static_cast<Real>(param.domain.y_left + 0.03);
+        const Real y_max = static_cast<Real>(param.domain.y_right - 0.03);
         const Real y_range = y_max - y_min;
 
 
@@ -154,7 +155,7 @@ Real InitialCondition::get_phase(Index ind) const
 
         bool inside_circle = false;
 
-        Index number_of_circles = (domain.y_right - domain.y_left) * 10;
+        Index number_of_circles = (param.domain.y_right - param.domain.y_left) * 10;
 
         // 20 kruhů, stratifikované vzorkování: rozsekáme y-interval na 20 binů a v každém náhodně posuneme střed
         for (Index n = 0; n < number_of_circles; ++n) {
@@ -180,15 +181,15 @@ Real InitialCondition::get_phase(Index ind) const
     }
 
     case ICType::WulffShape: {
-        Real x = i*hx - (domain.x_right - domain.x_left)/2;
-        Real y = j*hy - (domain.y_right - domain.y_left)/2;
+        Real x = i*hx - (param.domain.x_right - param.domain.x_left)/2;
+        Real y = j*hy - (param.domain.y_right - param.domain.y_left)/2;
         Real theta_origin = atan2(y, x);
         Real x_wulff = 0;
         Real y_wulff = 0;
 
         auto f = [&](Real wulff_theta) mutable {
-            x_wulff = r*(psi(wulff_theta)*cos(wulff_theta) - der_psi(wulff_theta)*sin(wulff_theta));
-            y_wulff = r*(psi(wulff_theta)*sin(wulff_theta) + der_psi(wulff_theta)*cos(wulff_theta));
+            x_wulff = init_cond_radius*(psi(wulff_theta)*cos(wulff_theta) - der_psi(wulff_theta)*sin(wulff_theta));
+            y_wulff = init_cond_radius*(psi(wulff_theta)*sin(wulff_theta) + der_psi(wulff_theta)*cos(wulff_theta));
             Real theta_computed = atan2(y_wulff, x_wulff);
             if (wulff_theta > M_PI/2 && theta_computed < 0)
                 theta_computed += 2*M_PI;
@@ -213,7 +214,6 @@ Real InitialCondition::get_phase(Index ind) const
             }
 
             int iter_num = 0;
-            //printf("Theta origin: %f\n", theta_origin);
 
             // check if theta_origin is outside the range of function values at the boundaries and adjust accordingly
             if (f_left*f_right > 0) {
@@ -221,7 +221,6 @@ Real InitialCondition::get_phase(Index ind) const
             }
             f_left = f(wulff_left);
             f_right = f(wulff_right);
-            //printf("f_left: %f, f_right: %f i: %d j: %d\n", f_left, f_right, i, j);
 
             while(abs(f(wulff_mid)) > 1e-5) {
                 iter_num++;
@@ -282,11 +281,11 @@ Real InitialCondition::rnd01(uint32_t idx, uint32_t seed) {
 __cuda_callable__
 Real InitialCondition::psi(const Real theta) const
 {
-    return 1 + param.A*sin(param.m*(theta - param.theta_0));
+    return 1 + param.A*cos(param.m*(theta - param.theta_0));
 }
 
 __cuda_callable__
 Real InitialCondition::der_psi(const Real theta) const
 {
-    return param.A*param.m*cos(param.m*(theta - param.theta_0));
+    return -param.A*param.m*sin(param.m*(theta - param.theta_0));
 }

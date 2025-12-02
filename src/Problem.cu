@@ -41,7 +41,7 @@
 #define C_BOUND 2
 #endif
 
-#define FORCE 0
+#define FORCE 1
 /*
 *  0 - Force equal 0
 *  1 - Force inversely proportional to the distance from the middle
@@ -54,15 +54,7 @@ Problem::Problem(Parameters param)
    domain(param.domain),
    hx((domain.x_right - domain.x_left)/(sizeX-1)),
    hy((domain.y_right - domain.y_left)/(sizeY-1)),
-   alpha(param.alpha),
-   par_a(param.par_a),
-   par_b(param.par_b),
-   par_d(param.par_d),
-   T(param.T),
-   ksi(param.ksi),
-   A(param.A),
-   m(param.m),
-   theta_0(param.theta_0)
+   param(param)
 {}
 
 Index Problem::getDegreesOfFreedom()
@@ -196,14 +188,14 @@ void Problem::apply_phase_boundary_condition_xdir(Index ind, VectorView u, Vecto
     fu[ind] = 0;
     fu[(sizeY - 1) * sizeX + ind] = 0;
 
-    #if P_BOUND == 0  // Dirichlet
-    u[ind] = 0;
-    u[(sizeY - 1) * sizeX + ind] = 0;
-
-    #elif P_BOUND == 1  // Neumann
-    u[ind] = u[ind + sizeX];
-    u[(sizeY - 1) * sizeX + ind] = u[(sizeY - 2) * sizeX + ind];
-    #endif
+    if (param.bc_phase_x == "dirichlet") {
+        u[ind] = 0;
+        u[(sizeY - 1) * sizeX + ind] = 0;
+    }
+    else if (param.bc_phase_x == "neumann") {
+        u[ind] = u[ind + sizeX];
+        u[(sizeY - 1) * sizeX + ind] = u[(sizeY - 2) * sizeX + ind];
+    }
 }
 
 __cuda_callable__
@@ -213,14 +205,14 @@ void Problem::apply_phase_boundary_condition_ydir(Index ind, VectorView u, Vecto
     fu[ind * sizeX] = 0;
     fu[(ind + 1) * sizeX - 1] = 0;
 
-    #if P_BOUND == 0  // Dirichlet
-    u[ind * sizeX] = 0;
-    u[(ind + 1) * sizeX - 1] = 0;
-
-    #elif P_BOUND == 1  // Neumann
-    u[ind * sizeX] = u[ind * sizeX + 1];
-    u[(ind + 1) * sizeX - 1] = u[(ind + 1) * sizeX - 2];
-    #endif
+    if (param.bc_phase_y == "dirichlet") {
+        u[ind * sizeX] = 0;
+        u[(ind + 1) * sizeX - 1] = 0;
+    }
+    else if (param.bc_phase_y == "neumann") {
+        u[ind * sizeX] = u[ind * sizeX + 1];
+        u[(ind + 1) * sizeX - 1] = u[(ind + 1) * sizeX - 2];
+    }
 }
 
 __cuda_callable__
@@ -231,18 +223,14 @@ void Problem::apply_concentration_boundary_condition_xdir(Index ind, VectorView 
     fu[offset + ind] = 0;
     fu[offset + (sizeY - 1) * sizeX + ind] = 0;
 
-    #if C_BOUND == 0 || C_BOUND == 2
-    u[offset + ind] = 0;
-    u[offset + (sizeY - 1) * sizeX + ind] = 0;
-
-    #elif C_BOUND == 1 || C_BOUND == 3
-    u[offset + ind] = u[offset + ind + sizeX];
-    u[offset + (sizeY - 1) * sizeX + ind] = u[offset + (sizeY - 2) * sizeX + ind];
-
-    #elif C_BOUND == 4
-    u[offset + ind] = constants::c_init_beta;
-    u[offset + (sizeY - 1) * sizeX + ind] = constants::c_init_beta;
-    #endif
+    if (param.bc_conc_x == "dirichlet") {
+        u[offset + ind] = constants::c_init_beta;
+        u[offset + (sizeY - 1) * sizeX + ind] = constants::c_init_beta;
+    }
+    else if (param.bc_conc_x == "neumann") {
+        u[offset + ind] = u[offset + ind + sizeX];
+        u[offset + (sizeY - 1) * sizeX + ind] = u[offset + (sizeY - 2) * sizeX + ind];
+    }
 }
 
 __cuda_callable__
@@ -253,20 +241,15 @@ void Problem::apply_concentration_boundary_condition_ydir(Index ind, VectorView 
     fu[offset + ind * sizeX] = 0;
     fu[offset + (ind + 1) * sizeX - 1] = 0;
 
-    #if C_BOUND == 0 || C_BOUND == 1
-    u[offset + ind * sizeX] = 0;
-    u[offset + (ind + 1) * sizeX - 1] = 0;
-
-    #elif C_BOUND == 2 || C_BOUND == 3
-    u[offset + ind * sizeX] = u[offset + ind * sizeX + 1];
-    u[offset + (ind + 1) * sizeX - 1] = u[offset + (ind + 1) * sizeX - 2];
-
-    #elif C_BOUND == 4
-    u[offset + ind * sizeX] = constants::c_init_beta;
-    u[offset + (ind + 1) * sizeX - 1] = constants::c_init_beta;
-    #endif
+    if (param.bc_conc_y == "dirichlet") {
+        u[offset + ind * sizeX] = constants::c_init_beta;
+        u[offset + (ind + 1) * sizeX - 1] = constants::c_init_beta;
+    }
+    else if (param.bc_conc_y == "neumann") {
+        u[offset + ind * sizeX] = u[offset + ind * sizeX + 1];
+        u[offset + (ind + 1) * sizeX - 1] = u[offset + (ind + 1) * sizeX - 2];
+    }
 }
-
 
 /*
 void Problem::apply_boundary_condition(double *u, double *fu)
@@ -391,7 +374,7 @@ __cuda_callable__
 Real Problem::get_rhs_phase_at(const VectorView& u, Index i, Index j)
 {
     #ifdef COMPUTE_PHASE
-    return 1.0/alpha * (div_T0(u, i, j) + f_0(u, i , j) / ksi / ksi - par_b/ksi*grade_4_polynom(u, i, j)*F(u, i, j));
+    return 1.0/param.alpha * (div_T0(u, i, j) + f_0(u, i , j) / param.ksi / param.ksi - param.par_b/param.ksi*grade_4_polynom(u, i, j)*F(u, i, j));
     #endif
 }
 
@@ -413,17 +396,12 @@ Real Problem::laplace(const VectorView& u, Index i, Index j)
 __cuda_callable__
 Real Problem::grad_p_1_central(const VectorView& u, Index i, Index j)
 {
-    //if (i+1 >= sizeX || i-1 < 0)
-    //    printf("%d, %d \n", i-1, i+1);
     return (phase_at(u, i+1, j) - phase_at(u, i-1, j))/(2*hx);
 }
 
 __cuda_callable__
 Real Problem::grad_p_2_central(const VectorView& u, Index i, Index j)
 {
-    //if (j+1 >= sizeY || j-1 < 0)
-    //    printf("%d, %d \n", j-1, j+1);
-
     return (phase_at(u, i, j+1) - phase_at(u, i, j-1))/(2*hy);
 }
 
@@ -474,27 +452,27 @@ Real Problem::div_T0(const VectorView& u, Index i, Index j)
 __cuda_callable__
 Real Problem::T0_1(const Real grad_p_1, const Real grad_p_2)
 {
-    Real theta = atan2(grad_p_2, grad_p_1);
-    return psi(theta) * psi(theta) * grad_p_1  - psi(theta) * der_psi(theta) * grad_p_2;
+    Real theta = atan2(-grad_p_2, -grad_p_1);
+    return psi(theta) * psi(theta) * grad_p_1 - psi(theta) * der_psi(theta) * grad_p_2;
 }
 
 __cuda_callable__
 Real Problem::T0_2(const Real grad_p_1, const Real grad_p_2)
 {
-    Real theta = atan2(grad_p_2, grad_p_1);
-    return psi(theta) * psi(theta) * grad_p_2  + psi(theta) * der_psi(theta) * grad_p_1;
+    Real theta = atan2(-grad_p_2, -grad_p_1);
+    return psi(theta) * psi(theta) * grad_p_2 + psi(theta) * der_psi(theta) * grad_p_1;
 }
 
 __cuda_callable__
 Real Problem::psi(const Real theta)
 {
-    return 1 + A*sin(m*(theta - theta_0));
+    return 1 + param.A*cos(param.m*(theta - param.theta_0));
 }
 
 __cuda_callable__
 Real Problem::der_psi(const Real theta)
 {
-    return A*m*cos(m*(theta - theta_0));
+    return -param.A*param.m*sin(param.m*(theta - param.theta_0));
 }
 
 __cuda_callable__
@@ -532,29 +510,29 @@ Real Problem::div_D_grad_phase(const VectorView& u, Index i, Index j)
 __cuda_callable__
 Real Problem::get_conc_diff_coef(const VectorView& u, Index i, Index j)
 {
-    return par_b*par_d/30.0
+    return param.par_b*param.par_d/30.0
             * conc_at(u, i, j)
             * (1 - conc_at(u, i, j))
-            * constants::M_Nb_beta(T)
-		    * pow(constants::M_Nb_alpha(T)/constants::M_Nb_beta(T), polynom_p(u, i, j))
+            * constants::M_Nb_beta(param.T)
+		    * pow(constants::M_Nb_alpha(param.T)/constants::M_Nb_beta(param.T), polynom_p(u, i, j))
 		    * sec_deriv_of_g_w_resp_to_c(u, i, j);
 }
 
 __cuda_callable__
 Real Problem::get_phas_diff_coef(const VectorView& u, Index i, Index j)
 {
-   return par_b*par_d/30.0
+   return param.par_b*param.par_d/30.0
           * conc_at(u, i, j)
-		    * (1 - conc_at(u, i, j))
-          * constants::M_Nb_beta(T)
-		    * pow(constants::M_Nb_alpha(T)/constants::M_Nb_beta(T), polynom_p(u, i, j))
-		    * deriv_of_g_w_resp_to_c_and_p(u, i, j);
+		  * (1 - conc_at(u, i, j))
+          * constants::M_Nb_beta(param.T)
+		  * pow(constants::M_Nb_alpha(param.T)/constants::M_Nb_beta(param.T), polynom_p(u, i, j))
+		  * deriv_of_g_w_resp_to_c_and_p(u, i, j);
 }
 
 __cuda_callable__
 Real Problem::f_0(const VectorView& u, Index i, Index j)
 {
-   return par_a*phase_at(u, i, j)*(1 - phase_at(u, i, j))*(phase_at(u, i, j) - 1.0/2.0);
+   return param.par_a*phase_at(u, i, j)*(1 - phase_at(u, i, j))*(phase_at(u, i, j) - 1.0/2.0);
 }
 
 __cuda_callable__
@@ -620,11 +598,11 @@ __cuda_callable__
 Real Problem::sec_deriv_of_g_w_resp_to_c(const VectorView& u, Index i, Index j)
 {
    Real c = conc_at(u, i, j);
-   Real d2_G_alpha_wrt_c = constants::R * T / (c*(1-c))
+   Real d2_G_alpha_wrt_c = constants::R * param.T / (c*(1-c))
    							 - 2 * constants::L_0_alpha;
-   Real d2_G_beta_wrt_c = constants::R * T / (c*(1-c))
-   							 - 2 * constants::L_0_beta(T)
-							 + (6 - 12*c) * constants::L_0_i_beta(T);
+   Real d2_G_beta_wrt_c = constants::R * param.T / (c*(1-c))
+   							 - 2 * constants::L_0_beta(param.T)
+							 + (6 - 12*c) * constants::L_0_i_beta(param.T);
    return polynom_p(u, i, j)*d2_G_alpha_wrt_c + (1 - polynom_p(u, i, j))*d2_G_beta_wrt_c;
 }
 
@@ -632,15 +610,15 @@ __cuda_callable__
 Real Problem::deriv_of_g_w_resp_to_c_and_p(const VectorView& u, Index i, Index j)
 {
    Real c = conc_at(u, i, j);
-   Real d_G_alpha_wrt_c = constants::G_Nb_alpha_0(T)
-                            - constants::G_Zr_alpha_0(T)
-                            + constants::R * T * (log(c) - log(1-c))
+   Real d_G_alpha_wrt_c = constants::G_Nb_alpha_0(param.T)
+                            - constants::G_Zr_alpha_0(param.T)
+                            + constants::R * param.T * (log(c) - log(1-c))
                             + (1 - 2*c) * constants::L_0_alpha;
-   Real d_G_beta_wrt_c = constants::G_Nb_beta_0(T)
-						   - constants::G_Zr_beta_0(T)
-						   + constants::R * T * (log(c) - log(1-c))
-						   + (1 - 2 * c) * constants::L_0_beta(T)
-						   + (6*c - 6*pow(c, 2) - 1) * constants::L_0_i_beta(T);
+   Real d_G_beta_wrt_c = constants::G_Nb_beta_0(param.T)
+						   - constants::G_Zr_beta_0(param.T)
+						   + constants::R * param.T * (log(c) - log(1-c))
+						   + (1 - 2 * c) * constants::L_0_beta(param.T)
+						   + (6*c - 6*pow(c, 2) - 1) * constants::L_0_i_beta(param.T);
 
    return der_polynom_p(u, i, j)*(d_G_alpha_wrt_c - d_G_beta_wrt_c);
 }

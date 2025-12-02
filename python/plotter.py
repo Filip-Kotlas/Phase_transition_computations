@@ -331,11 +331,11 @@ class BoundaryPlotter2D(Plotter):
             self.output_name_tag = self.output_name_tag + "a"
 
     def get_analytic_solution(self, t) -> Tuple[np.array, np.array]:
-        r0 = (self.configuration["problem"]["r"] 
+        r0 = (self.configuration["init_cond"]["radius_proportion"] 
              * (self.configuration["solver"]["domain"]["x_right"] - self.configuration["solver"]["domain"]["x_left"]))
-        if self.configuration["solver"]["initial_condition"] == "circle":
+        if self.configuration["init_cond"]["initial_condition"] == "circle":
             return self.get_analytic_solution_circle(t, r0)
-        elif self.configuration["solver"]["initial_condition"] == "wulff_shape":
+        elif self.configuration["init_cond"]["initial_condition"] == "wulff_shape":
             return self.get_analytic_solution_wulff_shape(t, r0)
         else:
             raise ValueError("Wrong initial condition for analytic solution.")
@@ -360,24 +360,24 @@ class BoundaryPlotter2D(Plotter):
 
     def get_analytic_solution_wulff_shape(self, t, r0) -> Tuple[np.array, np.array]:
         def psi(theta) -> float:
-            theta_0 = self.configuration["problem"]["theta_0"]
-            m = self.configuration["problem"]["m"]
-            A = self.configuration["problem"]["A"]
-            return 1 + A * math.sin(4 * (theta - theta_0))
+            theta_0 = self.configuration["anisotropy"]["theta_0"]
+            m = self.configuration["anisotropy"]["m"]
+            A = self.configuration["anisotropy"]["A"]
+            return 1 + A*math.cos(m*(theta - theta_0))
         
         def der_psi(theta) -> float:
-            theta_0 = self.configuration["problem"]["theta_0"]
-            m = self.configuration["problem"]["m"]
-            A = self.configuration["problem"]["A"]
-            return m * A * math.cos(m * (theta - theta_0))
+            theta_0 = self.configuration["anisotropy"]["theta_0"]
+            m = self.configuration["anisotropy"]["m"]
+            A = self.configuration["anisotropy"]["A"]
+            return -m*A*math.sin(m*(theta - theta_0))
         
         coef = 1
         # There is no shape.
-        if r0**2 - 2*t < 0:
+        if r0**2 + 2*t < 0:
             return np.array([]), np.array([])
-        r = math.sqrt(r0**2 - coef*2*t)
+        r = math.sqrt(r0**2 + coef*2*t)
 
-        theta_0 = self.configuration["problem"]["theta_0"]
+        theta_0 = self.configuration["anisotropy"]["theta_0"]
         # Locating boundary points
         analytic_boundary_x, analytic_boundary_y = [], []
 

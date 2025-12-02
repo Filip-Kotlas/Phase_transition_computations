@@ -7,29 +7,38 @@
 
 class Parameters {
 public:
-    // data
-    double initial_time{};
-    double final_time{};
+    // solver parameters
+    double initial_time;
+    double final_time;
     Domain domain;
-    int sizeX{};
-    int sizeY{};
-    int frame_num{};
-    ICType init_condition{};
-    bool init_cond_from_file{};
+    int sizeX;
+    int sizeY;
+    int frame_num;
+    double timeStep;
+    double integrationTimeStep;
+    // initial condition parameters
+    ICType init_condition;
+    bool init_cond_from_file;
     std::string init_cond_file_path;
-    double timeStep{};
-    double integrationTimeStep{};
-    double alpha{};
-    double beta{};
-    double par_a{};
-    double par_b{};
-    double par_d{};
-    double T{};
-    double ksi{};
-    double A{};
-    double m{};
-    double theta_0{};
-    double r{};
+    double init_cond_radius;
+    // boundary conditions
+    std::string bc_phase_x;
+    std::string bc_phase_y;
+    std::string bc_conc_x;
+    std::string bc_conc_y;
+    // model parameters
+    double alpha;
+    double beta;
+    double par_a;
+    double par_b;
+    double par_d;
+    double T;
+    double ksi;
+    // anisotropy parameters
+    double A;
+    double m;
+    double theta_0;
+
     // --- metody ---
     Parameters() = default;
 
