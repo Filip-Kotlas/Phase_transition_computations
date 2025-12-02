@@ -244,7 +244,7 @@ Real Problem::get_rhs_phase_at(const VectorView& u, Index i, Index j)
 __cuda_callable__
 Real Problem::get_rhs_concentration_at(const VectorView& u, Index i, Index j)
 {
-    if (param.force_term_type != FTType::Zirconium)
+    if (param.force_term_type == FTType::Zirconium)
         return div_D_grad_concentration(u, i, j) + div_D_grad_phase(u, i, j);
     else
         return 0;
