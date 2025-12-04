@@ -1,0 +1,47 @@
+nohup: ignoring input
+nvcc -std=c++17 -I./include -I~/.local/include -O3 --expt-relaxed-constexpr --extended-lambda -rdc=true  -Xcudafe --diag_suppress=20012 -Xcudafe --diag_suppress=177 -Xcudafe --diag_suppress=186 -Xcudafe --diag_suppress=297 -Xcompiler -w -c src/main.cu -o build/main.o
+nvcc -std=c++17 -I./include -I~/.local/include -O3 --expt-relaxed-constexpr --extended-lambda -rdc=true  -Xcudafe --diag_suppress=20012 -Xcudafe --diag_suppress=177 -Xcudafe --diag_suppress=186 -Xcudafe --diag_suppress=297 -Xcompiler -w -c src/Parameters.cu -o build/Parameters.o
+nvcc -std=c++17 -I./include -I~/.local/include -O3 --expt-relaxed-constexpr --extended-lambda -rdc=true  -Xcudafe --diag_suppress=20012 -Xcudafe --diag_suppress=177 -Xcudafe --diag_suppress=186 -Xcudafe --diag_suppress=297 -Xcompiler -w -c src/Problem.cu -o build/Problem.o
+nvcc -std=c++17 -I./include -I~/.local/include -O3 --expt-relaxed-constexpr --extended-lambda -rdc=true  -Xcudafe --diag_suppress=20012 -Xcudafe --diag_suppress=177 -Xcudafe --diag_suppress=186 -Xcudafe --diag_suppress=297 -Xcompiler -w ./build/enums.o ./build/InitialCondition.o ./build/main.o ./build/Parameters.o ./build/Problem.o -o build/phase_field_scaled 
+./build/phase_field_scaled ./results/Simulations_large_scaled
+Setting initial condition from file: init.txt
+Initial condition set.
+Steps completed: 121 / 80 => 151.25%     Time remaining: 18h 54m 52s    Elapsed time: 0h 14m 21s 925ms
+Steps completed: 122 / 80 => 152.50%     Time remaining: 9h 21m 30s    Elapsed time: 0h  7m 11s 934ms
+Steps completed: 123 / 80 => 153.75%     Time remaining: 9h 15m  7s    Elapsed time: 0h  7m 12s 564ms
+Steps completed: 124 / 80 => 155.00%     Time remaining: 9h 24m 11s    Elapsed time: 0h  7m 25s 410ms
+Steps completed: 125 / 80 => 156.25%     Time remaining: 9h 15m  2s    Elapsed time: 0h  7m 24s  34ms
+Steps completed: 126 / 80 => 157.50%     Time remaining: 9h  1m 12s    Elapsed time: 0h  7m 18s 812ms
+Steps completed: 127 / 80 => 158.75%     Time remaining: 8h 58m  6s    Elapsed time: 0h  7m 22s 275ms
+Steps completed: 128 / 80 => 160.00%     Time remaining: 8h 39m 45s    Elapsed time: 0h  7m 13s 128ms
+Steps completed: 129 / 80 => 161.25%     Time remaining: 8h 45m 15s    Elapsed time: 0h  7m 23s 885ms
+Steps completed: 130 / 80 => 162.50%     Time remaining: 8h 23m 15s    Elapsed time: 0h  7m 11s 362ms
+Steps completed: 131 / 80 => 163.75%     Time remaining: 8h 32m  9s    Elapsed time: 0h  7m 25s 348ms
+Steps completed: 132 / 80 => 165.00%     Time remaining: 8h 25m 54s    Elapsed time: 0h  7m 26s 390ms
+Steps completed: 133 / 80 => 166.25%     Time remaining: 9h 21m 55s    Elapsed time: 0h  8m 23s 218ms
+Steps completed: 134 / 80 => 167.50%     Time remaining: 7h 39m 27s    Elapsed time: 0h  6m 57s 690ms
+Steps completed: 135 / 80 => 168.75%     Time remaining: 6h 48m 59s    Elapsed time: 0h  6m 17s 537ms
+Steps completed: 136 / 80 => 170.00%     Time remaining: 7h 23m 43s    Elapsed time: 0h  6m 55s 995ms
+Steps completed: 137 / 80 => 171.25%     Time remaining: 6h 31m 33s    Elapsed time: 0h  6m 12s 908ms
+Steps completed: 138 / 80 => 172.50%     Time remaining: 6h 37m 57s    Elapsed time: 0h  6m 25s 124ms
+Steps completed: 139 / 80 => 173.75%     Time remaining: 6h 47m 37s    Elapsed time: 0h  6m 40s 936ms
+Steps completed: 140 / 80 => 175.00%     Time remaining: 6h 37m 40s    Elapsed time: 0h  6m 37s 667ms
+Steps completed: 141 / 80 => 176.25%     Time remaining: 6h 40m 32s    Elapsed time: 0h  6m 47s 323ms
+Steps completed: 142 / 80 => 177.50%     Time remaining: 6h 30m 22s    Elapsed time: 0h  6m 43s 841ms
+Steps completed: 143 / 80 => 178.75%     Time remaining: 6h 20m 15s    Elapsed time: 0h  6m 40s 265ms
+Steps completed: 144 / 80 => 180.00%     Time remaining: 6h 16m 29s    Elapsed time: 0h  6m 43s 385ms
+Steps completed: 145 / 80 => 181.25%     Time remaining: 6h 12m 25s    Elapsed time: 0h  6m 46s 274ms
+Steps completed: 146 / 80 => 182.50%     Time remaining: 6h  0m 54s    Elapsed time: 0h  6m 41s  10ms
+Steps completed: 147 / 80 => 183.75%     Time remaining: 6h  0m 35s    Elapsed time: 0h  6m 48s 222ms
+Steps completed: 148 / 80 => 185.00%     Time remaining: 5h 50m 33s    Elapsed time: 0h  6m 44s 489ms
+Steps completed: 149 / 80 => 186.25%     Time remaining: 5h 40m 44s    Elapsed time: 0h  6m 40s 872ms
+Steps completed: 150 / 80 => 187.50%     Time remaining: 5h 38m 30s    Elapsed time: 0h  6m 46s 209ms
+Steps completed: 151 / 80 => 188.75%     Time remaining: 5h 30m 13s    Elapsed time: 0h  6m 44s 362ms
+Steps completed: 152 / 80 => 190.00%     Time remaining: 5h 25m 17s    Elapsed time: 0h  6m 46s 615ms
+Steps completed: 153 / 80 => 191.25%     Time remaining: 5h 14m 47s    Elapsed time: 0h  6m 41s 862ms
+Steps completed: 154 / 80 => 192.50%     Time remaining: 5h  9m 26s    Elapsed time: 0h  6m 43s 610ms
+Steps completed: 155 / 80 => 193.75%     Time remaining: 5h  6m 15s    Elapsed time: 0h  6m 48s 353ms
+Steps completed: 156 / 80 => 195.00%     Time remaining: 4h 56m 24s    Elapsed time: 0h  6m 44s 198ms
+Steps completed: 157 / 80 => 196.25%     Time remaining: 4h 51m 12s    Elapsed time: 0h  6m 46s 338ms
+Steps completed: 158 / 80 => 197.50%     Time remaining: 5h  4m 38s    Elapsed time: 0h  7m 15s 193ms
+Steps completed: 159 / 80 => 198.75%     Time remaining: 4h 32m 24s    Elapsed time: 0h  6m 38s 646ms

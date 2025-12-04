@@ -52,6 +52,7 @@ Parameters Parameters::load(const std::filesystem::path& filename) {
     double smaller_side = std::min(p.domain.x_right - p.domain.x_left,
                                    p.domain.y_right - p.domain.y_left);
     p.init_cond_radius = smaller_side * initial_condition.value("radius_proportion", 0.5);
+    p.init_cond_scaling = initial_condition.value("scaling", false);
 
     // boundary conditions
     auto boundary_conditions = config.at("bound_cond");

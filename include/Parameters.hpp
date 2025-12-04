@@ -22,6 +22,7 @@ public:
     bool init_cond_from_file;
     std::string init_cond_file_path;
     double init_cond_radius;
+    bool init_cond_scaling;
     // boundary conditions
     BCType bc_phase_x;
     BCType bc_phase_y;

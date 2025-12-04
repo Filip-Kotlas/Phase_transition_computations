@@ -1,7 +1,7 @@
 {
     "solver":
     {
-        "initial_time": 0.066,
+        "initial_time": 0.120,
         "final_time": 0.2,
         "domain": {
             "x_left": 0,
@@ -13,14 +13,15 @@
         "integration_time_step": 5.0e-6,
         "sizeX": 1201,
         "sizeY": 1201,
-        "frame_num": 134
+        "frame_num": 80
     },
     "init_cond":
     {
         "init_cond_from_file": true,
         "init_cond_file_path": "init.txt",
         "initial_condition": "WulffShape",
-        "radius_proportion": 0.01
+        "radius_proportion": 0.01,
+        "scaling": true
     },
     "bound_cond":
     {
