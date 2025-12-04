@@ -341,11 +341,26 @@ class BoundaryPlotter2D(Plotter):
             raise ValueError("Wrong initial condition for analytic solution.")
 
     def get_analytic_solution_circle(self, t, r0) -> Tuple[np.array, np.array]:
-        coef = 1
-        # There is no circle.
-        if r0**2 + 2*t < 0:
+        def r_squared_for_force_0(t) -> float:
+            return r0**2 - 2*t
+
+        def r_squared_for_force_radial(t) -> float:
+            return r0**2 + 2*t
+
+        def r_used(t) -> float:
+            pass
+
+        if self.configuration["force_term"]["type"] == "constant" and self.configuration["force_term"]["size"] == 0:
+            r_used = r_squared_for_force_0
+        elif self.configuration["force_term"]["type"] == "radial":
+            r_used = r_squared_for_force_radial
+        else:
             return np.array([]), np.array([])
-        r = np.sqrt(r0**2 + coef*2*t)
+
+        # There is no shape.
+        if r_used(t) < 0:
+            return np.array([]), np.array([])
+        r = math.sqrt(r_used(t))
 
         # Locating boundary points
         analytic_boundary_x, analytic_boundary_y = [], []

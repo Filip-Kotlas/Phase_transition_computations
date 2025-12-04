@@ -41,8 +41,15 @@ int main(int argc, char** argv) {
     Problem problem(parameters);
     Vector u(problem.getDegreesOfFreedom());
 
-    if (!parameters.init_cond_from_file ||
-        !problem.set_init_cond_from_file(u, calc_path / parameters.init_cond_file_path)) {
+    if (parameters.init_cond_from_file){
+        std::cout << "Setting initial condition from file: " << parameters.init_cond_file_path << std::endl;
+        if (!problem.set_init_cond_from_file(u, calc_path / parameters.init_cond_file_path)){
+            std::cerr << "Error setting initial condition from file. Exiting." << std::endl;
+            return EXIT_FAILURE;
+        }
+        std::cout << "Initial condition set." << std::endl;
+    }
+    else{
         std::cout << "Setting initial condition by code." << std::endl;
         InitialCondition init_cond(parameters);
         problem.set_init_cond_manually(u, init_cond);
