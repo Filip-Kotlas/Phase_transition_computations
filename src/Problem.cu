@@ -282,6 +282,20 @@ Real Problem::grad_p_2_forward(const VectorView& u, Index i, Index j)
 }
 
 __cuda_callable__
+Real Problem::grad_p_1_central_forward(const VectorView& u, Index i, Index j)
+{
+    return (  phase_at(u, i+1, j+1) - phase_at(u, i-1, j+1)
+            + phase_at(u, i+1, j) - phase_at(u, i-1, j))/(4*hx);
+}
+
+__cuda_callable__
+Real Problem::grad_p_2_forward_central(const VectorView& u, Index i, Index j)
+{
+   return (  phase_at(u, i+1, j+1) - phase_at(u, i+1, j-1)
+           + phase_at(u, i, j+1) - phase_at(u, i, j-1))/(4*hy);
+}
+
+__cuda_callable__
 Real Problem::grad_p_1_backward(const VectorView& u, Index i, Index j)
 {
     return (phase_at(u, i, j) - phase_at(u, i-1, j))/hx;
@@ -296,21 +310,8 @@ Real Problem::grad_p_2_backward(const VectorView& u, Index i, Index j)
 __cuda_callable__
 Real Problem::div_T0(const VectorView& u, Index i, Index j)
 {
-    //if (i == 1 || i == sizeX-2 || j == 1 || j == sizeY-2)
-        //forward
-        return (T0_1(grad_p_1_forward(u, i, j), grad_p_2_forward(u, i, j)) - T0_1(grad_p_1_forward(u, i-1, j), grad_p_2_forward(u, i-1, j)))/hx
-               + (T0_2(grad_p_1_forward(u, i, j), grad_p_2_forward(u, i, j)) - T0_2(grad_p_1_forward(u, i, j-1), grad_p_2_forward(u, i, j-1)))/hy;
-        //backward
-        //return (T0_1(grad_p_1_backward(u, i+1, j), grad_p_2_backward(u, i+1, j)) - T0_1(grad_p_1_backward(u, i, j), grad_p_2_backward(u, i, j)))/hx
-        //       + (T0_2(grad_p_1_backward(u, i, j+1), grad_p_2_backward(u, i, j+1)) - T0_2(grad_p_1_backward(u, i, j), grad_p_2_backward(u, i, j)))/hy;
-
-    // both central, has to fulfill conditions on i and j
-    //else
-        //return (T0_1(grad_p_1_central(u, i+1, j), grad_p_2_central(u, i+1, j)) - T0_1(grad_p_1_central(u, i-1, j), grad_p_2_central(u, i-1, j)))/(2*hx)
-        //       + (T0_2(grad_p_1_central(u, i, j+1), grad_p_2_central(u, i, j+1)) - T0_2(grad_p_1_central(u, i, j-1), grad_p_2_central(u, i, j-1)))/(2*hy);
-
-    
-    
+    return (T0_1(grad_p_1_forward(u, i, j), grad_p_2_forward_central(u, i, j)) - T0_1(grad_p_1_forward(u, i-1, j), grad_p_2_forward_central(u, i-1, j)))/hx
+            + (T0_2(grad_p_1_central_forward(u, i, j), grad_p_2_forward(u, i, j)) - T0_2(grad_p_1_central_forward(u, i, j-1), grad_p_2_forward(u, i, j-1)))/hy;
 }
 
 __cuda_callable__

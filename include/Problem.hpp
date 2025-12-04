@@ -104,6 +104,10 @@ class Problem
     __cuda_callable__
     Real grad_p_2_forward(const VectorView& u, Index i, Index j);
     __cuda_callable__
+    Real grad_p_1_central_forward(const VectorView& u, Index i, Index j);
+    __cuda_callable__
+    Real grad_p_2_forward_central(const VectorView& u, Index i, Index j);
+    __cuda_callable__
     Real grad_p_1_backward(const VectorView& u, Index i, Index j);
     __cuda_callable__
     Real grad_p_2_backward(const VectorView& u, Index i, Index j);
