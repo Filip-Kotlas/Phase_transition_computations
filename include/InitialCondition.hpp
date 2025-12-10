@@ -12,8 +12,7 @@ public:
     InitialCondition(Parameters param)
     : param(param) {
         init_cond_radius = param.init_cond_radius;
-        r1 = init_cond_radius - 0.5*param.ksi;
-        r2 = r1 + param.ksi;
+        slope_width = param.init_cond_slope_width;
         hx = (param.domain.x_right - param.domain.x_left) / (param.sizeX - 1);
         hy = (param.domain.y_right - param.domain.y_left) / (param.sizeY - 1);
     }
@@ -43,8 +42,7 @@ private:
     
 
     Real init_cond_radius;
-    Real r1;
-    Real r2;
+    Real slope_width;
     Real hx;
     Real hy;
 };
