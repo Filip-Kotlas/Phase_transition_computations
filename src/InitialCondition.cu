@@ -9,9 +9,10 @@ Real InitialCondition::get_phase(Index ind) const
     Real y_coord = param.domain.y_left + j * hy;
     Real x_rel = i * hx; //relative to domain left
     Real y_rel = j * hy; //relative to domain bottom
+    Real x_central = x_coord - (param.domain.x_right + param.domain.x_left)/2;
+    Real y_central = y_coord - (param.domain.y_right + param.domain.y_left)/2;
 
-    Real dist_to_center = sqrt(pow(i*hx - (param.domain.x_right - param.domain.x_left)/2, 2)
-                       + pow(j*hy - (param.domain.y_right - param.domain.y_left)/2, 2));
+    Real dist_to_center = sqrt(pow(x_central, 2) + pow(y_central, 2));
 
     switch (param.init_condition)
     {
@@ -19,7 +20,7 @@ Real InitialCondition::get_phase(Index ind) const
         return 1.0/2 * tanh(-3/param.ksi*(dist_to_center - init_cond_radius)) + 1.0/2; //needs to be changed according to the correct phases
         break;
 
-    case ICType::LinearByParts:
+    case ICType::Circle:
         if( dist_to_center < init_cond_radius - 0.5*slope_width )
         {
             return static_cast<Real>(constants::Phase::alpha);
@@ -82,7 +83,7 @@ Real InitialCondition::get_phase(Index ind) const
     }
 
     case ICType::Star: {
-        Real phi = atan2( (y_rel - (param.domain.y_right-param.domain.y_left)/2), (x_rel - (param.domain.x_right - param.domain.x_left)/2));
+        Real phi = atan2( y_central, x_central);
             
         if ( dist_to_center < 0.15 + 0.1 * sin(6 * phi) )
         {
@@ -176,9 +177,7 @@ Real InitialCondition::get_phase(Index ind) const
     }
 
     case ICType::WulffShape: {
-        Real x = i*hx - (param.domain.x_right - param.domain.x_left)/2;
-        Real y = j*hy - (param.domain.y_right - param.domain.y_left)/2;
-        Real theta_origin = atan2(y, x);
+        Real theta_origin = atan2(y_central, x_central);
         Real x_wulff = 0;
         Real y_wulff = 0;
 
@@ -236,8 +235,11 @@ Real InitialCondition::get_phase(Index ind) const
         
         compute_wulff_coords();
         Real radius_wulff = sqrt(x_wulff*x_wulff + y_wulff*y_wulff);
-        if ( dist_to_center < radius_wulff ) {
+        if ( dist_to_center < radius_wulff - 0.5*slope_width ) {
             return static_cast<Real>(constants::Phase::alpha);
+        }
+        else if ( dist_to_center < radius_wulff + 0.5*slope_width ) {
+            return static_cast<Real>(constants::Phase::alpha) - (static_cast<Real>(constants::Phase::alpha) - static_cast<Real>(constants::Phase::beta))*(dist_to_center - (radius_wulff - 0.5*slope_width)) / (slope_width);
         }
         else {
             return static_cast<Real>(constants::Phase::beta);

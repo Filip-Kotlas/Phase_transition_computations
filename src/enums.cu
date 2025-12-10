@@ -25,8 +25,8 @@ std::string ICType_to_string(ICType ic_type) {
     switch (ic_type) {
         case ICType::HyperbolicTangent:
             return "HyperbolicTangent";
-        case ICType::LinearByParts:
-            return "LinearByParts";
+        case ICType::Circle:
+            return "Circle";
         case ICType::ConstantCircle:
             return "ConstantCircle";
         case ICType::ConstantHalves:
@@ -55,8 +55,8 @@ std::string ICType_to_string(ICType ic_type) {
 ICType string_to_ICType(const std::string& str) {
     if (str == "HyperbolicTangent") {
         return ICType::HyperbolicTangent;
-    } else if (str == "LinearByParts") {
-        return ICType::LinearByParts;
+    } else if (str == "Circle") {
+        return ICType::Circle;
     } else if (str == "ConstantCircle") {
         return ICType::ConstantCircle;
     } else if (str == "ConstantHalves") {
