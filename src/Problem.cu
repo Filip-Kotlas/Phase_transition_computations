@@ -107,7 +107,7 @@ void Problem::set_init_cond_manually(Vector& u, InitialCondition& init_cond)
         } );
 }
 
-bool Problem::set_init_cond_from_file(Vector& u, const std::filesystem::path& filename)
+bool Problem::set_init_cond_from_file(Vector& u, const std::filesystem::path& filename, const bool scaling)
 {
     std::ifstream file(filename);
     if (!file)
@@ -120,6 +120,16 @@ bool Problem::set_init_cond_from_file(Vector& u, const std::filesystem::path& fi
 
     std::string line;
     Index count = 0;
+    Index start_i = sizeX / 4;
+    Index start_j = sizeY / 4;
+    Index scale_index = 0;
+
+    for (int k = 0; k < sizeX * sizeY; ++k)
+    {
+        host_u[k] = static_cast<int>(constants::Phase::beta); // inicializace fáze
+        host_u[sizeX * sizeY + k] = constants::c_init_beta; // inicializace koncentrace
+    }
+
 
     while (std::getline(file, line)) {
         if (line.empty()) continue; // přeskoč prázdné řádky
@@ -136,9 +146,21 @@ bool Problem::set_init_cond_from_file(Vector& u, const std::filesystem::path& fi
             return false;
         }
 
-        host_u[count] = p;
-        host_u[sizeX * sizeY + count] = c;
-        ++count;
+
+        if (scaling) {
+            int i = count % sizeX;
+            int j = count / sizeX;
+            if (i % 2 == 0 && j % 2 == 0) {
+                scale_index = start_i + (i / 2) + (start_j + (j / 2)) * sizeX;
+                host_u[scale_index] = p;
+                host_u[sizeX * sizeY + scale_index] = c;
+            }
+        }
+        else {
+            host_u[count] = p;
+            host_u[sizeX * sizeY + count] = c;
+        }
+        count++;
     }
 
     if (count < sizeX * sizeY) {

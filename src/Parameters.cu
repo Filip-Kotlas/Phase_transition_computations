@@ -52,6 +52,8 @@ Parameters Parameters::load(const std::filesystem::path& filename) {
     double smaller_side = std::min(p.domain.x_right - p.domain.x_left,
                                    p.domain.y_right - p.domain.y_left);
     p.init_cond_radius = smaller_side * initial_condition.value("radius_proportion", 0.5);
+    p.init_cond_slope_width = initial_condition.value("slope_width", 0.05);
+    p.init_cond_scaling = initial_condition.value("scaling", false);
 
     // boundary conditions
     auto boundary_conditions = config.at("bound_cond");
@@ -105,40 +107,45 @@ void Parameters::save_human_readable(const std::filesystem::path& filename) cons
         throw std::runtime_error("Unable to open the file " + filename.string());
     }
 
-    file << std::left << std::setw(24) << "Initial time:" << std::right << std::setw(28) << initial_time << std::endl;
-    file << std::left << std::setw(24) << "Final time:"   << std::right << std::setw(28) << final_time << std::endl;
+    int max_label_length = 30;
+    int max_value_length = 28;
+
+    file << std::left << std::setw(max_label_length) << "Initial time:" << std::right << std::setw(max_value_length) << initial_time << std::endl;
+    file << std::left << std::setw(max_label_length) << "Final time:"   << std::right << std::setw(max_value_length) << final_time << std::endl;
     
     std::ostringstream oss;
     oss << "[(" << std::fixed << std::setprecision(2) 
         << domain.x_left << ", " << domain.x_right << ")"
         << "(" << domain.y_left << ", " << domain.y_right << ")]";
-    file << std::left << std::setw(24) << "Domain:" << std::right << std::setw(28) << oss.str() << std::endl;
-    file << std::left << std::setw(24) << "SizeX:"  << std::right << std::setw(28) << sizeX << std::endl;
-    file << std::left << std::setw(24) << "SizeY:"  << std::right << std::setw(28) << sizeY << std::endl;
-    file << std::left << std::setw(24) << "Time step:" << std::right << std::setw(28) << timeStep << std::endl;
-    file << std::left << std::setw(24) << "Integration time step:" << std::right << std::setw(28) << integrationTimeStep << std::endl;
+    file << std::left << std::setw(max_label_length) << "Domain:" << std::right << std::setw(max_value_length) << oss.str() << std::endl;
+    file << std::left << std::setw(max_label_length) << "SizeX:"  << std::right << std::setw(max_value_length) << sizeX << std::endl;
+    file << std::left << std::setw(max_label_length) << "SizeY:"  << std::right << std::setw(max_value_length) << sizeY << std::endl;
+    file << std::left << std::setw(max_label_length) << "Time step:" << std::right << std::setw(max_value_length) << timeStep << std::endl;
+    file << std::left << std::setw(max_label_length) << "Integration time step:" << std::right << std::setw(max_value_length) << integrationTimeStep << std::endl;
     file << std::endl;
-    file << std::left << std::setw(24) << "Initial condition radius:"   << std::right << std::setw(28) << init_cond_radius << std::endl;
+    file << std::left << std::setw(max_label_length) << "Initial condition type:"   << std::right << std::setw(max_value_length) << ICType_to_string(init_condition) << std::endl;
+    file << std::left << std::setw(max_label_length) << "Initial condition radius:"   << std::right << std::setw(max_value_length) << init_cond_radius << std::endl;
+    file << std::left << std::setw(max_label_length) << "Initial condition slope width:"   << std::right << std::setw(max_value_length) << init_cond_slope_width << std::endl;
     file << std::endl;
-    file << std::left << std::setw(24) << "Boundary condition phase x:"   << std::right << std::setw(28) << BCType_to_string(bc_phase_x) << std::endl;
-    file << std::left << std::setw(24) << "Boundary condition phase y:"   << std::right << std::setw(28) << BCType_to_string(bc_phase_y) << std::endl;
-    file << std::left << std::setw(24) << "Boundary condition conc x:"    << std::right << std::setw(28) << BCType_to_string(bc_conc_x) << std::endl;
-    file << std::left << std::setw(24) << "Boundary condition conc y:"    << std::right << std::setw(28) << BCType_to_string(bc_conc_y) << std::endl;
+    file << std::left << std::setw(max_label_length) << "Boundary condition phase x:"   << std::right << std::setw(max_value_length) << BCType_to_string(bc_phase_x) << std::endl;
+    file << std::left << std::setw(max_label_length) << "Boundary condition phase y:"   << std::right << std::setw(max_value_length) << BCType_to_string(bc_phase_y) << std::endl;
+    file << std::left << std::setw(max_label_length) << "Boundary condition conc x:"    << std::right << std::setw(max_value_length) << BCType_to_string(bc_conc_x) << std::endl;
+    file << std::left << std::setw(max_label_length) << "Boundary condition conc y:"    << std::right << std::setw(max_value_length) << BCType_to_string(bc_conc_y) << std::endl;
     file << std::endl;
-    file << std::left << std::setw(24) << "Force term type:"   << std::right << std::setw(28) << FTType_to_string(force_term_type) << std::endl;
+    file << std::left << std::setw(max_label_length) << "Force term type:"   << std::right << std::setw(max_value_length) << FTType_to_string(force_term_type) << std::endl;
     if (force_term_type == FTType::Constant || force_term_type == FTType::Radial)
-        file << std::left << std::setw(24) << "Force term size:"   << std::right << std::setw(28) << force_term_size << std::endl;
+        file << std::left << std::setw(max_label_length) << "Force term size:"   << std::right << std::setw(max_value_length) << force_term_size << std::endl;
     file << std::endl;
-    file << std::left << std::setw(24) << "Alpha:" << std::right << std::setw(28) << alpha << std::endl;
-    file << std::left << std::setw(24) << "Beta:"  << std::right << std::setw(28) << beta << std::endl;
-    file << std::left << std::setw(24) << "a:" << std::right << std::setw(28) << par_a << std::endl;
-    file << std::left << std::setw(24) << "b:" << std::right << std::setw(28) << par_b << std::endl;
-    file << std::left << std::setw(24) << "d:" << std::right << std::setw(28) << par_d << std::endl;
-    file << std::left << std::setw(24) << "T:" << std::right << std::setw(28) << T << std::endl;
-    file << std::left << std::setw(24) << "Ksi:"   << std::right << std::setw(28) << ksi << std::endl;
-    file << std::left << std::setw(24) << "A:"   << std::right << std::setw(28) << A << std::endl;
-    file << std::left << std::setw(24) << "m:"   << std::right << std::setw(28) << m << std::endl;
-    file << std::left << std::setw(24) << "theta_0:"   << std::right << std::setw(28) << theta_0 << std::endl;
+    file << std::left << std::setw(max_label_length) << "Alpha:" << std::right << std::setw(max_value_length) << alpha << std::endl;
+    file << std::left << std::setw(max_label_length) << "Beta:"  << std::right << std::setw(max_value_length) << beta << std::endl;
+    file << std::left << std::setw(max_label_length) << "a:" << std::right << std::setw(max_value_length) << par_a << std::endl;
+    file << std::left << std::setw(max_label_length) << "b:" << std::right << std::setw(max_value_length) << par_b << std::endl;
+    file << std::left << std::setw(max_label_length) << "d:" << std::right << std::setw(max_value_length) << par_d << std::endl;
+    file << std::left << std::setw(max_label_length) << "T:" << std::right << std::setw(max_value_length) << T << std::endl;
+    file << std::left << std::setw(max_label_length) << "Ksi:"   << std::right << std::setw(max_value_length) << ksi << std::endl;
+    file << std::left << std::setw(max_label_length) << "A:"   << std::right << std::setw(max_value_length) << A << std::endl;
+    file << std::left << std::setw(max_label_length) << "m:"   << std::right << std::setw(max_value_length) << m << std::endl;
+    file << std::left << std::setw(max_label_length) << "theta_0:"   << std::right << std::setw(max_value_length) << theta_0 << std::endl;
 }
 
 void Parameters::save_for_latex(const std::filesystem::path& filename) const {
@@ -161,6 +168,13 @@ void Parameters::save_for_latex(const std::filesystem::path& filename) const {
     file << "\\(t_{0}\\) & " << initial_time << " \\\\" << std::endl;
     file << "\\(t_{max}\\) & " << final_time << " \\\\" << std::endl;
     file << "\\(\\tau\\) & " << integrationTimeStep << " \\\\" << std::endl;
+    file << "\\end{tabular}" << std::endl << std::endl;
+
+    file << "\\textbf{Počáteční podmínka:}" << std::endl << std::endl;
+    file << "\\begin{tabular}{ll}" << std::endl;
+    file << "typ & " << ICType_to_string(init_condition) << " \\\\" << std::endl;
+    file << "poloměr & " << init_cond_radius << " \\\\" << std::endl;
+    file << "šířka přechodu & " << init_cond_slope_width << " \\\\" << std::endl;
     file << "\\end{tabular}" << std::endl << std::endl;
 
     file << "\\textbf{Okrajové podmínky:}" << std::endl << std::endl;
@@ -190,7 +204,6 @@ void Parameters::save_for_latex(const std::filesystem::path& filename) const {
     file << "\\(d\\) & " << par_d << " \\\\" << std::endl;
     file << "\\(T\\) & " << T << " \\\\" << std::endl;
     file << "\\(\\xi\\) & " << ksi << " \\\\" << std::endl;
-    file << "poloměr počáteční podmínky: & " << init_cond_radius << " \\\\" << std::endl;
     file << "\\end{tabular}" << std::endl << std::endl;
 
     file << "\\textbf{Parametry anizotropie:}" << std::endl << std::endl;

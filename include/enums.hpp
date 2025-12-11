@@ -18,7 +18,7 @@ enum class MODEL {
 
 enum class ICType {
     HyperbolicTangent,
-    LinearByParts,
+    Circle, // sloped
     ConstantCircle,
     ConstantHalves,
     Stripe,
@@ -28,7 +28,7 @@ enum class ICType {
     PerpendicularStripes,
     Box,
     RandomBumps,
-    WulffShape,
+    WulffShape, // sloped
     Count 
 };
 

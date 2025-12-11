@@ -2,25 +2,27 @@
     "solver":
     {
         "initial_time": 0.0,
-        "final_time": 0.075,
+        "final_time": 0.001,
         "domain": {
             "x_left": 0,
-            "x_right": 2,
+            "x_right": 1,
             "y_left": 0,
-            "y_right": 2
+            "y_right": 1
         },
         "custom_integration_time_step": false,
         "integration_time_step": 5.0e-6,
-        "sizeX": 401,
-        "sizeY": 401,
-        "frame_num": 100
+        "sizeX": 201,
+        "sizeY": 201,
+        "frame_num": 1
     },
     "init_cond":
     {
         "init_cond_from_file": false,
         "init_cond_file_path": "init.txt",
-        "initial_condition": "ConstantCircle",
-        "radius_proportion": 0.2
+        "initial_condition": "WulffShape",
+        "radius_proportion": 0.2,
+        "slope_width": 0.05,
+        "scaling": false
     },
     "bound_cond":
     {

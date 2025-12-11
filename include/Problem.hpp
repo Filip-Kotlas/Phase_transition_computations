@@ -60,7 +60,7 @@ class Problem
     * Initial conditions
     */
     void set_init_cond_manually( Vector &u, InitialCondition& init_cond);
-    bool set_init_cond_from_file(Vector& u, const std::filesystem::path& filename);
+    bool set_init_cond_from_file(Vector& u, const std::filesystem::path& filename, const bool scaling);
 
     /*
     * Boundary conditions
