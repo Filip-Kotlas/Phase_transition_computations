@@ -2,7 +2,7 @@
     "solver":
     {
         "initial_time": 0.0,
-        "final_time": 0.001,
+        "final_time": 0.1,
         "domain": {
             "x_left": 0,
             "x_right": 1,
@@ -11,16 +11,16 @@
         },
         "custom_integration_time_step": false,
         "integration_time_step": 5.0e-6,
-        "sizeX": 201,
-        "sizeY": 201,
-        "frame_num": 1
+        "sizeX": 401,
+        "sizeY": 401,
+        "frame_num": 100
     },
     "init_cond":
     {
         "init_cond_from_file": false,
         "init_cond_file_path": "init.txt",
         "initial_condition": "WulffShape",
-        "radius_proportion": 0.2,
+        "radius_proportion": 0.3,
         "slope_width": 0.05,
         "scaling": false
     },
@@ -47,8 +47,8 @@
     },
     "anisotropy":
     {
-        "A": 0.12,
-        "m": 3,
-        "theta_0": 0.785398
+        "A": 0.066,
+        "m": 4,
+        "theta_0": 0.0
     }
 }
