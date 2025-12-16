@@ -260,13 +260,18 @@ void Problem::apply_concentration_boundary_condition_ydir(Index ind, VectorView 
 __cuda_callable__
 Real Problem::get_rhs_phase_at(const VectorView& u, Index i, Index j)
 {
-    return 1.0/param.alpha * (div_T0(u, i, j) + f_0(u, i , j) / param.ksi / param.ksi - param.par_b/param.ksi*grade_4_polynom(u, i, j)*F(u, i, j));
-}
+    if (param.force_term_type == FTType::Reality)
+        return constants::M_phi_tilde(param.T)*(pow(constants::epsilon_tilde(param.T), 2) * laplace(u, i, j)
+                                                + constants::w_tilde(param.T) * 4 * f_0(u, i, j)
+                                                + der_polynom_p(u, i, j) * F(u, i, j));
+    else
+        return 1.0/param.alpha * (div_T0(u, i, j) + param.par_a * f_0(u, i , j) / param.ksi / param.ksi - param.par_b/param.ksi*grade_4_polynom(u, i, j)*F(u, i, j));
+   }
 
 __cuda_callable__
 Real Problem::get_rhs_concentration_at(const VectorView& u, Index i, Index j)
 {
-    if (param.force_term_type == FTType::Zirconium)
+    if (param.force_term_type == FTType::Zirconium || param.force_term_type == FTType::Reality)
         return div_D_grad_concentration(u, i, j) + div_D_grad_phase(u, i, j);
     else
         return 0;
@@ -396,29 +401,50 @@ Real Problem::div_D_grad_phase(const VectorView& u, Index i, Index j)
 __cuda_callable__
 Real Problem::get_conc_diff_coef(const VectorView& u, Index i, Index j)
 {
-    return param.par_b*param.par_d/30.0
+    if (param.force_term_type == FTType::Zirconium)
+        return param.par_b*param.par_d/30.0
             * conc_at(u, i, j)
             * (1 - conc_at(u, i, j))
             * constants::M_Nb_beta(param.T)
 		    * pow(constants::M_Nb_alpha(param.T)/constants::M_Nb_beta(param.T), polynom_p(u, i, j))
 		    * sec_deriv_of_g_w_resp_to_c(u, i, j);
+    else if (param.force_term_type == FTType::Reality)
+        return conc_at(u, i, j)
+               * (1 - conc_at(u, i, j))
+               * pow(constants::M_Nb_alpha(param.T)/constants::M_Nb_beta(param.T), polynom_p(u, i, j))
+               / constants::molar_volume
+               / constants::R / param.T
+               * sec_deriv_of_g_w_resp_to_c(u, i, j);
+    else
+        return 0;
 }
 
 __cuda_callable__
 Real Problem::get_phas_diff_coef(const VectorView& u, Index i, Index j)
 {
-   return param.par_b*param.par_d/30.0
-          * conc_at(u, i, j)
-		  * (1 - conc_at(u, i, j))
-          * constants::M_Nb_beta(param.T)
-		  * pow(constants::M_Nb_alpha(param.T)/constants::M_Nb_beta(param.T), polynom_p(u, i, j))
-		  * deriv_of_g_w_resp_to_c_and_p(u, i, j);
+    if (param.force_term_type == FTType::Zirconium)
+        return param.par_b*param.par_d/30.0
+               * conc_at(u, i, j)
+               * (1 - conc_at(u, i, j))
+               * constants::M_Nb_beta(param.T)
+               * pow(constants::M_Nb_alpha(param.T)/constants::M_Nb_beta(param.T), polynom_p(u, i, j))
+               * deriv_of_g_w_resp_to_c_and_p(u, i, j);
+    else if (param.force_term_type == FTType::Reality)
+        return conc_at(u, i, j)
+               * (1 - conc_at(u, i, j))
+               * pow(constants::M_Nb_alpha(param.T)/constants::M_Nb_beta(param.T), polynom_p(u, i, j))
+               / constants::molar_volume
+               / constants::R / param.T
+               * deriv_of_g_w_resp_to_c_and_p(u, i, j);
+    else
+        return 0;
+
 }
 
 __cuda_callable__
 Real Problem::f_0(const VectorView& u, Index i, Index j)
 {
-   return param.par_a*phase_at(u, i, j)*(1 - phase_at(u, i, j))*(phase_at(u, i, j) - 1.0/2.0);
+   return phase_at(u, i, j)*(1 - phase_at(u, i, j))*(phase_at(u, i, j) - 1.0/2.0);
 }
 
 __cuda_callable__
@@ -435,6 +461,8 @@ Real Problem::F(const VectorView& u, Index i, Index j)
     }
     else if (param.force_term_type == FTType::Zirconium)
         return constants::G_m_alpha(conc_at(u, i, j), param.T) - constants::G_m_beta(conc_at(u, i, j), param.T);
+    else if (param.force_term_type == FTType::Reality)
+        return constants::G_m_alpha_tilde(conc_at(u, i, j), param.T) - constants::G_m_beta_tilde(conc_at(u, i, j), param.T);
     else
         return 0;
 

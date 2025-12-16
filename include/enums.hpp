@@ -40,7 +40,8 @@ enum class BCType {
 enum class FTType {
     Constant,
     Zirconium,
-    Radial
+    Radial,
+    Reality,
 };
 
 std::string BCType_to_string(BCType bc_type);

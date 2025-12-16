@@ -84,7 +84,7 @@ Parameters Parameters::load(const std::filesystem::path& filename) {
     auto force_term = config.at("force_term");
     p.force_term_type = string_to_FTType(force_term.value("type", "zirconium"));
     p.force_term_size = force_term.value("size", 0.0);
-    if (p.force_term_type != FTType::Zirconium && p.force_term_type != FTType::Constant && p.force_term_type != FTType::Radial) {
+    if (p.force_term_type != FTType::Zirconium && p.force_term_type != FTType::Constant && p.force_term_type != FTType::Radial && p.force_term_type != FTType::Reality) {
         throw std::runtime_error("Unknown force term type in config: " + FTType_to_string(p.force_term_type));
     }
 

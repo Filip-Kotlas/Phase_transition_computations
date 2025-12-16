@@ -90,6 +90,8 @@ std::string FTType_to_string(FTType ft_type) {
             return "zirconium";
         case FTType::Radial:
             return "radial";
+        case FTType::Reality:
+            return "reality";
         default:
             return "unknown";
     }
@@ -102,7 +104,10 @@ FTType string_to_FTType(const std::string& str) {
         return FTType::Zirconium;
     } else if (str == "radial") {
         return FTType::Radial;
-    } else {
+    } else if (str == "reality") {
+        return FTType::Reality;
+    }
+    else {
         throw std::runtime_error("Unknown force term type: " + str);
     }
 }

@@ -11,7 +11,7 @@ namespace constants {
     inline constexpr Real molar_volume = 1.4060e-5;
     inline constexpr Real b = 3.23e-10;
     inline constexpr Real sigma = 0.3;
-    inline constexpr Real l = 50*delta;
+    inline constexpr Real l = 0.9*delta;
 
     enum class Phase {
         alpha = 1,
@@ -77,6 +77,13 @@ namespace constants {
         + R*T*(c*log(c) + (1-c)*log(1-c))
         + c*(1-c)*(L_0_beta(T) + L_0_i_beta(T)*(2*c-1));
     }
+    __cuda_callable__ inline Real G_m_alpha_tilde(Real c, Real T){
+        return G_m_alpha(c, T) / R / T;
+    }
+
+    __cuda_callable__ inline Real G_m_beta_tilde(Real c, Real T){
+        return G_m_beta(c, T) / R / T;
+    }    
 
     __cuda_callable__ inline Real D_Nb_alpha(Real T){
         return 6.6e-10*exp(-31500*Cal_to_joule/(R*T));
@@ -99,7 +106,7 @@ namespace constants {
         return 0.235 * D_eff(T) * delta_fixed / delta* molar_volume / (b*b*R*T);
     }
     __cuda_callable__ inline Real M_phi_tilde(Real T){
-        return M_phi(T)*l*l/(M_Nb_alpha(T)*molar_volume);
+        return M_phi(T)*l*l/(M_Nb_beta(T)*molar_volume);
     }
 
     __cuda_callable__ inline Real epsilon() {
