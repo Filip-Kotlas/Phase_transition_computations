@@ -8,11 +8,16 @@ RESULTS_DIR := ./results
 PYTHON_DIR := ./python
 PARAM_PATH := info/parameters.txt
 
+DELETE_CALCS ?= 0
+
 CONFIGS_DIR := ./comp_configurations
 CONFIG_TARGET := ./config/config.json
 
+# CUDA architektura pro NVIDIA Hopper (H100) solves problematic driver, doesnt work on other architectures
+CUDA_ARCH := -gencode arch=compute_86,code=sm_86
+
 COMPILER = nvcc
-COMPILER_FLAGS = -std=c++17 $(INCLUDE_DIR) -O3 --expt-relaxed-constexpr --extended-lambda -rdc=true $(TNL_FLAGS)
+COMPILER_FLAGS = -std=c++17 $(INCLUDE_DIR) -O3 --expt-relaxed-constexpr --extended-lambda -rdc=true $(CUDA_ARCH)
 
 # Potlačení zbytečných varování
 # -diag-suppress 20012 = "annotation ignored" (ArrayView apod.)
@@ -55,15 +60,17 @@ run: $(BUILD_DIR)/$(TARGET)
 	echo -n "Git commit: " >> $(RESULTS_DIR)/$(FOLDER)/$(PARAM_PATH)
 	git rev-parse --short HEAD >> $(RESULTS_DIR)/$(FOLDER)/$(PARAM_PATH)
 	python3 $(PYTHON_DIR)/basic_plot.py --name $(FOLDER) --type both
-#	dir="$(RESULTS_DIR)/$(FOLDER)/calculations"; \
-	if [ -d "$$dir" ]; then \
-		files=($$(ls -1 "$$dir")); \
-		count=$${#files[@]}; \
-		if [ $$count -gt 2 ]; then \
-			to_delete=$$(printf "%s\n" "$${files[@]:1:$$(($$count-2))}"); \
-			for f in $$to_delete; do rm -rf "$$dir/$$f"; done; \
-		fi; \
-	fi; \
+	ifeq ($(DELETE_CALCS),1)
+		dir="$(RESULTS_DIR)/$(FOLDER)/calculations"; \
+		if [ -d "$$dir" ]; then \
+			files=($$(ls -1 "$$dir")); \
+			count=$${#files[@]}; \
+			if [ $$count -gt 2 ]; then \
+				to_delete=$$(printf "%s\n" "$${files[@]:1:$$(($$count-2))}"); \
+				for f in $$to_delete; do rm -rf "$$dir/$$f"; done; \
+			fi; \
+		fi
+	endif
 
 .PHONY: run_all
 run_all:
