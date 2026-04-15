@@ -2,26 +2,26 @@
     "solver":
     {
         "initial_time": 0.0,
-        "final_time": 0.001,
+        "final_time": 0.2,
         "domain": {
-            "x_left": 0,
+            "x_left": -1,
             "x_right": 1,
-            "y_left": 0,
+            "y_left": -1,
             "y_right": 1
         },
         "custom_integration_time_step": false,
         "integration_time_step": 5.0e-6,
-        "sizeX": 201,
-        "sizeY": 201,
-        "frame_num": 1
+        "sizeX": 10,
+        "sizeY": 10,
+        "frame_num": 100
     },
     "init_cond":
     {
         "init_cond_from_file": false,
         "init_cond_file_path": "init.txt",
-        "initial_condition": "WulffShape",
-        "radius_proportion": 0.2,
-        "slope_width": 0.05,
+        "initial_condition": "ConstantCircle",
+        "radius_proportion": 0.16666667,
+        "slope_width": 0.5,
         "scaling": false
     },
     "bound_cond":
@@ -38,16 +38,16 @@
         "b": 3.53553391,
         "d": 1.6e15,
         "T": 1000,
-        "ksi": 0.05
+        "ksi": 0.2
     },
     "force_term":
     {
-        "type": "constant",
+        "type": "radial",
         "size": 0
     },
     "anisotropy":
     {
-        "A": 0.066,
+        "A": 0.0,
         "m": 4,
         "theta_0": 0.0
     }

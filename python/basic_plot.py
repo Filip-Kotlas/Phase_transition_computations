@@ -31,8 +31,10 @@ if configuration["force_term"]["type"] in ("radial", "constant"):
 draw_anal_bound = False
 if ((configuration["force_term"]["type"] == "constant"
      and configuration["force_term"]["size"] == 0) 
-    or configuration["force_term"]["type"] == "radial") \
-   and configuration["init_cond"]["initial_condition"] == "WulffShape":
+    or (configuration["force_term"]["type"] == "radial"
+        and (configuration["init_cond"]["initial_condition"] == "WulffShape"
+             or configuration["init_cond"]["initial_condition"] == "ConstantCircle"
+             or configuration["init_cond"]["initial_condition"] == "Circle"))):
     draw_anal_bound = True
 
 boundary_plotter = BoundaryPlotter2D(results_path, False, True, draw_anal_bound, "phase")

@@ -194,12 +194,16 @@ class BoundaryPlotter2D(Plotter):
             num_boundary_sorted_x, num_boundary_sorted_y = self.sort_boundary_points(num_boundary_x, num_boundary_y)
             self.num_bound_sc.set_data(num_boundary_sorted_x, num_boundary_sorted_y)
             artist.append(self.num_bound_sc)
+            self.save_boundary_points("interface_num.crv", num_boundary_sorted_x, num_boundary_sorted_y, frame
+            )
+
 
         if self.draw_analit_boundary:
             analytic_boundary_x, analytic_boundary_y = self.get_analytic_solution(frame*self.time_step)
             analytic_sorted_x, analytic_sorted_y = self.sort_boundary_points(analytic_boundary_x, analytic_boundary_y)
             self.anal_bound_sc.set_data(analytic_sorted_x, analytic_sorted_y)
             artist.append(self.anal_bound_sc)
+            self.save_boundary_points("interface_anal.crv", analytic_sorted_x, analytic_sorted_y, frame)
 
         artist.append(self.title)
         return artist
@@ -311,6 +315,25 @@ class BoundaryPlotter2D(Plotter):
         #sorted_x.append(sorted_x[0])
         #sorted_y.append(sorted_y[0])
         return np.array(sorted_x), np.array(sorted_y)
+    
+    def save_boundary_points(
+        self,
+        file_name: str,
+        boundary_x: np.array,
+        boundary_y: np.array,
+        frame: int,
+    ) -> None:
+        self.check_for_info_folder()
+        output_file = Path(self.folder) / "info" / file_name
+        initial_time = self.configuration["solver"]["initial_time"]
+        time_level = initial_time + frame * self.time_step
+
+        mode = "w" if frame == 0 else "a"
+        with output_file.open(mode, encoding="utf-8") as file:
+            file.write(f"# Time level T =  {time_level:.5f}\n")
+            for x, y in zip(boundary_x, boundary_y):
+                file.write(f"    {x:.5f}   {y:.5f}\n")
+            file.write("##\n\n")
 
     def reset_draw_settings(self,
                             draw_function: bool=False,

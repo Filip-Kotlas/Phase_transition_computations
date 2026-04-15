@@ -60,7 +60,7 @@ run: $(BUILD_DIR)/$(TARGET)
 	echo -n "Git commit: " >> $(RESULTS_DIR)/$(FOLDER)/$(PARAM_PATH)
 	git rev-parse --short HEAD >> $(RESULTS_DIR)/$(FOLDER)/$(PARAM_PATH)
 	python3 $(PYTHON_DIR)/basic_plot.py --name $(FOLDER) --type both
-	ifeq ($(DELETE_CALCS),1)
+	@if [ "$(DELETE_CALCS)" = "1" ]; then \
 		dir="$(RESULTS_DIR)/$(FOLDER)/calculations"; \
 		if [ -d "$$dir" ]; then \
 			files=($$(ls -1 "$$dir")); \
@@ -69,8 +69,8 @@ run: $(BUILD_DIR)/$(TARGET)
 				to_delete=$$(printf "%s\n" "$${files[@]:1:$$(($$count-2))}"); \
 				for f in $$to_delete; do rm -rf "$$dir/$$f"; done; \
 			fi; \
-		fi
-	endif
+		fi; \
+	fi
 
 .PHONY: run_all
 run_all:
