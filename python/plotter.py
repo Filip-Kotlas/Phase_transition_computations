@@ -194,8 +194,9 @@ class BoundaryPlotter2D(Plotter):
             num_boundary_sorted_x, num_boundary_sorted_y = self.sort_boundary_points(num_boundary_x, num_boundary_y)
             self.num_bound_sc.set_data(num_boundary_sorted_x, num_boundary_sorted_y)
             artist.append(self.num_bound_sc)
-            self.save_boundary_points("interface_num.crv", num_boundary_sorted_x, num_boundary_sorted_y, frame
-            )
+            self.save_boundary_points("interface_num.crv", num_boundary_sorted_x, num_boundary_sorted_y, frame)
+            #Carefull the boundary is saved during animation and also during showing saving one frame. Could pose problems.
+            # TODO: solve that
 
         if self.draw_analit_boundary:
             analytic_boundary_x, analytic_boundary_y = self.get_analytic_solution(frame*self.time_step)
@@ -329,7 +330,7 @@ class BoundaryPlotter2D(Plotter):
 
         mode = "w" if frame == 0 else "a"
         with output_file.open(mode, encoding="utf-8") as file:
-            file.write(f"# Time level T =  {time_level:.5f}\n")
+            file.write(f"# Time level T =  {time_level:.6f}\n")
             for x, y in zip(boundary_x, boundary_y):
                 file.write(f"    {x:.17g}   {y:.17g}\n")
             file.write("##\n\n")
