@@ -197,7 +197,6 @@ class BoundaryPlotter2D(Plotter):
             self.save_boundary_points("interface_num.crv", num_boundary_sorted_x, num_boundary_sorted_y, frame
             )
 
-
         if self.draw_analit_boundary:
             analytic_boundary_x, analytic_boundary_y = self.get_analytic_solution(frame*self.time_step)
             analytic_sorted_x, analytic_sorted_y = self.sort_boundary_points(analytic_boundary_x, analytic_boundary_y)
@@ -312,8 +311,8 @@ class BoundaryPlotter2D(Plotter):
                         sorted_y.append(closest_point[1])
                         picked_mask[best_index] = 1
                         previous_point = closest_point
-        #sorted_x.append(sorted_x[0])
-        #sorted_y.append(sorted_y[0])
+        sorted_x.append(sorted_x[0])
+        sorted_y.append(sorted_y[0])
         return np.array(sorted_x), np.array(sorted_y)
     
     def save_boundary_points(
@@ -332,7 +331,7 @@ class BoundaryPlotter2D(Plotter):
         with output_file.open(mode, encoding="utf-8") as file:
             file.write(f"# Time level T =  {time_level:.5f}\n")
             for x, y in zip(boundary_x, boundary_y):
-                file.write(f"    {x:.5f}   {y:.5f}\n")
+                file.write(f"    {x:.17g}   {y:.17g}\n")
             file.write("##\n\n")
 
     def reset_draw_settings(self,
@@ -356,14 +355,15 @@ class BoundaryPlotter2D(Plotter):
     def get_analytic_solution(self, t) -> Tuple[np.array, np.array]:
         r0 = (self.configuration["init_cond"]["radius_proportion"] 
              * (self.configuration["solver"]["domain"]["x_right"] - self.configuration["solver"]["domain"]["x_left"]))
+        number_of_segments = 1000
         if self.configuration["init_cond"]["initial_condition"] == "ConstantCircle":
-            return self.get_analytic_solution_circle(t, r0)
+            return self.get_analytic_solution_circle(t, r0, number_of_segments)
         elif self.configuration["init_cond"]["initial_condition"] == "WulffShape":
-            return self.get_analytic_solution_wulff_shape(t, r0)
+            return self.get_analytic_solution_wulff_shape(t, r0, number_of_segments)
         else:
             raise ValueError("Wrong initial condition for analytic solution.")
 
-    def get_analytic_solution_circle(self, t, r0) -> Tuple[np.array, np.array]:
+    def get_analytic_solution_circle(self, t, r0, number_of_segments=1000) -> Tuple[np.array, np.array]:
         def r_squared_for_force_0(t) -> float:
             return r0**2 - 2*t
 
@@ -390,13 +390,16 @@ class BoundaryPlotter2D(Plotter):
 
         offset_x = (self.configuration["solver"]["domain"]["x_left"] + self.configuration["solver"]["domain"]["x_right"])/2
         offset_y = (self.configuration["solver"]["domain"]["y_left"] + self.configuration["solver"]["domain"]["y_right"])/2
-        for phi in np.linspace(0, 2*math.pi, num=1000):
+        for phi in np.linspace(0, 2*math.pi, num=number_of_segments):
             analytic_boundary_x.append(r * math.cos(phi) + offset_x)
             analytic_boundary_y.append(r * math.sin(phi) + offset_y)
 
+        analytic_boundary_x.append(analytic_boundary_x[0])
+        analytic_boundary_y.append(analytic_boundary_y[0])
+
         return np.array(analytic_boundary_x), np.array(analytic_boundary_y)
 
-    def get_analytic_solution_wulff_shape(self, t, r0) -> Tuple[np.array, np.array]:
+    def get_analytic_solution_wulff_shape(self, t, r0, number_of_segments=1000) -> Tuple[np.array, np.array]:
         def psi(theta) -> float:
             theta_0 = self.configuration["anisotropy"]["theta_0"]
             m = self.configuration["anisotropy"]["m"]
@@ -436,11 +439,14 @@ class BoundaryPlotter2D(Plotter):
 
         offset_x = (self.configuration["solver"]["domain"]["x_left"] + self.configuration["solver"]["domain"]["x_right"])/2
         offset_y = (self.configuration["solver"]["domain"]["y_left"] + self.configuration["solver"]["domain"]["y_right"])/2
-        for theta in np.linspace(0, 2*math.pi, num=1000):
+        for theta in np.linspace(0, 2*math.pi, num=number_of_segments):
             x = r*(psi(theta)*math.cos(theta) - der_psi(theta)*math.sin(theta))
             y = r*(psi(theta)*math.sin(theta) + der_psi(theta)*math.cos(theta))
             analytic_boundary_x.append(x + offset_x)
             analytic_boundary_y.append(y + offset_y)
+
+        analytic_boundary_x.append(analytic_boundary_x[0])
+        analytic_boundary_y.append(analytic_boundary_y[0])
 
         return np.array(analytic_boundary_x), np.array(analytic_boundary_y)
 
