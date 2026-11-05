@@ -10,13 +10,12 @@ import argparse
 import matplotlib
 from dataset import Dataset
 from plotter import Plotter, BoundaryPlotter2D, SurfacePlotter, CutPlotter
+from boundary import ANALYTIC_INITIAL_CONDITIONS
 
 RESULTS_FOLDER = Path("results")
 PLOT_TYPES = ["phase", "conc", "both"]
 # Force terms for which the concentration is not computed (its RHS is zero), so there is nothing to draw.
 FORCE_TERMS_WITHOUT_CONCENTRATION = ("radial", "constant")
-# Initial conditions of the radial force term with a known analytic solution.
-ANALYTIC_INITIAL_CONDITIONS = ("WulffShape", "ConstantCircle", "Circle")
 
 
 def use_headless_backend() -> None:
@@ -83,9 +82,11 @@ def decide_drawing(configuration: dict, plot_type: str) -> DrawingPlan:
                   "so there is nothing to draw.")
         draw_concentration = False
 
-    draw_analytic_boundary = ((force_type == "constant" and configuration["force_term"]["size"] == 0)
-                              or (force_type == "radial"
-                                  and initial_condition in ANALYTIC_INITIAL_CONDITIONS))
+    # The analytic boundary needs both the initial condition and the force term to have an analytic solution
+    # (the force term: radial, or constant with the size 0).
+    draw_analytic_boundary = (initial_condition in ANALYTIC_INITIAL_CONDITIONS
+                              and ((force_type == "constant" and configuration["force_term"]["size"] == 0)
+                                   or force_type == "radial"))
 
     return DrawingPlan(draw_phase=plot_type in ("phase", "both"),
                        draw_concentration=draw_concentration,

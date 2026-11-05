@@ -3,11 +3,11 @@ from contextlib import ExitStack
 from pathlib import Path
 import math
 import numpy as np
-import contourpy
 import matplotlib.pyplot as plt
 from matplotlib import animation
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 from dataset import Dataset
+from boundary import Boundary, join_curves
 
 
 class Plotter():
@@ -113,11 +113,8 @@ class BoundaryPlotter2D(Plotter):
         self.title = self.ax.set_title("t = 0")
         self.output_name_tag = "_" + self.data_drawn + "_2D_"
 
-        # Coordinates of the grid lines (in the data x changes fastest). They are copied, so the whole
-        # frame is not kept in memory by them.
-        grid_shape = (self.configuration["solver"]["sizeY"], self.configuration["solver"]["sizeX"])
-        self.grid_x_lines = np.array(x.reshape(grid_shape)[0])
-        self.grid_y_lines = np.array(y.reshape(grid_shape)[:, 0])
+        # The curves of the boundary (of the phase) come from here, the plotter only draws them.
+        self.boundary = Boundary(dataset)
 
         #self.ax.vlines(np.unique(x), x.min(), x.max(), colors='gray', alpha=0.6)
         #self.ax.hlines(np.unique(y), y.min(), y.max(), colors='gray', alpha=0.6)
@@ -154,7 +151,7 @@ class BoundaryPlotter2D(Plotter):
         #self.ax.legend()
 
     def update(self, frame: int):
-        x, y, value = self._load_data(frame)
+        _, _, value = self._load_data(frame)
         self.set_time_title(frame, self.title)
 
         print("Updating frame: ", frame)
@@ -165,294 +162,17 @@ class BoundaryPlotter2D(Plotter):
             artist.append(self.function_im)
 
         if self.draw_num_boundary:
-            num_curves = self.find_boundary_curves(x, y, value, threshold=0.5)
-            self.num_bound_sc.set_data(*self.join_curves(num_curves, separate_by_nan=True))
+            curves = self.boundary.numerical_curves(frame)
+            self.num_bound_sc.set_data(*join_curves(curves, separate_by_nan=True))
             artist.append(self.num_bound_sc)
-            self.save_boundary_points("interface_num.crv", *self.join_curves(num_curves), frame)
-            #Carefull the boundary is saved during animation and also during showing saving one frame. Could pose problems.
-            # TODO: solve that
 
         if self.draw_analit_boundary:
-            analytic_curves = self.get_analytic_curves(frame*self.time_step)
-            self.anal_bound_sc.set_data(*self.join_curves(analytic_curves, separate_by_nan=True))
+            curves = self.boundary.analytic_curves(frame)
+            self.anal_bound_sc.set_data(*join_curves(curves, separate_by_nan=True))
             artist.append(self.anal_bound_sc)
-            self.save_boundary_points("interface_anal.crv", *self.join_curves(analytic_curves), frame)
 
         artist.append(self.title)
         return artist
-
-    def find_boundary_curves(self, x, y, phase_values, threshold=0.5) -> List[np.ndarray]:
-        """
-        Finds the boundary, i.e. the level "threshold" of the phase, as a list of curves.
-
-        The phase is interpolated linearly along the edges of the grid. The points of the curves are the points
-        on the edges where the interpolated phase equals the threshold. The curves are found by contourpy,
-        which returns the points already ordered along every curve. A closed curve ends with its first point
-        again. A curve that reaches the border of the domain is open.
-
-        Returns:
-            List of arrays of the shape (number of points, 2), the columns are x and y.
-        """
-        # In the data x changes fastest, so the shape is (sizeY, sizeX): the first index
-        # of the grid is the position in y, the second one the position in x.
-        grid_shape = (self.configuration["solver"]["sizeY"],
-                      self.configuration["solver"]["sizeX"])
-        grid_x = x.reshape(grid_shape)
-        grid_y = y.reshape(grid_shape)
-        grid_values = phase_values.reshape(grid_shape)
-
-        generator = contourpy.contour_generator(grid_x[0], grid_y[:, 0], grid_values)
-        return generator.lines(threshold)
-
-    def join_curves(self, curves: List[np.ndarray], separate_by_nan: bool=False) -> Tuple[np.ndarray, np.ndarray]:
-        """
-        Puts the curves one after another into one pair of arrays (x, y).
-
-        A closed curve already ends with its first point. With separate_by_nan a NaN point is inserted
-        between the curves, so a line that is plotted from the result is interrupted there.
-        """
-        parts = []
-        for curve in curves:
-            if separate_by_nan and len(parts) > 0:
-                parts.append(np.full((1, 2), np.nan))
-            parts.append(curve)
-        if len(parts) == 0:
-            return np.array([]), np.array([])
-        joined = np.vstack(parts)
-        return joined[:, 0], joined[:, 1]
-    
-    def save_boundary_points(
-        self,
-        file_name: str,
-        boundary_x: np.array,
-        boundary_y: np.array,
-        frame: int,
-    ) -> None:
-        self.check_for_info_folder()
-        output_file = Path(self.folder) / "info" / file_name
-        time_level = self.dataset.time(frame)
-
-        mode = "w" if frame == 0 else "a"
-        with output_file.open(mode, encoding="utf-8") as file:
-            file.write(f"# Time level T =  {time_level:.6f}\n")
-            for x, y in zip(boundary_x, boundary_y):
-                file.write(f"    {x:.17g}   {y:.17g}\n")
-            file.write("##\n\n")
-
-    def reset_draw_settings(self,
-                            draw_function: bool=False,
-                            draw_num_boundary: bool=True,
-                            draw_anal_boundary: bool=False,
-                            data_drawn: str="phase") -> None:
-        self.draw_function = draw_function
-        self.draw_num_boundary = draw_num_boundary
-        self.draw_analit_boundary = draw_anal_boundary
-
-        self.data_drawn = data_drawn
-        self.output_name_tag = "_" + self.data_drawn + "_3D_"
-        if self.draw_function:
-            self.output_name_tag = self.output_name_tag + "f"
-        if self.draw_num_boundary:
-            self.output_name_tag = self.output_name_tag + "n"
-        if self.draw_analit_boundary:
-            self.output_name_tag = self.output_name_tag + "a"
-
-    def get_analytic_curves(self, t) -> List[np.ndarray]:
-        """
-        The boundary of the analytic solution at the time t as a list of curves, like find_boundary_curves.
-
-        The points of the curves are the exact intersections of the analytic boundary with the lines of the grid
-        (x = const and y = const through the grid points). So they lie on the same edges of the grid as the points
-        of the numerical boundary and they are spaced in the same way. Only the part of the boundary inside
-        the domain is returned. The list is empty if there is no shape.
-        """
-        smallest_step = min(np.diff(self.grid_x_lines).min(), np.diff(self.grid_y_lines).min())
-
-        # The exact boundary is replaced by a polyline whose segments are much shorter than the grid step,
-        # so the error of this replacement is negligible.
-        number_of_segments = 2000
-        while True:
-            curve_x, curve_y = self.get_analytic_solution(t, number_of_segments)
-            if len(curve_x) == 0:
-                return []
-            if np.hypot(np.diff(curve_x), np.diff(curve_y)).max() <= smallest_step / 50:
-                break
-            number_of_segments *= 2
-            if number_of_segments > 100_000_000:
-                raise RuntimeError("The analytic boundary cannot be approximated by a fine enough polyline.")
-        return self.crossings_with_grid_lines(curve_x, curve_y)
-
-    def crossings_with_grid_lines(self, curve_x, curve_y) -> List[np.ndarray]:
-        """
-        Finds the points where a closed polyline crosses the lines of the grid, ordered along the polyline.
-
-        The polyline has to be closed (its last point is its first point) and its segments have to be shorter
-        than the grid step. Only the points inside the domain are kept. If the whole polyline is inside
-        the domain, the result is one closed curve (it ends with its first point). Otherwise the result are open
-        curves, one for every part of the polyline that lies inside the domain.
-        """
-        grid_x, grid_y = self.grid_x_lines, self.grid_y_lines
-        n = len(curve_x) - 1  # number of the segments
-
-        # Number of the grid lines that are not above the coordinate, i.e. between which lines the coordinate is.
-        strip_x = np.searchsorted(grid_x, curve_x, side="right")
-        strip_y = np.searchsorted(grid_y, curve_y, side="right")
-        if np.abs(np.diff(strip_x)).max() > 1 or np.abs(np.diff(strip_y)).max() > 1:
-            raise RuntimeError("A segment of the polyline crosses more lines of the grid, it is too long.")
-
-        # Crossings with the vertical lines (x = const): the segments whose ends lie in different strips.
-        segment_v = np.nonzero(strip_x[:-1] != strip_x[1:])[0]
-        line_x = grid_x[np.minimum(strip_x[segment_v], strip_x[segment_v + 1])]
-        position_v = (line_x - curve_x[segment_v]) / (curve_x[segment_v + 1] - curve_x[segment_v])
-        point_v = np.column_stack((line_x, curve_y[segment_v]
-                                   + position_v * (curve_y[segment_v + 1] - curve_y[segment_v])))
-        # Crossings with the horizontal lines (y = const).
-        segment_h = np.nonzero(strip_y[:-1] != strip_y[1:])[0]
-        line_y = grid_y[np.minimum(strip_y[segment_h], strip_y[segment_h + 1])]
-        position_h = (line_y - curve_y[segment_h]) / (curve_y[segment_h + 1] - curve_y[segment_h])
-        point_h = np.column_stack((curve_x[segment_h]
-                                   + position_h * (curve_x[segment_h + 1] - curve_x[segment_h]), line_y))
-
-        # All the crossings in the order along the polyline: by the segment, inside a segment by the position.
-        segment = np.concatenate((segment_v, segment_h))
-        points = np.vstack((point_v, point_h))
-        order = np.lexsort((np.concatenate((position_v, position_h)), segment))
-        segment, points = segment[order], points[order]
-
-        def in_domain(x, y):
-            return (x >= grid_x[0]) & (x <= grid_x[-1]) & (y >= grid_y[0]) & (y <= grid_y[-1])
-
-        inside = in_domain(curve_x, curve_y)  # for the points of the polyline
-        if not inside.any():
-            return []
-
-        closed = inside.all()
-        if closed:
-            groups = [points]
-        else:
-            # The parts of the polyline inside the domain are numbered. A crossing belongs to the part of
-            # its segment that is inside, crossings outside of the domain are dropped.
-            inside_vertex = inside[:n]
-            run = np.cumsum(inside_vertex & ~np.roll(inside_vertex, 1))
-            first_inside, second_inside = inside[segment], inside[segment + 1]
-            point_run = np.where(first_inside, run[segment], run[(segment + 1) % n])
-            keep = (first_inside | second_inside) & in_domain(points[:, 0], points[:, 1])
-            points, point_run = points[keep], point_run[keep]
-
-            groups = [points[point_run == number] for number in range(1, run.max() + 1)]
-            if inside_vertex[0] and inside_vertex[-1]:
-                # The last part continues in the first one (the numbering starts at its beginning from 0).
-                groups[-1] = np.vstack((groups[-1], points[point_run == 0]))
-
-        curves = []
-        for group in groups:
-            # The same point can be found twice (the polyline goes exactly through a point of the grid).
-            different = np.ones(len(group), dtype=bool)
-            different[1:] = np.any(group[1:] != group[:-1], axis=1)
-            group = group[different]
-            if closed:
-                if len(group) > 1 and np.all(group[-1] == group[0]):
-                    group = group[:-1]
-                if len(group) > 0:
-                    group = np.vstack((group, group[:1]))  # closed by the first point
-            if len(group) >= 2:
-                curves.append(group)
-        return curves
-
-    def get_analytic_solution(self, t, number_of_segments=1000) -> Tuple[np.array, np.array]:
-        """The analytic boundary as a closed polyline with number_of_segments segments (x and y coordinates)."""
-        # The radius is relative to the shorter side of the domain, the same as in the solver (Parameters.cu).
-        domain = self.configuration["solver"]["domain"]
-        smaller_side = min(domain["x_right"] - domain["x_left"],
-                           domain["y_right"] - domain["y_left"])
-        r0 = self.configuration["init_cond"]["radius_proportion"] * smaller_side
-        if self.configuration["init_cond"]["initial_condition"] == "ConstantCircle":
-            return self.get_analytic_solution_circle(t, r0, number_of_segments)
-        elif self.configuration["init_cond"]["initial_condition"] == "WulffShape":
-            return self.get_analytic_solution_wulff_shape(t, r0, number_of_segments)
-        else:
-            raise ValueError("Wrong initial condition for analytic solution.")
-
-    def get_analytic_solution_circle(self, t, r0, number_of_segments=1000) -> Tuple[np.array, np.array]:
-        def r_squared_for_force_0(t) -> float:
-            return r0**2 - 2*t
-
-        def r_squared_for_force_radial(t) -> float:
-            return r0**2 + 2*t
-
-        def r_used(t) -> float:
-            pass
-
-        if self.configuration["force_term"]["type"] == "constant" and self.configuration["force_term"]["size"] == 0:
-            r_used = r_squared_for_force_0
-        elif self.configuration["force_term"]["type"] == "radial":
-            r_used = r_squared_for_force_radial
-        else:
-            return np.array([]), np.array([])
-
-        # There is no shape.
-        if r_used(t) < 0:
-            return np.array([]), np.array([])
-        r = math.sqrt(r_used(t))
-
-        # Locating boundary points
-
-        offset_x = (self.configuration["solver"]["domain"]["x_left"] + self.configuration["solver"]["domain"]["x_right"])/2
-        offset_y = (self.configuration["solver"]["domain"]["y_left"] + self.configuration["solver"]["domain"]["y_right"])/2
-        phi = np.linspace(0, 2*math.pi, num=number_of_segments, endpoint=False)
-        analytic_boundary_x = r * np.cos(phi) + offset_x
-        analytic_boundary_y = r * np.sin(phi) + offset_y
-
-        # The curve is closed by its first point.
-        return (np.append(analytic_boundary_x, analytic_boundary_x[0]),
-                np.append(analytic_boundary_y, analytic_boundary_y[0]))
-
-    def get_analytic_solution_wulff_shape(self, t, r0, number_of_segments=1000) -> Tuple[np.array, np.array]:
-        def psi(theta) -> float:
-            theta_0 = self.configuration["anisotropy"]["theta_0"]
-            m = self.configuration["anisotropy"]["m"]
-            A = self.configuration["anisotropy"]["A"]
-            return 1 + A*np.cos(m*(theta - theta_0))
-        
-        def der_psi(theta) -> float:
-            theta_0 = self.configuration["anisotropy"]["theta_0"]
-            m = self.configuration["anisotropy"]["m"]
-            A = self.configuration["anisotropy"]["A"]
-            return -m*A*np.sin(m*(theta - theta_0))
-        
-        def r_squared_for_force_0(t) -> float:
-            return r0**2 - 2*t
-
-        def r_squared_for_force_radial(t) -> float:
-            return r0**2 + 2*t
-
-        def r_used(t) -> float:
-            pass
-
-        if self.configuration["force_term"]["type"] == "constant" and self.configuration["force_term"]["size"] == 0:
-            r_used = r_squared_for_force_0
-        elif self.configuration["force_term"]["type"] == "radial":
-            r_used = r_squared_for_force_radial
-        else:
-            return np.array([]), np.array([])
-
-        # There is no shape.
-        if r_used(t) < 0:
-            return np.array([]), np.array([])
-        r = math.sqrt(r_used(t))
-
-        theta_0 = self.configuration["anisotropy"]["theta_0"]
-        # Locating boundary points
-
-        offset_x = (self.configuration["solver"]["domain"]["x_left"] + self.configuration["solver"]["domain"]["x_right"])/2
-        offset_y = (self.configuration["solver"]["domain"]["y_left"] + self.configuration["solver"]["domain"]["y_right"])/2
-        theta = np.linspace(0, 2*math.pi, num=number_of_segments, endpoint=False)
-        analytic_boundary_x = r*(psi(theta)*np.cos(theta) - der_psi(theta)*np.sin(theta)) + offset_x
-        analytic_boundary_y = r*(psi(theta)*np.sin(theta) + der_psi(theta)*np.cos(theta)) + offset_y
-
-        # The curve is closed by its first point.
-        return (np.append(analytic_boundary_x, analytic_boundary_x[0]),
-                np.append(analytic_boundary_y, analytic_boundary_y[0]))
 
 class SurfacePlotter(Plotter):
     """Plotter of graph of a function of two variables."""

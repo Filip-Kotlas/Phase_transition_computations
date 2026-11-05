@@ -59,7 +59,7 @@ python3 python/plot.py --name MyRun --frame 10 --type phase   # --frame last wor
   - `parameters.tex`
   - generated PNGs and GIFs.
 
-**Python (`python/plotter.py`):** `Plotter` base class with `BoundaryPlotter2D` (the 0.5-level contour, which can be overlaid with the analytic circle or Wulff boundary and saved as boundary points), `SurfacePlotter` (3D) and `CutPlotter` (1D cut). `python/cli.py` is shared by `basic_plot.py` and `plot.py`: it holds the common arguments, `decide_drawing` (whether to draw concentration plots and the analytic boundary, from `force_term.type` and the `initial_condition` name) and `build_plotters`.
+**Python (`python/plotter.py`):** `Plotter` base class with `BoundaryPlotter2D` (draws the 0.5-level contour, which can be overlaid with the analytic circle or Wulff boundary), `SurfacePlotter` (3D) and `CutPlotter` (1D cut). The boundary computation does not live in the plotters: `python/boundary.py` has the class `Boundary` (numerical curves from contourpy, analytic curves) and `write_boundary_files`, which `basic_plot.py` calls once to write `info/interface_num.crv` and `interface_anal.crv` for all frames (the files are always rewritten from scratch; `plot.py` never writes them). `python/cli.py` is shared by `basic_plot.py` and `plot.py`: it holds the common arguments, `decide_drawing` (whether to draw concentration plots and the analytic boundary, from `force_term.type` and the `initial_condition` name) and `build_plotters`.
 
 ## Common extension points
 
@@ -67,6 +67,6 @@ python3 python/plot.py --name MyRun --frame 10 --type phase   # --frame last wor
   1. Add it to `ICType` in `include/enums.hpp`, before `Count`.
   2. Add both string conversions in `src/enums.cu`.
   3. Add a `case` in `InitialCondition::get_phase` (and `get_concentration` if needed) in `src/InitialCondition.cu`.
-  4. If it has an analytic solution, update `decide_drawing` in `python/cli.py` and `BoundaryPlotter2D`.
+  4. If it has an analytic solution, add its name to `ANALYTIC_INITIAL_CONDITIONS` and handle it in `analytic_polyline` (both in `python/boundary.py`; `decide_drawing` in `python/cli.py` uses the list).
 - **New config parameter:** add a field in `include/Parameters.hpp`, then read it in `Parameters::load`. Also add it to `save_human_readable` and `save_for_latex` so runs stay self-documenting.
 - **Initial condition from file:** with `init_cond_from_file: true`, the path is resolved relative to the run's `calculations/` folder and the file must use the `Result-*.txt` format. `scaling: true` embeds a grid with half the resolution into the centre of the domain.

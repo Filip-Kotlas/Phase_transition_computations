@@ -3,6 +3,7 @@ import argparse
 from cli import (add_common_arguments, frame_number, use_headless_backend, load_dataset,
                  decide_drawing, build_plotters, resolve_frames, render)
 from plotter import save_animations
+from boundary import write_boundary_files
 
 DEFAULT_FRAMES = [0, 1, 5, 10, 25, 50, 75, 100, 250, 500, 1000, "last"]
 
@@ -37,6 +38,9 @@ def main(argv=None) -> None:
     if not plotters:
         print("Nothing to plot.")
         return
+
+    if plan.draw_phase:
+        write_boundary_files(dataset, plan.draw_analytic_boundary)
 
     frames = resolve_frames(DEFAULT_FRAMES if args.frames is None else args.frames,
                             dataset.get_max_frame_number(),
