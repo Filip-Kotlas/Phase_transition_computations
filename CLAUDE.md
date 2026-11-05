@@ -26,8 +26,9 @@ make clean
 
 Plotting (it runs from the repo root and needs `results/<name>/info/config.json`):
 ```bash
-python3 python/basic_plot.py --name MyRun --type both   # selected frames + GIF animations into results/MyRun/info/
-python3 python/plot.py --name MyRun --frame 10 --type phase
+python3 python/basic_plot.py --name MyRun --type both   # selected frames + animations (mp4, or gif without ffmpeg) into results/MyRun/info/
+python3 python/basic_plot.py --name MyRun --frames 0 50 last --format gif
+python3 python/plot.py --name MyRun --frame 10 --type phase   # --frame last works too, --no-save opens a window instead of saving
 ```
 `python/graphs/*.py` are standalone scripts for thesis figures. They use LaTeX text rendering.
 
@@ -58,7 +59,7 @@ python3 python/plot.py --name MyRun --frame 10 --type phase
   - `parameters.tex`
   - generated PNGs and GIFs.
 
-**Python (`python/plotter.py`):** `Plotter` base class with `BoundaryPlotter2D` (the 0.5-level contour, which can be overlaid with the analytic circle or Wulff boundary and saved as boundary points), `SurfacePlotter` (3D) and `CutPlotter` (1D cut). `basic_plot.py` decides whether to draw concentration plots and the analytic boundary from `force_term.type` and the `initial_condition` name.
+**Python (`python/plotter.py`):** `Plotter` base class with `BoundaryPlotter2D` (the 0.5-level contour, which can be overlaid with the analytic circle or Wulff boundary and saved as boundary points), `SurfacePlotter` (3D) and `CutPlotter` (1D cut). `python/cli.py` is shared by `basic_plot.py` and `plot.py`: it holds the common arguments, `decide_drawing` (whether to draw concentration plots and the analytic boundary, from `force_term.type` and the `initial_condition` name) and `build_plotters`.
 
 ## Common extension points
 
@@ -66,6 +67,6 @@ python3 python/plot.py --name MyRun --frame 10 --type phase
   1. Add it to `ICType` in `include/enums.hpp`, before `Count`.
   2. Add both string conversions in `src/enums.cu`.
   3. Add a `case` in `InitialCondition::get_phase` (and `get_concentration` if needed) in `src/InitialCondition.cu`.
-  4. If it has an analytic solution, update `basic_plot.py` and `BoundaryPlotter2D`.
+  4. If it has an analytic solution, update `decide_drawing` in `python/cli.py` and `BoundaryPlotter2D`.
 - **New config parameter:** add a field in `include/Parameters.hpp`, then read it in `Parameters::load`. Also add it to `save_human_readable` and `save_for_latex` so runs stay self-documenting.
 - **Initial condition from file:** with `init_cond_from_file: true`, the path is resolved relative to the run's `calculations/` folder and the file must use the `Result-*.txt` format. `scaling: true` embeds a grid with half the resolution into the centre of the domain.

@@ -1,64 +1,39 @@
-from pathlib import Path
+"""Plots one given frame of the computed results both in 2D and 3D."""
 import argparse
-from plotter import BoundaryPlotter2D, SurfacePlotter, CutPlotter
-from dataset import Dataset
-
-parser = argparse.ArgumentParser(description="Plots a given frame of the computed results both in \
-                                 2D and 3D.")
-parser.add_argument("--name",
-                    type=str,
-                    help="Name of the folder with results. Has to be in results folder.",
-                    default="Results")
-parser.add_argument("--frame",
-                    type=int,
-                    help="Number of the frame to be shown.",
-                    default=0)
-parser.add_argument("--type",
-                    type=str,
-                    help="Write what you want plotted. Options: conc, phase, both.",
-                    default="both")
-parser.add_argument("--save",
-                    type=bool,
-                    help="If True, saves the plotted frame as png file. If False, shows the frame in a window.",
-                    default=True)
-args = parser.parse_args()
+from cli import (add_common_arguments, frame_number, use_headless_backend, load_dataset,
+                 decide_drawing, build_plotters, resolve_frames, render)
 
 
-results_path = Path()
-results_path = results_path.parent / "results" / args.name
-dataset = Dataset(results_path)
+def parse_arguments(argv=None) -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description="Plots a given frame of the computed results both in "
+                                                 "2D and 3D.")
+    add_common_arguments(parser)
+    parser.add_argument("--frame",
+                        type=frame_number,
+                        help="Number of the frame to be plotted, or 'last' for the last frame.",
+                        default=0)
+    parser.add_argument("--save",
+                        action=argparse.BooleanOptionalAction,
+                        help="Save the plotted frame as an image (default), or with --no-save show "
+                             "it in a window.",
+                        default=True)
+    return parser.parse_args(argv)
 
-if args.type in ("phase", "both"):
-    plotter = BoundaryPlotter2D(dataset, False, True, False, "phase")
+
+def main(argv=None) -> None:
+    args = parse_arguments(argv)
     if args.save:
-        plotter.save_frame(args.frame)
-    else:
-        plotter.show_frame(args.frame)
-    plotter = SurfacePlotter(dataset, "phase")
-    if args.save:
-        plotter.save_frame(args.frame)
-    else:
-        plotter.show_frame(args.frame)
-    plotter = CutPlotter(dataset, "phase", "x", 0.5, False)
-    if args.save:
-        plotter.save_frame(args.frame)
-    else:
-        plotter.show_frame(args.frame)
-if args.type in ("conc", "both"):
-    plotter = BoundaryPlotter2D(dataset, True, False, False, "concentration")
-    if args.save:
-        plotter.save_frame(args.frame)
-    else:
-        plotter.show_frame(args.frame)
-    plotter = CutPlotter(dataset, "concentration", "x", 0.5, False)
-    if args.save:
-        plotter.save_frame(args.frame)
-    else:
-        plotter.show_frame(args.frame)
-    plotter = SurfacePlotter(dataset, "concentration")
-    if args.save:
-        plotter.save_frame(args.frame)
-    else:
-        plotter.show_frame(args.frame)
-else:
-    raise ValueError("Wrong argument given.")
+        use_headless_backend()
+
+    dataset = load_dataset(args.name)
+    frames = resolve_frames([args.frame], dataset.get_max_frame_number(), report_unavailable=True)
+    if not frames:
+        return
+
+    plan = decide_drawing(dataset.configuration, args.type)
+    for plotter in build_plotters(dataset, plan):
+        render(plotter, frames[0], args.save)
+
+
+if __name__ == "__main__":
+    main()

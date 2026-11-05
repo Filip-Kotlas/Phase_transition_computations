@@ -1,72 +1,52 @@
-"""Plots elementar plots of the calculations."""
-from pathlib import Path
+"""Plots elementary plots of the calculations: selected frames and animations."""
 import argparse
-from plotter import BoundaryPlotter2D, SurfacePlotter, CutPlotter, save_animations
-from dataset import Dataset
+from cli import (add_common_arguments, frame_number, use_headless_backend, load_dataset,
+                 decide_drawing, build_plotters, resolve_frames, render)
+from plotter import save_animations
 
-parser = argparse.ArgumentParser(description="Plots frames 0, 10, 50, 100 and creates\
-                                              animation of the computed results both in 2D and 3D.")
-parser.add_argument("--name",
-                    type=str,
-                    help="Name of the folder with results. Has to be in results folder.",
-                    default="Results")
-parser.add_argument("--type",
-                    type=str,
-                    help="Choose what will be plotted. Options: conc, phase, both",
-                    default="both")
-parser.add_argument("--format",
-                    type=str,
-                    choices=["auto", "mp4", "gif"],
-                    help="Format of the animations. auto = mp4 if ffmpeg is available, otherwise gif.",
-                    default="auto")
-args = parser.parse_args()
+DEFAULT_FRAMES = [0, 1, 5, 10, 25, 50, 75, 100, 250, 500, 1000, "last"]
 
-results_path = Path()
-results_path = results_path.parent / "results" / args.name
 
-if not results_path.exists():
-    raise FileNotFoundError(f"Soubor {results_path} neexistuje!")
-dataset = Dataset(results_path)
-configuration = dataset.configuration
+def parse_arguments(argv=None) -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description="Plots selected frames and creates animations of the "
+                                                 "computed results both in 2D and 3D.")
+    add_common_arguments(parser)
+    parser.add_argument("--format",
+                        type=str,
+                        choices=["auto", "mp4", "gif"],
+                        help="Format of the animations. auto = mp4 if ffmpeg is available, otherwise gif.",
+                        default="auto")
+    parser.add_argument("--frames",
+                        type=frame_number,
+                        nargs="+",
+                        metavar="FRAME",
+                        help="Frames to be saved as images, numbers or 'last' for the last frame "
+                             "(default: " + " ".join(str(frame) for frame in DEFAULT_FRAMES) + "). "
+                             "Frames that do not exist are skipped.",
+                        default=None)
+    return parser.parse_args(argv)
 
-draw_concentration = args.type in ("conc", "both")
-if configuration["force_term"]["type"] in ("radial", "constant"):
-    draw_concentration = False
 
-draw_anal_bound = False
-if ((configuration["force_term"]["type"] == "constant"
-     and configuration["force_term"]["size"] == 0) 
-    or (configuration["force_term"]["type"] == "radial"
-        and (configuration["init_cond"]["initial_condition"] == "WulffShape"
-             or configuration["init_cond"]["initial_condition"] == "ConstantCircle"
-             or configuration["init_cond"]["initial_condition"] == "Circle"))):
-    draw_anal_bound = True
+def main(argv=None) -> None:
+    args = parse_arguments(argv)
+    use_headless_backend()
 
-boundary_plotter = BoundaryPlotter2D(dataset, False, True, draw_anal_bound, "phase")
-concentration_2D_plotter = BoundaryPlotter2D(dataset, True, False, False, "concentration")
-phase_surface_plotter = SurfacePlotter(dataset, "phase")
-concentration_surface_plotter = SurfacePlotter(dataset, "concentration")
-concentration_cut_plotter = CutPlotter(dataset, "concentration", "x", 0.5, False)
-phase_cut_plotter = CutPlotter(dataset, "phase", "x", 0.5, False)
-for i in [0, 1, 5, 10, 25, 50, 75, 100, 250, 500, 1000, boundary_plotter.get_max_frame_number()]:
-    if args.type in ("phase", "both"):
-        boundary_plotter.save_frame(i)
-        phase_cut_plotter.save_frame(i)
-        phase_surface_plotter.save_frame(i)
+    dataset = load_dataset(args.name)
+    plan = decide_drawing(dataset.configuration, args.type)
+    plotters = build_plotters(dataset, plan)
+    if not plotters:
+        print("Nothing to plot.")
+        return
 
-    if draw_concentration:
-        concentration_surface_plotter.save_frame(i)
-        concentration_cut_plotter.save_frame(i)
-        concentration_2D_plotter.save_frame(i)
+    frames = resolve_frames(DEFAULT_FRAMES if args.frames is None else args.frames,
+                            dataset.get_max_frame_number(),
+                            report_unavailable=args.frames is not None)
+    for frame in frames:
+        for plotter in plotters:
+            render(plotter, frame, save=True)
 
-animated_plotters = []
-if draw_concentration:
-    animated_plotters += [concentration_cut_plotter, concentration_surface_plotter, concentration_2D_plotter]
+    save_animations(plotters, args.format)
 
-if args.type in ("phase", "both"):
-    animated_plotters += [boundary_plotter, phase_surface_plotter, phase_cut_plotter]
 
-save_animations(animated_plotters, args.format)
-
-if args.type not in ("phase", "conc", "both"):
-    raise ValueError("Wrong argument for type.")
+if __name__ == "__main__":
+    main()
