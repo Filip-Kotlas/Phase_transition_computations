@@ -1,7 +1,11 @@
 TARGET ?= Phase-field
 FOLDER ?= Results
 
-BUILD_DIR := ./build
+BUILD_ROOT := ./build
+# Compute capability of the GPU on the build machine (e.g. 86). Objects are kept in a
+# separate folder per GPU type, so a shared home directory cannot mix up architectures.
+GPU_TAG := $(shell nvidia-smi --query-gpu=compute_cap --format=csv,noheader 2>/dev/null | head -n 1 | tr -d '. \r')
+BUILD_DIR := $(BUILD_ROOT)/sm_$(or $(GPU_TAG),generic)
 INCLUDE_DIR := -I./include -I~/.local/include
 SRC_DIR := ./src
 RESULTS_DIR := ./results
@@ -12,9 +16,14 @@ DELETE_CALCS ?= 0
 
 CONFIGS_DIR := ./comp_configurations
 CONFIG_TARGET := ./config/config.json
+# Commit recorded in parameters.txt. On the cluster there is no .git folder, so cluster.sh passes it in.
+GIT_COMMIT ?= $(shell git rev-parse --short HEAD 2>/dev/null || echo unknown)
+# Config file the program reads (make run CONFIG=path/to/other.json)
+CONFIG ?= $(CONFIG_TARGET)
 
-# CUDA architektura pro NVIDIA Hopper (H100) solves problematic driver, doesnt work on other architectures
-CUDA_ARCH := -gencode arch=compute_86,code=sm_86
+# Compile for the GPU that is present on the build machine (needs a reasonably recent nvcc).
+# To force one architecture: make CUDA_ARCH="-gencode arch=compute_86,code=sm_86"
+CUDA_ARCH ?= -arch=native
 
 COMPILER = nvcc
 COMPILER_FLAGS = -std=c++17 $(INCLUDE_DIR) -O3 --expt-relaxed-constexpr --extended-lambda -rdc=true $(CUDA_ARCH)
@@ -53,12 +62,11 @@ $(BUILD_DIR)/$(TARGET): $(OBJ)
 
 .PHONY: run
 run: $(BUILD_DIR)/$(TARGET)
-	$(BUILD_DIR)/$(TARGET) $(RESULTS_DIR)/$(FOLDER)
+	$(BUILD_DIR)/$(TARGET) $(RESULTS_DIR)/$(FOLDER) $(CONFIG)
 	echo "" >> $(RESULTS_DIR)/$(FOLDER)/$(PARAM_PATH)
 	echo -n "Run date: " >> $(RESULTS_DIR)/$(FOLDER)/$(PARAM_PATH)
 	date "+%d.%m.%Y %H:%M:%S" >> $(RESULTS_DIR)/$(FOLDER)/$(PARAM_PATH)
-	echo -n "Git commit: " >> $(RESULTS_DIR)/$(FOLDER)/$(PARAM_PATH)
-	git rev-parse --short HEAD >> $(RESULTS_DIR)/$(FOLDER)/$(PARAM_PATH)
+	echo "Git commit: $(GIT_COMMIT)" >> $(RESULTS_DIR)/$(FOLDER)/$(PARAM_PATH)
 	python3 $(PYTHON_DIR)/basic_plot.py --name $(FOLDER) --type both
 	@if [ "$(DELETE_CALCS)" = "1" ]; then \
 		dir="$(RESULTS_DIR)/$(FOLDER)/calculations"; \
@@ -84,4 +92,4 @@ run_all:
 
 .PHONY: clean
 clean:
-	rm -rf $(BUILD_DIR)/*
+	rm -rf $(BUILD_ROOT)/*

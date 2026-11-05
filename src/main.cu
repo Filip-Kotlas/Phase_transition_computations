@@ -13,10 +13,15 @@
 #include "enums.hpp"
 
 int main(int argc, char** argv) {
-    Parameters parameters = Parameters::load("config/config.json");
+    // usage: Phase-field [result_folder [config_file]]
     std::filesystem::path result_path = "Results";
-    if (argc == 2)
+    if (argc >= 2)
         result_path = argv[1];
+    std::filesystem::path input_config_path = "config/config.json";
+    if (argc >= 3)
+        input_config_path = argv[2];
+
+    Parameters parameters = Parameters::load(input_config_path);
 
     std::filesystem::path info_path   = result_path / "info";
     std::filesystem::path setup_path  = info_path / "parameters.txt";
@@ -35,7 +40,7 @@ int main(int argc, char** argv) {
     }
 
     parameters.save_human_readable(setup_path);
-    parameters.save_copy_of_config("config/config.json", config_path);
+    parameters.save_copy_of_config(input_config_path, config_path);
     parameters.save_for_latex(latex_path);
 
     Problem problem(parameters);
