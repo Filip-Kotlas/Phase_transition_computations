@@ -67,7 +67,7 @@ run: $(BUILD_DIR)/$(TARGET)
 	echo -n "Run date: " >> $(RESULTS_DIR)/$(FOLDER)/$(PARAM_PATH)
 	date "+%d.%m.%Y %H:%M:%S" >> $(RESULTS_DIR)/$(FOLDER)/$(PARAM_PATH)
 	echo "Git commit: $(GIT_COMMIT)" >> $(RESULTS_DIR)/$(FOLDER)/$(PARAM_PATH)
-	python3 $(PYTHON_DIR)/basic_plot.py --name $(FOLDER) --type both
+	python3 $(PYTHON_DIR)/basic_plot.py --name $(FOLDER) --type both || echo "WARNING: plotting failed, continuing"
 	@if [ "$(DELETE_CALCS)" = "1" ]; then \
 		dir="$(RESULTS_DIR)/$(FOLDER)/calculations"; \
 		if [ -d "$$dir" ]; then \

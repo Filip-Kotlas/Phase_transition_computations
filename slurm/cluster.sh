@@ -95,7 +95,25 @@ submit)
     rssh "cd '$REMOTE_DIR' && sbatch --export=ALL,FOLDER='$folder',CONFIG='$remote_cfg',DELETE_CALCS=$delete,GIT_COMMIT='$commit' slurm/run.sbatch"
     ;;
 status)
-    rssh 'squeue -u "$USER"'
+    # Queue plus progress of running jobs, read from the "Steps completed" lines that the
+    # solver prints into slurm-<jobid>.out. The remote script is sent on stdin.
+    "$SSH" "$CLUSTER_HOST" bash -s -- "$REMOTE_DIR" <<'REMOTE_SCRIPT'
+cd "$1" 2>/dev/null || { echo "Folder $1 does not exist on the cluster yet (nothing was submitted)."; exit 0; }
+squeue -u "$USER"
+for id in $(squeue -u "$USER" -h -t RUNNING -o %i); do
+    line=$(grep 'Steps completed' "slurm-$id.out" 2>/dev/null | tail -n 1)
+    if [ -z "$line" ]; then
+        echo "job $id: no progress yet (compiling or starting)"
+        continue
+    fi
+    pct=$(echo "$line" | sed -E 's/.*=> *([0-9.]+)%.*/\1/')
+    rem=$(echo "$line" | sed -E 's/.*Time remaining: *(.*[0-9]s) +Elapsed.*/\1/' | tr -s ' ')
+    case "$pct" in
+        100.00) echo "job $id: computation finished, now plotting" ;;
+        *)      echo "job $id: ${pct}% done, about ${rem} left" ;;
+    esac
+done
+REMOTE_SCRIPT
     ;;
 log)
     rssh "cd '$REMOTE_DIR' && tail -n 40 \"\$(ls -t slurm-*.out | head -1)\""

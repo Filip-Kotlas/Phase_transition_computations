@@ -1,6 +1,7 @@
 from pathlib import Path
 import argparse
 from plotter import BoundaryPlotter2D, SurfacePlotter, CutPlotter
+from dataset import Dataset
 
 parser = argparse.ArgumentParser(description="Plots a given frame of the computed results both in \
                                  2D and 3D.")
@@ -25,35 +26,36 @@ args = parser.parse_args()
 
 results_path = Path()
 results_path = results_path.parent / "results" / args.name
+dataset = Dataset(results_path)
 
 if args.type in ("phase", "both"):
-    plotter = BoundaryPlotter2D(results_path, False, True, False, "phase")
+    plotter = BoundaryPlotter2D(dataset, False, True, False, "phase")
     if args.save:
         plotter.save_frame(args.frame)
     else:
         plotter.show_frame(args.frame)
-    plotter = SurfacePlotter(results_path, "phase")
+    plotter = SurfacePlotter(dataset, "phase")
     if args.save:
         plotter.save_frame(args.frame)
     else:
         plotter.show_frame(args.frame)
-    plotter = CutPlotter(results_path, "phase", "x", 0.5, False)
+    plotter = CutPlotter(dataset, "phase", "x", 0.5, False)
     if args.save:
         plotter.save_frame(args.frame)
     else:
         plotter.show_frame(args.frame)
 if args.type in ("conc", "both"):
-    plotter = BoundaryPlotter2D(results_path, True, False, False, "concentration")
+    plotter = BoundaryPlotter2D(dataset, True, False, False, "concentration")
     if args.save:
         plotter.save_frame(args.frame)
     else:
         plotter.show_frame(args.frame)
-    plotter = CutPlotter(results_path, "concentration", "x", 0.5, False)
+    plotter = CutPlotter(dataset, "concentration", "x", 0.5, False)
     if args.save:
         plotter.save_frame(args.frame)
     else:
         plotter.show_frame(args.frame)
-    plotter = SurfacePlotter(results_path, "concentration")
+    plotter = SurfacePlotter(dataset, "concentration")
     if args.save:
         plotter.save_frame(args.frame)
     else:

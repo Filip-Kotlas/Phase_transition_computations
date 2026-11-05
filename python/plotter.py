@@ -1,66 +1,47 @@
 from typing import List, Tuple
+from contextlib import ExitStack
 from pathlib import Path
 import math
-import json
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib import animation
 from mpl_toolkits.axes_grid1 import make_axes_locatable
+from dataset import Dataset
 
 
 class Plotter():
     """Parent class of specialized plotters."""
-    def __init__(self, folder_path: str,
+    def __init__(self, dataset: Dataset,
                  data_drawn: str="phase") -> None:
-        self.folder = folder_path
-        calc_folder = Path(self.folder) / "calculations"
-        if not calc_folder.exists():
-            raise FileNotFoundError(f"Složka {calc_folder} neexistuje!")
-        self.file_paths = sorted([f for f in calc_folder.iterdir()])
+        self.dataset = dataset
+        self.folder = self.dataset.folder
+        self.file_paths = self.dataset.file_paths
+        self.configuration = self.dataset.configuration
 
         self.fig = None
         self.ax = None
         self.data_drawn = data_drawn
         self.output_name_tag = None
-        self.configuration = None
-        
-        config_path = Path(self.folder) / "info" / "config.json"
-        self._load_configuration(config_path)
 
-        self.time_step = self.calculate_time_step()
+        self.time_step = self.dataset.time_step
 
-    def _load_data(self, file_path: str) -> Tuple[List[float], List[float], List[float]]:
+    def _load_data(self, frame: int) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
         """
-        Loads data from a file.
-        
+        Loads data of one frame.
+
         Args:
-            file_path (str): Path of the file with data.
+            frame (int): Index of the frame.
 
         Returns:
-            x: List of "x" coordinates of the data.
-            y: List of "y" coordinates of the data.
-            value: List of values of the data based on the self.data_drawn variable.
+            x: "x" coordinates of the data.
+            y: "y" coordinates of the data.
+            value: Values of the data based on the self.data_drawn variable.
+            The arrays are read-only (they are shared through the cache of the dataset).
         """
-        data = np.loadtxt(file_path)
-        x = data[:, 0]
-        y = data[:, 1]
-        if self.data_drawn == "phase":
-            value = data[:, 2]
-        elif self.data_drawn == "concentration":
-            value = data[:, 3]
-        else:
-            raise ValueError("Wrong value for data_drawn given.")
-        return x, y, value
-
-    def _load_configuration(self, file_path: Path):
-        if not file_path.exists():
-            raise FileNotFoundError(f"Soubor {file_path} neexistuje!")
-
-        with file_path.open("r", encoding="utf-8") as file:
-            self.configuration = json.load(file)
+        return self.dataset.load(frame, self.data_drawn)
 
     def get_max_frame_number(self) -> int:
-        return len(self.file_paths) - 1
+        return self.dataset.get_max_frame_number()
 
     def check_for_info_folder(self) -> None:
         path_to_visual = Path(self.folder) / "info"
@@ -68,17 +49,10 @@ class Plotter():
             path_to_visual.mkdir(parents=True, exist_ok=True)
             print("Creating folder \"info\" in ", self.folder)
 
-    def calculate_time_step(self) -> float:
-        t0 = self.configuration["solver"]["initial_time"]
-        tf = self.configuration["solver"]["final_time"]
-        n  = max(len(self.file_paths) - 1, self.configuration["solver"]["frame_num"])
-        time_step = (tf - t0) / n
-        return time_step
-
     def set_time_title(self, frame: int, title) -> None:
         t0 = self.configuration["solver"]["initial_time"]
         tf = self.configuration["solver"]["final_time"]
-        t = t0 + self.time_step * frame
+        t = self.dataset.time(frame)
 
         # Zvol přesnost podle kroku (max 6 desetin)
         prec = max(0, -int(math.floor(math.log10(self.time_step)))) if self.time_step != 0 else 0
@@ -96,25 +70,8 @@ class Plotter():
     def update(self, frame: int):
         pass
 
-    def save_animation(self) -> None:
-        print("Preparing animation for", str(self.output_name_tag)[1:])
-        self.check_for_info_folder()
-
-        duration_s = 10
-        max_fps = 30  # horní limit kvůli velikosti souboru
-        num_frames = len(self.file_paths)
-
-        # podvzorkování snímků tak, aby výsledné fps nepřekročilo max_fps
-        step = max(1, int(np.ceil(num_frames / (duration_s * max_fps))))
-        frames = list(range(0, num_frames, step))
-
-        fps = max(1, int(round(len(frames) / duration_s)))
-
-        ani = animation.FuncAnimation(self.fig, self.update, frames=frames, blit=True)
-        output_file = Path(self.folder) / "info" / ("ACE" + self.output_name_tag + ".gif")
-        ani.save(output_file, writer=animation.PillowWriter(fps=fps))
-        print("Finished the animation. Saved at:", output_file)
-
+    def save_animation(self, file_format: str="auto") -> None:
+        save_animations([self], file_format)
 
     def save_frame(self, frame: int) -> None:
         if frame >= len(self.file_paths):
@@ -137,15 +94,15 @@ class Plotter():
 class BoundaryPlotter2D(Plotter):
     """Plotter of a 2D plot."""
     def __init__(self,
-                 folder_path: str,
+                 dataset: Dataset,
                  draw_function: bool=False,
                  draw_num_boundary: bool=True,
                  draw_analit_boundary: bool=False,
                  data_drawn: str="phase"):
-        super().__init__(folder_path,
+        super().__init__(dataset,
                          data_drawn)
 
-        x, y, _ = self._load_data(self.file_paths[0])
+        x, y, _ = self._load_data(0)
         self.fig, self.ax = plt.subplots()
         self.ax.set_xlabel(r"$x$")
         self.ax.set_ylabel(r"$y$")
@@ -163,11 +120,22 @@ class BoundaryPlotter2D(Plotter):
         self.draw_analit_boundary = draw_analit_boundary
 
         if self.draw_function:
-            self.function_sc = self.ax.scatter([], [], c=[], cmap='viridis', s=1, vmin=0.0, vmax=0.09)
+            # The values are drawn as an image, one pixel per grid point.
+            # In the data x changes fastest, so the values reshape to (sizeY, sizeX).
+            n_x = self.configuration["solver"]["sizeX"]
+            n_y = self.configuration["solver"]["sizeY"]
+            self.grid_shape = (n_y, n_x)
+            # The extent is given by the edges of the image, the grid points are the
+            # centres of the pixels, hence the half of a cell is added on each side.
+            half_hx = (x.max() - x.min()) / (n_x - 1) / 2
+            half_hy = (y.max() - y.min()) / (n_y - 1) / 2
+            extent = (x.min() - half_hx, x.max() + half_hx,
+                      y.min() - half_hy, y.max() + half_hy)
+            self.function_im = self.ax.imshow(np.zeros(self.grid_shape), origin="lower", extent=extent,
+                                              cmap='viridis', vmin=0.0, vmax=0.09)
             divider = make_axes_locatable(self.ax)
             cax = divider.append_axes("right", size="5%", pad=0.05)  # stejné výšky
-            self.colorbar = self.fig.colorbar(self.function_sc, cax=cax, label=r"$c$")
-            self.function_sc.set_offsets(np.column_stack((x, y)))
+            self.colorbar = self.fig.colorbar(self.function_im, cax=cax, label=r"$c$")
             self.output_name_tag += "f"
         if self.draw_num_boundary:
             self.num_bound_sc, = self.ax.plot([], [], color='orange', linestyle="-", label='Numerické řešení')
@@ -179,15 +147,15 @@ class BoundaryPlotter2D(Plotter):
         #self.ax.legend()
 
     def update(self, frame: int):
-        x, y, value = self._load_data(self.file_paths[frame])
+        x, y, value = self._load_data(frame)
         self.set_time_title(frame, self.title)
 
         print("Updating frame: ", frame)
         artist = []
 
         if self.draw_function:
-            self.function_sc.set_array(value)
-            artist.append(self.function_sc)
+            self.function_im.set_data(value.reshape(self.grid_shape))
+            artist.append(self.function_im)
 
         if self.draw_num_boundary:
             num_boundary_x, num_boundary_y = self.find_boundary_points(x, y, value, threshold=0.5)
@@ -325,8 +293,7 @@ class BoundaryPlotter2D(Plotter):
     ) -> None:
         self.check_for_info_folder()
         output_file = Path(self.folder) / "info" / file_name
-        initial_time = self.configuration["solver"]["initial_time"]
-        time_level = initial_time + frame * self.time_step
+        time_level = self.dataset.time(frame)
 
         mode = "w" if frame == 0 else "a"
         with output_file.open(mode, encoding="utf-8") as file:
@@ -454,14 +421,14 @@ class BoundaryPlotter2D(Plotter):
 class SurfacePlotter(Plotter):
     """Plotter of graph of a function of two variables."""
     def __init__(self,
-                 folder_path,
+                 dataset: Dataset,
                  data_drawn: str="concentration"):
-        super().__init__(folder_path, data_drawn)
+        super().__init__(dataset, data_drawn)
 
         self.fig = plt.figure()
         self.ax = self.fig.add_subplot(111, projection='3d')
 
-        x, y, value = self._load_data(self.file_paths[0])
+        x, y, value = self._load_data(0)
         x_grid, y_grid = np.meshgrid(np.unique(x), np.unique(y))
         val_grid = value.reshape(x_grid.shape)
 
@@ -491,7 +458,7 @@ class SurfacePlotter(Plotter):
         self.function_surf = self.ax.plot_surface(x_grid, y_grid, val_grid, color='white', edgecolors="black", linewidth=0.25)
 
     def update(self, frame: int):
-        x, y, value = self._load_data(self.file_paths[frame])
+        x, y, value = self._load_data(frame)
         x_grid, y_grid = np.meshgrid(np.unique(x), np.unique(y))
         val_grid = value.reshape(x_grid.shape)
 
@@ -517,18 +484,18 @@ class SurfacePlotter(Plotter):
 class CutPlotter(Plotter):
     """Plotter of a 2D scatter plot."""
     def __init__(self,
-                 folder_path: str,
+                 dataset: Dataset,
                  data_drawn: str="phase",
                  axis: str="x",
                  part: float=0.5,
                  draw_analytic_solution: bool=False):
-        super().__init__(folder_path,
+        super().__init__(dataset,
                          data_drawn)
         self.axis = axis
         self.part = part
         self.draw_analytic_solution = draw_analytic_solution
 
-        x, y, value = self._load_data(self.file_paths[0])
+        x, y, value = self._load_data(0)
         self.fig, self.ax = plt.subplots()
 
         self.ax.set_ylim(0, max(0.1, value.max()*1.2))
@@ -564,7 +531,7 @@ class CutPlotter(Plotter):
         #self.ax.legend()
 
     def update(self, frame: int):
-        x, y, value = self._load_data(self.file_paths[frame])
+        x, y, value = self._load_data(frame)
         #self.ax.set_ylim(min(0, value.min()*1.5), math.floor(value.max()*1.2 / 0.01)*0.01)
         self.ax.set_ylim(0, max(0.11, value.max()*1.1))
 
@@ -628,3 +595,98 @@ class CutPlotter(Plotter):
                 func_space[index] += C_n * math.exp(-lambda_n*t) * math.sin(math.sqrt(lambda_n)*(var-var_left))
                 func_space[index] += F[n] / lambda_n * (1 - math.exp(-lambda_n * t)) * math.sin(math.sqrt(lambda_n)*(var-var_left))
         return var_space, func_space
+
+
+def ffmpeg_available() -> bool:
+    """
+    Tells whether matplotlib is able to write mp4 files, i.e. whether ffmpeg can be found.
+
+    The ffmpeg from the PATH is preferred. If there is none, the ffmpeg bundled in the python
+    package imageio-ffmpeg is used (when the package is installed).
+    """
+    if animation.FFMpegWriter.isAvailable():
+        return True
+    try:
+        import imageio_ffmpeg
+    except ImportError:
+        return False
+    plt.rcParams["animation.ffmpeg_path"] = imageio_ffmpeg.get_ffmpeg_exe()
+    return animation.FFMpegWriter.isAvailable()
+
+
+def save_animations(plotters: List[Plotter], file_format: str="auto") -> None:
+    """
+    Saves the animations of all the given plotters at once.
+
+    The animations are created frame by frame and in every frame all the plotters are updated.
+    Therefore the file with the data of the frame is read only once for all the plotters,
+    not once for every plotter (it is so, because the plotters share one Dataset).
+
+    Args:
+        plotters (List[Plotter]): Plotters whose animations are saved. They have to share the same Dataset.
+        file_format (str): "mp4", "gif" or "auto". With "auto" the mp4 is used when ffmpeg is available,
+            otherwise the gif. The mp4 is much smaller and its frames are not collected in memory.
+    """
+    if file_format not in ("auto", "mp4", "gif"):
+        raise ValueError("Wrong file_format given, use auto, mp4 or gif.")
+    if len(plotters) == 0:
+        return
+    dataset = plotters[0].dataset
+    if any(plotter.dataset is not dataset for plotter in plotters):
+        raise ValueError("All the plotters have to share the same dataset.")
+
+    if file_format == "auto":
+        if ffmpeg_available():
+            file_format = "mp4"
+        else:
+            file_format = "gif"
+            print("ffmpeg was not found, the animations are saved as gif.")
+    elif file_format == "mp4" and not ffmpeg_available():
+        raise RuntimeError("ffmpeg was not found, mp4 cannot be saved. Install it or use the gif format.")
+
+    if file_format == "mp4":
+        # The codec (h264) needs the width and the height of the frame (in pixels) to be even numbers.
+        for plotter in plotters:
+            width, height = plotter.fig.canvas.get_width_height()
+            if width % 2 != 0 or height % 2 != 0:
+                raise ValueError(f"The size of the figure is {width} x {height} pixels, "
+                                 "for mp4 both numbers have to be even.")
+
+    duration_s = 10
+    max_fps = 30  # horní limit kvůli velikosti souboru
+    num_frames = len(dataset.file_paths)
+
+    # podvzorkování snímků tak, aby výsledné fps nepřekročilo max_fps
+    step = max(1, int(np.ceil(num_frames / (duration_s * max_fps))))
+    frames = list(range(0, num_frames, step))
+
+    fps = max(1, int(round(len(frames) / duration_s)))
+
+    output_files = []
+    for plotter in plotters:
+        print("Preparing animation for", str(plotter.output_name_tag)[1:])
+        plotter.check_for_info_folder()
+        output_files.append(Path(plotter.folder) / "info" / ("ACE" + plotter.output_name_tag + "." + file_format))
+
+    # The gif writer collects the frames in memory and creates the file when the "with" block ends.
+    # The mp4 writer sends every frame to ffmpeg at once.
+    with ExitStack() as stack:
+        writers = []
+        for plotter, output_file in zip(plotters, output_files):
+            if file_format == "mp4":
+                # yuv420p: the pixel format that is played by all the players (also PowerPoint, browsers),
+                # crf 18: the quality of the compression (lower is better, 18 is visually almost lossless).
+                writer = animation.FFMpegWriter(fps=fps, codec="libx264",
+                                                extra_args=["-pix_fmt", "yuv420p", "-crf", "18"])
+            else:
+                writer = animation.PillowWriter(fps=fps)
+            stack.enter_context(writer.saving(plotter.fig, output_file, plotter.fig.dpi))
+            writers.append(writer)
+
+        for frame in frames:
+            for plotter, writer in zip(plotters, writers):
+                plotter.update(frame)
+                writer.grab_frame()
+
+    for output_file in output_files:
+        print("Finished the animation. Saved at:", output_file)
