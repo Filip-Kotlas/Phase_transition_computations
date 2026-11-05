@@ -3,6 +3,7 @@ from contextlib import ExitStack
 from pathlib import Path
 import math
 import numpy as np
+import contourpy
 import matplotlib.pyplot as plt
 from matplotlib import animation
 from mpl_toolkits.axes_grid1 import make_axes_locatable
@@ -112,6 +113,12 @@ class BoundaryPlotter2D(Plotter):
         self.title = self.ax.set_title("t = 0")
         self.output_name_tag = "_" + self.data_drawn + "_2D_"
 
+        # Coordinates of the grid lines (in the data x changes fastest). They are copied, so the whole
+        # frame is not kept in memory by them.
+        grid_shape = (self.configuration["solver"]["sizeY"], self.configuration["solver"]["sizeX"])
+        self.grid_x_lines = np.array(x.reshape(grid_shape)[0])
+        self.grid_y_lines = np.array(y.reshape(grid_shape)[:, 0])
+
         #self.ax.vlines(np.unique(x), x.min(), x.max(), colors='gray', alpha=0.6)
         #self.ax.hlines(np.unique(y), y.min(), y.max(), colors='gray', alpha=0.6)
 
@@ -158,131 +165,61 @@ class BoundaryPlotter2D(Plotter):
             artist.append(self.function_im)
 
         if self.draw_num_boundary:
-            num_boundary_x, num_boundary_y = self.find_boundary_points(x, y, value, threshold=0.5)
-            num_boundary_sorted_x, num_boundary_sorted_y = self.sort_boundary_points(num_boundary_x, num_boundary_y)
-            self.num_bound_sc.set_data(num_boundary_sorted_x, num_boundary_sorted_y)
+            num_curves = self.find_boundary_curves(x, y, value, threshold=0.5)
+            self.num_bound_sc.set_data(*self.join_curves(num_curves, separate_by_nan=True))
             artist.append(self.num_bound_sc)
-            self.save_boundary_points("interface_num.crv", num_boundary_sorted_x, num_boundary_sorted_y, frame)
+            self.save_boundary_points("interface_num.crv", *self.join_curves(num_curves), frame)
             #Carefull the boundary is saved during animation and also during showing saving one frame. Could pose problems.
             # TODO: solve that
 
         if self.draw_analit_boundary:
-            analytic_boundary_x, analytic_boundary_y = self.get_analytic_solution(frame*self.time_step)
-            analytic_sorted_x, analytic_sorted_y = self.sort_boundary_points(analytic_boundary_x, analytic_boundary_y)
-            self.anal_bound_sc.set_data(analytic_sorted_x, analytic_sorted_y)
+            analytic_curves = self.get_analytic_curves(frame*self.time_step)
+            self.anal_bound_sc.set_data(*self.join_curves(analytic_curves, separate_by_nan=True))
             artist.append(self.anal_bound_sc)
-            self.save_boundary_points("interface_anal.crv", analytic_sorted_x, analytic_sorted_y, frame)
+            self.save_boundary_points("interface_anal.crv", *self.join_curves(analytic_curves), frame)
 
         artist.append(self.title)
         return artist
 
-    def find_boundary_points(self, x, y, phase_values, threshold=0.5) -> Tuple[np.array, np.array]:
-        boundary_x = []
-        boundary_y = []
-        # Převod na mřížku
-        grid_shape = (self.configuration["solver"]["sizeX"],
-                      self.configuration["solver"]["sizeY"])
+    def find_boundary_curves(self, x, y, phase_values, threshold=0.5) -> List[np.ndarray]:
+        """
+        Finds the boundary, i.e. the level "threshold" of the phase, as a list of curves.
+
+        The phase is interpolated linearly along the edges of the grid. The points of the curves are the points
+        on the edges where the interpolated phase equals the threshold. The curves are found by contourpy,
+        which returns the points already ordered along every curve. A closed curve ends with its first point
+        again. A curve that reaches the border of the domain is open.
+
+        Returns:
+            List of arrays of the shape (number of points, 2), the columns are x and y.
+        """
+        # In the data x changes fastest, so the shape is (sizeY, sizeX): the first index
+        # of the grid is the position in y, the second one the position in x.
+        grid_shape = (self.configuration["solver"]["sizeY"],
+                      self.configuration["solver"]["sizeX"])
         grid_x = x.reshape(grid_shape)
         grid_y = y.reshape(grid_shape)
         grid_values = phase_values.reshape(grid_shape)
 
-        # Iterace přes buňky
-        has_over = False
-        has_bellow = False
-        offsets = [(0, 0), (0, 1), (1, 0), (1, 1)]
-        for i in range(0, grid_values.shape[0]-1):
-            for j in range(0, grid_values.shape[1]-1):
-                has_over = False
-                has_bellow = False
-                for offs in offsets:
-                    if grid_values[i + offs[0], j + offs[1]] < threshold:
-                        has_bellow = True
-                    else:
-                        has_over = True
+        generator = contourpy.contour_generator(grid_x[0], grid_y[:, 0], grid_values)
+        return generator.lines(threshold)
 
-                interpol_points = []
-                if has_over and has_bellow:
-                    if (grid_values[i, j] - threshold)*(grid_values[i, j+1] - threshold) < 0:
-                        interpol_x = (grid_x[i, j]
-                                      + (grid_x[i, j+1] - grid_x[i, j])
-                                      / (grid_values[i, j+1] - grid_values[i, j])
-                                      * (threshold - grid_values[i, j]))
-                        interpol_points.append((interpol_x, grid_y[i, j]))
-                    if (grid_values[i+1, j] - threshold)*(grid_values[i+1, j+1] - threshold) < 0:
-                        interpol_x = (grid_x[i+1, j]
-                                      + (grid_x[i+1, j+1] - grid_x[i+1, j])
-                                      / (grid_values[i+1, j+1] - grid_values[i+1, j])
-                                      * (threshold - grid_values[i+1, j]))
-                        interpol_points.append((interpol_x, grid_y[i+1, j]))
-                    if (grid_values[i, j] - threshold)*(grid_values[i+1, j] - threshold) < 0:
-                        interpol_y = (grid_y[i, j]
-                                      + (grid_y[i+1, j] - grid_y[i, j])
-                                      / (grid_values[i+1, j] - grid_values[i, j])
-                                      * (threshold - grid_values[i, j]))
-                        interpol_points.append((grid_x[i, j], interpol_y))
-                    if (grid_values[i, j+1] - threshold)*(grid_values[i+1, j+1] - threshold) < 0:
-                        interpol_y = (grid_y[i, j+1]
-                                      + (grid_y[i+1, j+1] - grid_y[i, j+1])
-                                      / (grid_values[i+1, j+1] - grid_values[i, j+1])
-                                      * (threshold - grid_values[i, j+1]))
-                        interpol_points.append((grid_x[i, j+1], interpol_y))
+    def join_curves(self, curves: List[np.ndarray], separate_by_nan: bool=False) -> Tuple[np.ndarray, np.ndarray]:
+        """
+        Puts the curves one after another into one pair of arrays (x, y).
 
-                    if len(interpol_points) != 2:
-                        raise RuntimeError(
-                            f"Invalid number of interpolation points: {len(interpol_points)} "
-                            f"while computing cell: {i}, {j}"
-                        )
-                    boundary_x.append((interpol_points[0][0]+interpol_points[1][0])/2)
-                    boundary_y.append((interpol_points[0][1]+interpol_points[1][1])/2)
-        return boundary_x, boundary_y
-
-    def sort_boundary_points(self, boundary_x: np.array, boundary_y: np.array):
-        sorted_x = []
-        sorted_y = []
-
-        if len(boundary_x) == 0:
-            return  np.array(sorted_x), np.array(sorted_y)
-
-        max_distance = 2*math.sqrt(pow((self.configuration["solver"]["domain"]["x_right"]
-                                        - self.configuration["solver"]["domain"]["x_left"])
-                                       / (self.configuration["solver"]["sizeX"] - 1), 2)
-                                   + pow((self.configuration["solver"]["domain"]["y_right"]
-                                          - self.configuration["solver"]["domain"]["y_left"])
-                                         / (self.configuration["solver"]["sizeY"] - 1), 2))
-
-        def get_distance(point1: Tuple, point2: Tuple) -> float:
-            return math.sqrt(math.pow(point1[0] - point2[0],2) + math.pow(point1[1] - point2[1],2))
-
-        picked_mask = np.full_like(boundary_x, 0)
-        for start_index, start_point in enumerate(zip(boundary_x, boundary_y)):
-            if picked_mask[start_index] == 0:
-                sorted_x.append(start_point[0])
-                sorted_y.append(start_point[1])
-                picked_mask[start_index] = 1
-
-                previous_point = start_point
-                closest_point = (0, 0)
-                best_distance = max_distance
-                best_index = None
-                while closest_point is not None:
-                    closest_point = None
-                    best_distance = max_distance
-                    best_index = None
-                    for index, point in enumerate(zip(boundary_x, boundary_y)):
-                        distance = get_distance(previous_point, point)
-                        if picked_mask[index]==0 and distance <= best_distance:
-                            closest_point = point
-                            best_distance = distance
-                            best_index = index
-
-                    if closest_point is not None:
-                        sorted_x.append(closest_point[0])
-                        sorted_y.append(closest_point[1])
-                        picked_mask[best_index] = 1
-                        previous_point = closest_point
-        sorted_x.append(sorted_x[0])
-        sorted_y.append(sorted_y[0])
-        return np.array(sorted_x), np.array(sorted_y)
+        A closed curve already ends with its first point. With separate_by_nan a NaN point is inserted
+        between the curves, so a line that is plotted from the result is interrupted there.
+        """
+        parts = []
+        for curve in curves:
+            if separate_by_nan and len(parts) > 0:
+                parts.append(np.full((1, 2), np.nan))
+            parts.append(curve)
+        if len(parts) == 0:
+            return np.array([]), np.array([])
+        joined = np.vstack(parts)
+        return joined[:, 0], joined[:, 1]
     
     def save_boundary_points(
         self,
@@ -320,10 +257,115 @@ class BoundaryPlotter2D(Plotter):
         if self.draw_analit_boundary:
             self.output_name_tag = self.output_name_tag + "a"
 
-    def get_analytic_solution(self, t) -> Tuple[np.array, np.array]:
-        r0 = (self.configuration["init_cond"]["radius_proportion"] 
-             * (self.configuration["solver"]["domain"]["x_right"] - self.configuration["solver"]["domain"]["x_left"]))
-        number_of_segments = 1000
+    def get_analytic_curves(self, t) -> List[np.ndarray]:
+        """
+        The boundary of the analytic solution at the time t as a list of curves, like find_boundary_curves.
+
+        The points of the curves are the exact intersections of the analytic boundary with the lines of the grid
+        (x = const and y = const through the grid points). So they lie on the same edges of the grid as the points
+        of the numerical boundary and they are spaced in the same way. Only the part of the boundary inside
+        the domain is returned. The list is empty if there is no shape.
+        """
+        smallest_step = min(np.diff(self.grid_x_lines).min(), np.diff(self.grid_y_lines).min())
+
+        # The exact boundary is replaced by a polyline whose segments are much shorter than the grid step,
+        # so the error of this replacement is negligible.
+        number_of_segments = 2000
+        while True:
+            curve_x, curve_y = self.get_analytic_solution(t, number_of_segments)
+            if len(curve_x) == 0:
+                return []
+            if np.hypot(np.diff(curve_x), np.diff(curve_y)).max() <= smallest_step / 50:
+                break
+            number_of_segments *= 2
+            if number_of_segments > 100_000_000:
+                raise RuntimeError("The analytic boundary cannot be approximated by a fine enough polyline.")
+        return self.crossings_with_grid_lines(curve_x, curve_y)
+
+    def crossings_with_grid_lines(self, curve_x, curve_y) -> List[np.ndarray]:
+        """
+        Finds the points where a closed polyline crosses the lines of the grid, ordered along the polyline.
+
+        The polyline has to be closed (its last point is its first point) and its segments have to be shorter
+        than the grid step. Only the points inside the domain are kept. If the whole polyline is inside
+        the domain, the result is one closed curve (it ends with its first point). Otherwise the result are open
+        curves, one for every part of the polyline that lies inside the domain.
+        """
+        grid_x, grid_y = self.grid_x_lines, self.grid_y_lines
+        n = len(curve_x) - 1  # number of the segments
+
+        # Number of the grid lines that are not above the coordinate, i.e. between which lines the coordinate is.
+        strip_x = np.searchsorted(grid_x, curve_x, side="right")
+        strip_y = np.searchsorted(grid_y, curve_y, side="right")
+        if np.abs(np.diff(strip_x)).max() > 1 or np.abs(np.diff(strip_y)).max() > 1:
+            raise RuntimeError("A segment of the polyline crosses more lines of the grid, it is too long.")
+
+        # Crossings with the vertical lines (x = const): the segments whose ends lie in different strips.
+        segment_v = np.nonzero(strip_x[:-1] != strip_x[1:])[0]
+        line_x = grid_x[np.minimum(strip_x[segment_v], strip_x[segment_v + 1])]
+        position_v = (line_x - curve_x[segment_v]) / (curve_x[segment_v + 1] - curve_x[segment_v])
+        point_v = np.column_stack((line_x, curve_y[segment_v]
+                                   + position_v * (curve_y[segment_v + 1] - curve_y[segment_v])))
+        # Crossings with the horizontal lines (y = const).
+        segment_h = np.nonzero(strip_y[:-1] != strip_y[1:])[0]
+        line_y = grid_y[np.minimum(strip_y[segment_h], strip_y[segment_h + 1])]
+        position_h = (line_y - curve_y[segment_h]) / (curve_y[segment_h + 1] - curve_y[segment_h])
+        point_h = np.column_stack((curve_x[segment_h]
+                                   + position_h * (curve_x[segment_h + 1] - curve_x[segment_h]), line_y))
+
+        # All the crossings in the order along the polyline: by the segment, inside a segment by the position.
+        segment = np.concatenate((segment_v, segment_h))
+        points = np.vstack((point_v, point_h))
+        order = np.lexsort((np.concatenate((position_v, position_h)), segment))
+        segment, points = segment[order], points[order]
+
+        def in_domain(x, y):
+            return (x >= grid_x[0]) & (x <= grid_x[-1]) & (y >= grid_y[0]) & (y <= grid_y[-1])
+
+        inside = in_domain(curve_x, curve_y)  # for the points of the polyline
+        if not inside.any():
+            return []
+
+        closed = inside.all()
+        if closed:
+            groups = [points]
+        else:
+            # The parts of the polyline inside the domain are numbered. A crossing belongs to the part of
+            # its segment that is inside, crossings outside of the domain are dropped.
+            inside_vertex = inside[:n]
+            run = np.cumsum(inside_vertex & ~np.roll(inside_vertex, 1))
+            first_inside, second_inside = inside[segment], inside[segment + 1]
+            point_run = np.where(first_inside, run[segment], run[(segment + 1) % n])
+            keep = (first_inside | second_inside) & in_domain(points[:, 0], points[:, 1])
+            points, point_run = points[keep], point_run[keep]
+
+            groups = [points[point_run == number] for number in range(1, run.max() + 1)]
+            if inside_vertex[0] and inside_vertex[-1]:
+                # The last part continues in the first one (the numbering starts at its beginning from 0).
+                groups[-1] = np.vstack((groups[-1], points[point_run == 0]))
+
+        curves = []
+        for group in groups:
+            # The same point can be found twice (the polyline goes exactly through a point of the grid).
+            different = np.ones(len(group), dtype=bool)
+            different[1:] = np.any(group[1:] != group[:-1], axis=1)
+            group = group[different]
+            if closed:
+                if len(group) > 1 and np.all(group[-1] == group[0]):
+                    group = group[:-1]
+                if len(group) > 0:
+                    group = np.vstack((group, group[:1]))  # closed by the first point
+            if len(group) >= 2:
+                curves.append(group)
+        return curves
+
+    def get_analytic_solution(self, t, number_of_segments=1000) -> Tuple[np.array, np.array]:
+        """The analytic boundary as a closed polyline with number_of_segments segments (x and y coordinates)."""
+        # The radius is relative to the shorter side of the domain, the same as in the solver (Parameters.cu).
+        domain = self.configuration["solver"]["domain"]
+        smaller_side = min(domain["x_right"] - domain["x_left"],
+                           domain["y_right"] - domain["y_left"])
+        r0 = self.configuration["init_cond"]["radius_proportion"] * smaller_side
         if self.configuration["init_cond"]["initial_condition"] == "ConstantCircle":
             return self.get_analytic_solution_circle(t, r0, number_of_segments)
         elif self.configuration["init_cond"]["initial_condition"] == "WulffShape":
@@ -354,31 +396,29 @@ class BoundaryPlotter2D(Plotter):
         r = math.sqrt(r_used(t))
 
         # Locating boundary points
-        analytic_boundary_x, analytic_boundary_y = [], []
 
         offset_x = (self.configuration["solver"]["domain"]["x_left"] + self.configuration["solver"]["domain"]["x_right"])/2
         offset_y = (self.configuration["solver"]["domain"]["y_left"] + self.configuration["solver"]["domain"]["y_right"])/2
-        for phi in np.linspace(0, 2*math.pi, num=number_of_segments):
-            analytic_boundary_x.append(r * math.cos(phi) + offset_x)
-            analytic_boundary_y.append(r * math.sin(phi) + offset_y)
+        phi = np.linspace(0, 2*math.pi, num=number_of_segments, endpoint=False)
+        analytic_boundary_x = r * np.cos(phi) + offset_x
+        analytic_boundary_y = r * np.sin(phi) + offset_y
 
-        analytic_boundary_x.append(analytic_boundary_x[0])
-        analytic_boundary_y.append(analytic_boundary_y[0])
-
-        return np.array(analytic_boundary_x), np.array(analytic_boundary_y)
+        # The curve is closed by its first point.
+        return (np.append(analytic_boundary_x, analytic_boundary_x[0]),
+                np.append(analytic_boundary_y, analytic_boundary_y[0]))
 
     def get_analytic_solution_wulff_shape(self, t, r0, number_of_segments=1000) -> Tuple[np.array, np.array]:
         def psi(theta) -> float:
             theta_0 = self.configuration["anisotropy"]["theta_0"]
             m = self.configuration["anisotropy"]["m"]
             A = self.configuration["anisotropy"]["A"]
-            return 1 + A*math.cos(m*(theta - theta_0))
+            return 1 + A*np.cos(m*(theta - theta_0))
         
         def der_psi(theta) -> float:
             theta_0 = self.configuration["anisotropy"]["theta_0"]
             m = self.configuration["anisotropy"]["m"]
             A = self.configuration["anisotropy"]["A"]
-            return -m*A*math.sin(m*(theta - theta_0))
+            return -m*A*np.sin(m*(theta - theta_0))
         
         def r_squared_for_force_0(t) -> float:
             return r0**2 - 2*t
@@ -403,20 +443,16 @@ class BoundaryPlotter2D(Plotter):
 
         theta_0 = self.configuration["anisotropy"]["theta_0"]
         # Locating boundary points
-        analytic_boundary_x, analytic_boundary_y = [], []
 
         offset_x = (self.configuration["solver"]["domain"]["x_left"] + self.configuration["solver"]["domain"]["x_right"])/2
         offset_y = (self.configuration["solver"]["domain"]["y_left"] + self.configuration["solver"]["domain"]["y_right"])/2
-        for theta in np.linspace(0, 2*math.pi, num=number_of_segments):
-            x = r*(psi(theta)*math.cos(theta) - der_psi(theta)*math.sin(theta))
-            y = r*(psi(theta)*math.sin(theta) + der_psi(theta)*math.cos(theta))
-            analytic_boundary_x.append(x + offset_x)
-            analytic_boundary_y.append(y + offset_y)
+        theta = np.linspace(0, 2*math.pi, num=number_of_segments, endpoint=False)
+        analytic_boundary_x = r*(psi(theta)*np.cos(theta) - der_psi(theta)*np.sin(theta)) + offset_x
+        analytic_boundary_y = r*(psi(theta)*np.sin(theta) + der_psi(theta)*np.cos(theta)) + offset_y
 
-        analytic_boundary_x.append(analytic_boundary_x[0])
-        analytic_boundary_y.append(analytic_boundary_y[0])
-
-        return np.array(analytic_boundary_x), np.array(analytic_boundary_y)
+        # The curve is closed by its first point.
+        return (np.append(analytic_boundary_x, analytic_boundary_x[0]),
+                np.append(analytic_boundary_y, analytic_boundary_y[0]))
 
 class SurfacePlotter(Plotter):
     """Plotter of graph of a function of two variables."""
