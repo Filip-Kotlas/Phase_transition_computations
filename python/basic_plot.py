@@ -25,6 +25,10 @@ def parse_arguments(argv=None) -> argparse.Namespace:
                              "(default: " + " ".join(str(frame) for frame in DEFAULT_FRAMES) + "). "
                              "Frames that do not exist are skipped.",
                         default=None)
+    parser.add_argument("--force",
+                        action="store_true",
+                        help="Plot even if some frames are missing (the existing animations, boundary files "
+                             "and frame images of the same names are then overwritten).")
     return parser.parse_args(argv)
 
 
@@ -33,6 +37,12 @@ def main(argv=None) -> None:
     use_headless_backend()
 
     dataset = load_dataset(args.name)
+    if not dataset.is_complete() and not args.force:
+        print(f"Only {len(dataset.file_paths)} of the {dataset.expected_frame_count()} frames of the run "
+              f"'{args.name}' are present (deleted, or the run was interrupted).\n"
+              "Plotting now would overwrite the existing animations, boundary files and frame images "
+              "with incomplete ones, so nothing was done. Use --force to plot anyway.")
+        return
     plan = decide_drawing(dataset.configuration, args.type)
     plotters = build_plotters(dataset, plan)
     if not plotters:

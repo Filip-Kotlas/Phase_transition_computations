@@ -55,16 +55,16 @@ class Plotter():
         tf = self.configuration["solver"]["final_time"]
         t = self.dataset.time(frame)
 
-        # Zvol přesnost podle kroku (max 6 desetin)
+        # Choose the precision according to the step (at most 6 decimal places)
         prec = max(0, -int(math.floor(math.log10(self.time_step)))) if self.time_step != 0 else 0
         prec = min(6, prec)
 
-        # Spočítej maximální počet celých číslic v rozsahu pro fixní šířku
+        # Compute the maximal number of integer digits in the range, for a fixed width
         max_abs = max(abs(t0), abs(tf))
         int_digits = 1 if max_abs < 1 else int(math.floor(math.log10(max_abs))) + 1
-        width = int_digits + (1 if min(t0, tf) < 0 else 0) + 1 + prec  # znaménko + tečka
+        width = int_digits + (1 if min(t0, tf) < 0 else 0) + 1 + prec  # sign + decimal point
 
-        # Monospace zajistí, že každý znak má stejnou šířku
+        # Monospace makes every character the same width
         title.set_fontfamily('monospace')
         title.set_text(f"t = {t:>{width}.{prec}f}")
 
@@ -138,14 +138,14 @@ class BoundaryPlotter2D(Plotter):
             self.function_im = self.ax.imshow(np.zeros(self.grid_shape), origin="lower", extent=extent,
                                               cmap='viridis', vmin=0.0, vmax=0.09)
             divider = make_axes_locatable(self.ax)
-            cax = divider.append_axes("right", size="5%", pad=0.05)  # stejné výšky
+            cax = divider.append_axes("right", size="5%", pad=0.05)  # same height as the axes
             self.colorbar = self.fig.colorbar(self.function_im, cax=cax, label=r"$c$")
             self.output_name_tag += "f"
         if self.draw_num_boundary:
-            self.num_bound_sc, = self.ax.plot([], [], color='orange', linestyle="-", label='Numerické řešení')
+            self.num_bound_sc, = self.ax.plot([], [], color='orange', linestyle="-", label='Numerical solution')
             self.output_name_tag = self.output_name_tag + "n"
         if self.draw_analit_boundary:
-            self.anal_bound_sc, = self.ax.plot([], [], color='blue', linestyle=":", label='Analytické řešení')
+            self.anal_bound_sc, = self.ax.plot([], [], color='blue', linestyle=":", label='Analytic solution')
             self.output_name_tag = self.output_name_tag + "a"
 
         #self.ax.legend()
@@ -238,119 +238,83 @@ class SurfacePlotter(Plotter):
         return artist
 
 class CutPlotter(Plotter):
-    """Plotter of a 2D scatter plot."""
+    """Plotter of a cut through the data: the values along one grid line of the domain."""
     def __init__(self,
                  dataset: Dataset,
                  data_drawn: str="phase",
                  axis: str="x",
-                 part: float=0.5,
-                 draw_analytic_solution: bool=False):
+                 part: float=0.5):
+        """
+        Args:
+            dataset (Dataset): The computed results.
+            data_drawn (str): "phase" or "concentration".
+            axis (str): The axis along which the values are plotted. "x": the values along x on a line
+                y = const, "y": the values along y on a line x = const.
+            part (float): Position of the line as the fraction (from 0 to 1) of the domain in the other
+                coordinate. The first grid line at or after this position is used.
+        """
         super().__init__(dataset,
                          data_drawn)
+        if axis not in ("x", "y"):
+            raise ValueError(f"Invalid axis given: {axis}")
+        if not 0 <= part <= 1:
+            raise ValueError(f"The part has to be between 0 and 1, got {part}.")
         self.axis = axis
         self.part = part
-        self.draw_analytic_solution = draw_analytic_solution
 
         x, y, value = self._load_data(0)
+        # In the data x changes fastest, so the values reshape to (sizeY, sizeX).
+        self.grid_shape = (self.configuration["solver"]["sizeY"], self.configuration["solver"]["sizeX"])
+        grid_x_lines = np.array(x.reshape(self.grid_shape)[0])
+        grid_y_lines = np.array(y.reshape(self.grid_shape)[:, 0])
+        if self.axis == "x":
+            self.variable_lines, fixed_lines = grid_x_lines, grid_y_lines
+            fixed_name = "y"
+        else:
+            self.variable_lines, fixed_lines = grid_y_lines, grid_x_lines
+            fixed_name = "x"
+
+        # The cut is the first grid line that is not before the wanted position (the last one at most).
+        wanted_position = fixed_lines[0] + (fixed_lines[-1] - fixed_lines[0]) * self.part
+        self.cut_index = min(int(np.searchsorted(fixed_lines, wanted_position, side="left")),
+                             len(fixed_lines) - 1)
+        self.cut_position = fixed_lines[self.cut_index]
+
         self.fig, self.ax = plt.subplots()
 
         self.ax.set_ylim(0, max(0.1, value.max()*1.2))
-        if self.axis == "x":
-            self.ax.set_xlim(x.min(), x.max())
-            self.ax.set_box_aspect(1/(x.max() - x.min()))
-        elif self.axis == "y":
-            self.ax.set_xlim(y.min(), y.max())
-            self.ax.set_box_aspect(1/(y.max() - y.min()))
-        else:
-            raise ValueError("Invalid axis given")
+        self.ax.set_xlim(self.variable_lines[0], self.variable_lines[-1])
+        self.ax.set_box_aspect(1/(self.variable_lines[-1] - self.variable_lines[0]))
+        self.ax.set_xlabel(rf"${self.axis}$ (${fixed_name} = {self.cut_position:.4g}$)")
+        self.ax.set_ylabel(r"$\phi$" if self.data_drawn == "phase" else r"$c$")
 
         #self.ax.set_aspect('auto')
         self.title = self.ax.set_title("t = 0")
         self.output_name_tag = "_" + self.data_drawn + "_" + self.axis + "-cut"
 
-        self.function, = self.ax.plot([],
-                                      [],
+        self.function, = self.ax.plot(self.variable_lines,
+                                      self.get_cut(value),
                                       color='orange',
                                       linestyle='-')
-        if self.axis == "x":
-            self.function.set_data(x, value)
-        elif self.axis == "y":
-            self.function.set_data(y, value)
-
-        if self.draw_analytic_solution:
-            self.ana_sol, = self.ax.plot([],
-                                         [],
-                                        color='b',
-                                        linestyle=':',
-                                        label="Analytic solution")
-
-        #self.ax.legend()
 
     def update(self, frame: int):
-        x, y, value = self._load_data(frame)
+        _, _, value = self._load_data(frame)
         #self.ax.set_ylim(min(0, value.min()*1.5), math.floor(value.max()*1.2 / 0.01)*0.01)
         self.ax.set_ylim(0, max(0.11, value.max()*1.1))
 
         self.set_time_title(frame, self.title)
 
         print("Updating frame: ", frame)
-        artist = []
 
-        f_var, f_val = self.get_cut(x, y, value)
+        self.function.set_data(self.variable_lines, self.get_cut(value))
+        return [self.function, self.title]
 
-        self.function.set_data(f_var, f_val)
-        artist.append(self.function)
-
-        if self.draw_analytic_solution:
-            self.ana_sol.set_data(self.get_analytic_solution(frame*self.time_step, 4))
-            artist.append(self.ana_sol)
-
-        artist.append(self.title)
-        return artist
-
-    def get_cut(self, x, y, value):
+    def get_cut(self, value: np.ndarray) -> np.ndarray:
+        """The values (a flat array of the whole frame) on the line of the cut, in the order of the increasing coordinate."""
+        grid_values = value.reshape(self.grid_shape)
         if self.axis == "x":
-            cut_value = y.min() + (y.max() - y.min()) * self.part
-            unique_y = np.unique(y)
-            distance = unique_y[1] - unique_y[0]
-            mask = (y - cut_value <= distance / 1.5) & (y - cut_value >= 0)
-            return x[mask], value[mask]
-
-        if self.axis == "y":
-            cut_value = x.min() + (x.max() - x.min()) * self.part
-            unique_x = np.unique(x)
-            distance = unique_x[1] - unique_x[0]
-            mask = (x - cut_value <= distance / 1.5) & (x - cut_value >= 0)
-            return y[mask], value[mask]
-
-        if self.axis != "x" or self.axis != "y":
-            raise ValueError("Wrong axis in get_cut.")
-
-    def get_analytic_solution(self, t, n_max):
-        var_space = None
-        if self.axis == "x":
-            var_space = np.linspace(self.configuration["solver"]["domain"]["x_left"],
-                                    self.configuration["solver"]["domain"]["x_right"],
-                                    500)
-        elif self.axis == "y":
-            var_space = np.linspace(self.configuration["solver"]["domain"]["y_left"],
-                                    self.configuration["solver"]["domain"]["y_right"],
-                                    500)
-        else:
-            raise ValueError("Wrong axis given: ", self.axis)
-
-        func_space = np.zeros_like(var_space)
-        F = [0, 1/2, 0, 1/4, 0]
-        var_left = var_space.min()
-        var_right = var_space.max()
-
-        for n in range(1, n_max + 1):
-            lambda_n = pow(n * math.pi / (var_right - var_left), 2)
-            C_n = pow(1/2, n)
-            for index, var in enumerate(var_space):
-                func_space[index] += C_n * math.exp(-lambda_n*t) * math.sin(math.sqrt(lambda_n)*(var-var_left))
-                func_space[index] += F[n] / lambda_n * (1 - math.exp(-lambda_n * t)) * math.sin(math.sqrt(lambda_n)*(var-var_left))
-        return var_space, func_space
+            return grid_values[self.cut_index, :]
+        return grid_values[:, self.cut_index]
 
 
 def ffmpeg_available() -> bool:
@@ -409,10 +373,10 @@ def save_animations(plotters: List[Plotter], file_format: str="auto") -> None:
                                  "for mp4 both numbers have to be even.")
 
     duration_s = 10
-    max_fps = 30  # horní limit kvůli velikosti souboru
+    max_fps = 30  # upper limit because of the file size
     num_frames = len(dataset.file_paths)
 
-    # podvzorkování snímků tak, aby výsledné fps nepřekročilo max_fps
+    # subsample the frames so that the resulting fps does not exceed max_fps
     step = max(1, int(np.ceil(num_frames / (duration_s * max_fps))))
     frames = list(range(0, num_frames, step))
 

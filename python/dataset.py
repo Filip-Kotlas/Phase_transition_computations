@@ -18,15 +18,15 @@ class Dataset():
 
         calc_folder = self.folder / "calculations"
         if not calc_folder.exists():
-            raise FileNotFoundError(f"Složka {calc_folder} neexistuje!")
+            raise FileNotFoundError(f"Folder {calc_folder} does not exist!")
         # Only the frames written by the solver, nothing else from the folder.
         self.file_paths: List[Path] = sorted(calc_folder.glob("Result-*.txt"))
         if len(self.file_paths) == 0:
-            raise FileNotFoundError(f"Složka {calc_folder} neobsahuje žádné soubory Result-*.txt!")
+            raise FileNotFoundError(f"Folder {calc_folder} does not contain any Result-*.txt files!")
 
         config_path = self.folder / "info" / "config.json"
         if not config_path.exists():
-            raise FileNotFoundError(f"Soubor {config_path} neexistuje!")
+            raise FileNotFoundError(f"File {config_path} does not exist!")
         with config_path.open("r", encoding="utf-8") as file:
             self.configuration = json.load(file)
 
@@ -48,6 +48,14 @@ class Dataset():
 
     def get_max_frame_number(self) -> int:
         return len(self.file_paths) - 1
+
+    def expected_frame_count(self) -> int:
+        """Number of frames the solver writes according to the configuration (frame_num + 1, including the initial one)."""
+        return self.configuration["solver"]["frame_num"] + 1
+
+    def is_complete(self) -> bool:
+        """False if some frames are missing (e.g. deleted by DELETE_CALCS, or the run was interrupted)."""
+        return len(self.file_paths) >= self.expected_frame_count()
 
     def load(self, frame: int, data_drawn: str="phase") -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
         """

@@ -53,7 +53,7 @@ def load_dataset(name: str) -> Dataset:
     """Opens the results folder with the given name."""
     results_path = RESULTS_FOLDER / name
     if not results_path.exists():
-        raise FileNotFoundError(f"Složka {results_path} neexistuje!")
+        raise FileNotFoundError(f"Folder {results_path} does not exist!")
     return Dataset(results_path)
 
 
@@ -99,11 +99,11 @@ def build_plotters(dataset: Dataset, plan: DrawingPlan) -> List[Plotter]:
     if plan.draw_phase:
         plotters += [BoundaryPlotter2D(dataset, False, True, plan.draw_analytic_boundary, "phase"),
                      SurfacePlotter(dataset, "phase"),
-                     CutPlotter(dataset, "phase", "x", 0.5, False)]
+                     CutPlotter(dataset, "phase", "x", 0.5)]
     if plan.draw_concentration:
         plotters += [BoundaryPlotter2D(dataset, True, False, False, "concentration"),
                      SurfacePlotter(dataset, "concentration"),
-                     CutPlotter(dataset, "concentration", "x", 0.5, False)]
+                     CutPlotter(dataset, "concentration", "x", 0.5)]
     return plotters
 
 
