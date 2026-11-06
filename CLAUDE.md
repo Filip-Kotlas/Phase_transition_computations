@@ -52,7 +52,8 @@ python3 python/plot.py --name MyRun --frame 10 --type phase   # --frame last wor
 **Config validation (`Parameters::load`):** it requires `m >= 2` and the convexity condition `A <= 1/(m^2-1)`. `radius_proportion` is scaled by the shorter side of the domain.
 
 **Output layout for `results/<FOLDER>/`:**
-- `calculations/Result-NNNNN.txt`: lines of `x y phase conc`, with a blank line after each grid row.
+- `calculations/Result-NNNNN.npy`: the default format (`solver.output_format: "npy"`). Array of shape `(2, sizeY, sizeX)` (phase, then concentration; x and y are not stored, they are computed from the config). Written and read by `include/npy.hpp`; `python/dataset.py` reads both formats (and prefers `.npy` when both files exist for a frame). About 240x faster to load and 5.6x smaller than `.txt`.
+- `calculations/Result-NNNNN.txt`: with `solver.output_format: "txt"`. Lines of `x y phase conc`, with a blank line after each grid row.
 - `info/`:
   - `parameters.txt`: `make run` appends the run date and git commit to it.
   - `config.json`: a copy of the config, which the Python plotters read.
@@ -69,4 +70,4 @@ python3 python/plot.py --name MyRun --frame 10 --type phase   # --frame last wor
   3. Add a `case` in `InitialCondition::get_phase` (and `get_concentration` if needed) in `src/InitialCondition.cu`.
   4. If it has an analytic solution, add its name to `ANALYTIC_INITIAL_CONDITIONS` and handle it in `analytic_polyline` (both in `python/boundary.py`; `decide_drawing` in `python/cli.py` uses the list).
 - **New config parameter:** add a field in `include/Parameters.hpp`, then read it in `Parameters::load`. Also add it to `save_human_readable` and `save_for_latex` so runs stay self-documenting.
-- **Initial condition from file:** with `init_cond_from_file: true`, the path is resolved relative to the run's `calculations/` folder and the file must use the `Result-*.txt` format. `scaling: true` embeds a grid with half the resolution into the centre of the domain.
+- **Initial condition from file:** with `init_cond_from_file: true`, the path is resolved relative to the run's `calculations/` folder and the file must use the `Result-*` format (`.txt` or `.npy`, chosen by the file extension; the grid must have `sizeX*sizeY` points). `scaling: true` embeds a grid with half the resolution into the centre of the domain.

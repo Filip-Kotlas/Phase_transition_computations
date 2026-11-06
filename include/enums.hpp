@@ -43,6 +43,15 @@ enum class FTType {
     Radial
 };
 
+// Format of the frames written into calculations/
+enum class OutputFormat {
+    Txt, // Result-NNNNN.txt: lines "x y phase conc"
+    Npy  // Result-NNNNN.npy: NumPy array of the shape (2, sizeY, sizeX)
+};
+
+std::string OutputFormat_to_string(OutputFormat output_format);
+OutputFormat string_to_OutputFormat(const std::string& str);
+
 std::string BCType_to_string(BCType bc_type);
 BCType string_to_BCType(const std::string& str);
 

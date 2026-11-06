@@ -1,4 +1,5 @@
 #include "Problem.hpp"
+#include "npy.hpp"
 
 #define COMPUTE_PHASE
 #define COMPUTE_CONCENTRATION
@@ -57,18 +58,19 @@ void Problem::set_rhs_at(const VectorView& u, VectorView& fu, Index i, Index j)
 
 bool Problem::writeSolution(const Real &t, Index step, const VectorView& u, const std::filesystem::path& output_folder)
 {
+   const bool binary = param.output_format == OutputFormat::Npy;
+
    /****
     * Filename with step index
     */
    std::stringstream str;
-   str << "Result-" << std::setw( 5 ) << std::setfill( '0' ) << step << ".txt";
+   str << "Result-" << std::setw( 5 ) << std::setfill( '0' ) << step << ( binary ? ".npy" : ".txt" );
    std::filesystem::path file_path = output_folder / str.str();
 
    /****
     * Open file
     */
-   std::fstream file;
-   file.open( file_path, std::fstream::out | std::fstream::trunc );
+   std::ofstream file( file_path, std::ios::out | std::ios::trunc | ( binary ? std::ios::binary : std::ios::openmode() ) );
    if( ! file )
    {
       std::cerr << "Unable to open the file " << str.str() << std::endl;
@@ -76,18 +78,45 @@ bool Problem::writeSolution(const Real &t, Index step, const VectorView& u, cons
    }
 
    /****
+    * The whole solution is copied from the GPU at once. Reading it element by element
+    * (u.getElement) would mean one small device-to-host transfer per element.
+    */
+   TNL::Containers::Vector< Real, TNL::Devices::Host, Index > host_u( u.getSize() );
+   host_u = u;
+   const Index offset = sizeX * sizeY;
+
+   /****
     * Write solution
     */
-   file << std::scientific << std::setprecision(15);
-   for( Index j = 0; j < sizeY; j++ )
+   if( binary )
    {
-      for( Index i = 0; i < sizeX; i++ )
+      // Array of the shape (2, sizeY, sizeX): the phase block followed by the concentration block,
+      // which is exactly the layout of the state vector (index j*sizeX + i).
+      npy::write_header( file, npy::descriptor< Real >(),
+                         { 2, static_cast< std::size_t >( sizeY ), static_cast< std::size_t >( sizeX ) } );
+      file.write( reinterpret_cast< const char* >( host_u.getData() ),
+                  static_cast< std::streamsize >( host_u.getSize() ) * static_cast< std::streamsize >( sizeof( Real ) ) );
+   }
+   else
+   {
+      file << std::scientific << std::setprecision(15);
+      for( Index j = 0; j < sizeY; j++ )
       {
-         file << domain.x_left + i * hx << " " << domain.y_left + j * hy << " "
-              << phase_at(u, i, j) << " " << conc_at(u, i, j);
-         file << std::endl;
+         for( Index i = 0; i < sizeX; i++ )
+         {
+            file << domain.x_left + i * hx << " " << domain.y_left + j * hy << " "
+                 << host_u[ j * sizeX + i ] << " " << host_u[ offset + j * sizeX + i ];
+            file << '\n';
+         }
+         file << '\n';
       }
-      file << std::endl;
+   }
+
+   file.close();
+   if( ! file )
+   {
+      std::cerr << "Error while writing the file " << str.str() << std::endl;
+      return false;
    }
    return true;
 }
@@ -109,63 +138,110 @@ void Problem::set_init_cond_manually(Vector& u, InitialCondition& init_cond)
 
 bool Problem::set_init_cond_from_file(Vector& u, const std::filesystem::path& filename, const bool scaling)
 {
-    std::ifstream file(filename);
+    // The format is given by the extension: .npy is the binary array written by writeSolution,
+    // anything else is the text format "x y phase conc".
+    const bool binary = filename.extension() == ".npy";
+    std::ifstream file(filename, binary ? std::ios::in | std::ios::binary : std::ios::in);
     if (!file)
     {
         std::cerr << "Nelze otevřít soubor: " << filename << '\n';
         return false;
     }
 
-    TNL::Containers::Vector<Real, TNL::Devices::Host, Index> host_u(getDegreesOfFreedom());
+    const Index N = sizeX * sizeY;
 
-    std::string line;
-    Index count = 0;
-    Index start_i = sizeX / 4;
-    Index start_j = sizeY / 4;
-    Index scale_index = 0;
+    // Values from the file, the point k = j*sizeX + i is on the position k.
+    std::vector<Real> file_phase(N);
+    std::vector<Real> file_conc(N);
 
-    for (int k = 0; k < sizeX * sizeY; ++k)
+    if (binary)
     {
-        host_u[k] = static_cast<int>(constants::Phase::beta); // inicializace fáze
-        host_u[sizeX * sizeY + k] = constants::c_init_beta; // inicializace koncentrace
-    }
+        try {
+            std::string descr;
+            bool fortran_order = false;
+            std::vector<std::size_t> shape;
+            npy::read_header(file, descr, fortran_order, shape);
 
-
-    while (std::getline(file, line)) {
-        if (line.empty()) continue; // přeskoč prázdné řádky
-
-        std::istringstream iss(line);
-        Real x, y, p, c;
-        if (!(iss >> x >> y >> p >> c)) {
-            std::cout << "Chyba při čtení řádku: " << line << '\n';
+            const std::vector<std::size_t> expected_shape = { 2, static_cast<std::size_t>(sizeY), static_cast<std::size_t>(sizeX) };
+            if (descr != npy::descriptor<Real>() || fortran_order || shape != expected_shape) {
+                std::cout << "The .npy file has to be a C-ordered array of the type " << npy::descriptor<Real>()
+                          << " and the shape (2, " << sizeY << ", " << sizeX << ").\n";
+                return false;
+            }
+        }
+        catch (const std::runtime_error& e) {
+            std::cout << "Error while reading the .npy file: " << e.what() << '\n';
             return false;
         }
 
-        if (count >= sizeX * sizeY) {
+        const std::streamsize bytes = static_cast<std::streamsize>(N) * static_cast<std::streamsize>(sizeof(Real));
+        file.read(reinterpret_cast<char*>(file_phase.data()), bytes);
+        file.read(reinterpret_cast<char*>(file_conc.data()), bytes);
+        if (!file) {
+            std::cout << "Soubor obsahuje méně dat než očekáváno.\n";
+            return false;
+        }
+        if (file.peek() != std::ifstream::traits_type::eof()) {
             std::cout << "Soubor obsahuje více dat než očekáváno.\n";
             return false;
         }
+    }
+    else
+    {
+        std::string line;
+        Index count = 0;
 
+        while (std::getline(file, line)) {
+            if (line.empty()) continue; // přeskoč prázdné řádky
 
+            std::istringstream iss(line);
+            Real x, y, p, c;
+            if (!(iss >> x >> y >> p >> c)) {
+                std::cout << "Chyba při čtení řádku: " << line << '\n';
+                return false;
+            }
+
+            if (count >= N) {
+                std::cout << "Soubor obsahuje více dat než očekáváno.\n";
+                return false;
+            }
+
+            file_phase[count] = p;
+            file_conc[count] = c;
+            count++;
+        }
+
+        if (count < N) {
+            std::cout << "Soubor obsahuje méně dat než očekáváno.\n";
+            return false;
+        }
+    }
+
+    TNL::Containers::Vector<Real, TNL::Devices::Host, Index> host_u(getDegreesOfFreedom());
+
+    for (int k = 0; k < N; ++k)
+    {
+        host_u[k] = static_cast<int>(constants::Phase::beta); // inicializace fáze
+        host_u[N + k] = constants::c_init_beta; // inicializace koncentrace
+    }
+
+    const Index start_i = sizeX / 4;
+    const Index start_j = sizeY / 4;
+
+    for (Index count = 0; count < N; ++count) {
         if (scaling) {
             int i = count % sizeX;
             int j = count / sizeX;
             if (i % 2 == 0 && j % 2 == 0) {
-                scale_index = start_i + (i / 2) + (start_j + (j / 2)) * sizeX;
-                host_u[scale_index] = p;
-                host_u[sizeX * sizeY + scale_index] = c;
+                Index scale_index = start_i + (i / 2) + (start_j + (j / 2)) * sizeX;
+                host_u[scale_index] = file_phase[count];
+                host_u[N + scale_index] = file_conc[count];
             }
         }
         else {
-            host_u[count] = p;
-            host_u[sizeX * sizeY + count] = c;
+            host_u[count] = file_phase[count];
+            host_u[N + count] = file_conc[count];
         }
-        count++;
-    }
-
-    if (count < sizeX * sizeY) {
-        std::cout << "Soubor obsahuje méně dat než očekáváno.\n";
-        return false;
     }
 
     u = host_u;

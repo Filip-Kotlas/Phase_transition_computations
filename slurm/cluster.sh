@@ -6,11 +6,14 @@
 #   slurm/cluster.sh log                                       tail the newest slurm-*.out
 #   slurm/cluster.sh fetch MyRun [--no-calcs] [--force]        download results/MyRun
 #   slurm/cluster.sh cancel JOBID
+#   slurm/cluster.sh clean [--force]                           make clean on the cluster (deletes build/)
 #
 # submit refuses a name that is already used on the cluster (finished or still queued);
 # --force deletes the old results and config of that name first. It does NOT stop a job
 # that is still running under that name, so check `status` first.
 # fetch refuses to write into an existing local results/MyRun; --force replaces it.
+# clean refuses while you have a job queued or running (it could be compiling right now);
+# --force cleans anyway. Needed after changing a header (the Makefile does not track them).
 #
 # Configure with environment variables or by editing the defaults below.
 # Best is an alias in ~/.ssh/config, then CLUSTER_HOST=that alias.
@@ -150,8 +153,26 @@ fetch)
 cancel)
     rssh "scancel '${1:?Usage: cluster.sh cancel JOBID}'"
     ;;
+clean)
+    force=0
+    for arg in "$@"; do
+        case "$arg" in
+            --force) force=1 ;;
+            *) echo "Unknown option: $arg" >&2; exit 1 ;;
+        esac
+    done
+    # A job that is compiling would lose its objects halfway, so refuse while any job is active.
+    active=$(rssh "squeue -u \"\$USER\" -h | wc -l" | tr -d '[:space:]')
+    if [ "$active" != "0" ] && [ "$force" != "1" ]; then
+        echo "You have $active job(s) queued or running on $CLUSTER_HOST (see 'status')." >&2
+        echo "Wait for them to finish, or use --force to clean anyway." >&2
+        exit 1
+    fi
+    rssh "[ -d '$REMOTE_DIR' ] || { echo 'Folder $REMOTE_DIR does not exist on the cluster yet, nothing to clean.'; exit 0; }; cd '$REMOTE_DIR' && make clean"
+    echo ">> Cleaned build/ in $CLUSTER_HOST:$REMOTE_DIR"
+    ;;
 *)
-    sed -n '2,15p' "$0"
+    sed -n '2,18p' "$0"
     exit 1
     ;;
 esac

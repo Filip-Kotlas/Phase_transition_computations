@@ -26,6 +26,7 @@ Parameters Parameters::load(const std::filesystem::path& filename) {
     p.sizeY         = solver.value("sizeY", 200);
     p.frame_num     = solver.value("frame_num", 100);
     p.timeStep      = (p.final_time - p.initial_time) / p.frame_num;
+    p.output_format = string_to_OutputFormat(solver.value("output_format", "npy"));
 
     // domain
     auto domain = solver.at("domain");
@@ -122,6 +123,7 @@ void Parameters::save_human_readable(const std::filesystem::path& filename) cons
     file << std::left << std::setw(max_label_length) << "SizeY:"  << std::right << std::setw(max_value_length) << sizeY << std::endl;
     file << std::left << std::setw(max_label_length) << "Time step:" << std::right << std::setw(max_value_length) << timeStep << std::endl;
     file << std::left << std::setw(max_label_length) << "Integration time step:" << std::right << std::setw(max_value_length) << integrationTimeStep << std::endl;
+    file << std::left << std::setw(max_label_length) << "Output format:" << std::right << std::setw(max_value_length) << OutputFormat_to_string(output_format) << std::endl;
     file << std::endl;
     file << std::left << std::setw(max_label_length) << "Initial condition type:"   << std::right << std::setw(max_value_length) << ICType_to_string(init_condition) << std::endl;
     file << std::left << std::setw(max_label_length) << "Initial condition radius:"   << std::right << std::setw(max_value_length) << init_cond_radius << std::endl;

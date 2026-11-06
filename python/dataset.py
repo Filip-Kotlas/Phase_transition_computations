@@ -1,6 +1,6 @@
 """Loading of the computed results, separated from the plotting."""
 from pathlib import Path
-from typing import List, Tuple
+from typing import Dict, List, Tuple
 import json
 import numpy as np
 
@@ -8,8 +8,12 @@ import numpy as np
 class Dataset():
     """Access to the results of one computation stored in a results folder.
 
-    The folder has to contain the subfolder "calculations" with the frames
-    "Result-NNNNN.txt" and the file "info/config.json" with the configuration.
+    The folder has to contain the subfolder "calculations" with the frames and the file
+    "info/config.json" with the configuration. A frame is stored in one of two formats:
+      - "Result-NNNNN.npy": array of the shape (2, sizeY, sizeX), phase first and concentration second.
+        The coordinates are not stored, they are computed from the configuration.
+      - "Result-NNNNN.txt": text file with the lines "x y phase concentration" (the older format).
+    If both files exist for a frame, the .npy file is used.
     The last loaded frame is kept in memory, so several plotters asking for
     the same frame read the file only once.
     """
@@ -20,9 +24,9 @@ class Dataset():
         if not calc_folder.exists():
             raise FileNotFoundError(f"Folder {calc_folder} does not exist!")
         # Only the frames written by the solver, nothing else from the folder.
-        self.file_paths: List[Path] = sorted(calc_folder.glob("Result-*.txt"))
+        self.file_paths: List[Path] = self._find_frames(calc_folder)
         if len(self.file_paths) == 0:
-            raise FileNotFoundError(f"Folder {calc_folder} does not contain any Result-*.txt files!")
+            raise FileNotFoundError(f"Folder {calc_folder} does not contain any Result-*.npy or Result-*.txt files!")
 
         config_path = self.folder / "info" / "config.json"
         if not config_path.exists():
@@ -32,8 +36,16 @@ class Dataset():
 
         self.time_step = self._calculate_time_step()
 
+        self._grid_xy = None    # coordinates for the .npy frames, computed when first needed
         self._cached_frame = None
         self._cached_data = None
+
+    @staticmethod
+    def _find_frames(calc_folder: Path) -> List[Path]:
+        """One file per frame, ordered by the frame number. The .npy file wins over the .txt one."""
+        by_name: Dict[str, Path] = {path.stem: path for path in calc_folder.glob("Result-*.txt")}
+        by_name.update({path.stem: path for path in calc_folder.glob("Result-*.npy")})
+        return [by_name[name] for name in sorted(by_name)]
 
     def _calculate_time_step(self) -> float:
         """Time between two saved frames."""
@@ -78,14 +90,46 @@ class Dataset():
         else:
             raise ValueError("Wrong value for data_drawn given.")
 
-        data = self._get_frame_data(frame)
-        return data[:, 0], data[:, 1], data[:, column]
+        x, y, phase, concentration = self._get_frame_data(frame)
+        return x, y, phase if data_drawn == "phase" else concentration
 
-    def _get_frame_data(self, frame: int) -> np.ndarray:
-        """Returns all four columns of the frame, reading the file only if it is not cached."""
+    def _get_frame_data(self, frame: int) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+        """Returns x, y, phase and concentration of the frame, reading the file only if it is not cached."""
         if self._cached_frame != frame:
-            data = np.loadtxt(self.file_paths[frame])
-            data.flags.writeable = False
-            self._cached_data = data
+            path = self.file_paths[frame]
+            if path.suffix == ".npy":
+                x, y = self._grid_coordinates()
+                fields = np.load(path)
+                expected = (2, self._size_y(), self._size_x())
+                if fields.shape != expected:
+                    raise ValueError(f"File {path} has the shape {fields.shape}, the configuration says {expected}.")
+                phase, concentration = fields[0].ravel(), fields[1].ravel()
+            else:
+                data = np.loadtxt(path)
+                x, y, phase, concentration = data[:, 0], data[:, 1], data[:, 2], data[:, 3]
+            for array in (x, y, phase, concentration):
+                array.flags.writeable = False
+            self._cached_data = (x, y, phase, concentration)
             self._cached_frame = frame
         return self._cached_data
+
+    def _size_x(self) -> int:
+        return self.configuration["solver"]["sizeX"]
+
+    def _size_y(self) -> int:
+        return self.configuration["solver"]["sizeY"]
+
+    def _grid_coordinates(self) -> Tuple[np.ndarray, np.ndarray]:
+        """Flat arrays x and y of all the grid points (x changes fastest), as the solver computes them."""
+        if self._grid_xy is None:
+            domain = self.configuration["solver"]["domain"]
+            size_x, size_y = self._size_x(), self._size_y()
+            hx = (domain["x_right"] - domain["x_left"]) / (size_x - 1)
+            hy = (domain["y_right"] - domain["y_left"]) / (size_y - 1)
+            x_lines = domain["x_left"] + np.arange(size_x) * hx
+            y_lines = domain["y_left"] + np.arange(size_y) * hy
+            x, y = (a.ravel() for a in np.meshgrid(x_lines, y_lines))
+            x.flags.writeable = False
+            y.flags.writeable = False
+            self._grid_xy = (x, y)
+        return self._grid_xy
