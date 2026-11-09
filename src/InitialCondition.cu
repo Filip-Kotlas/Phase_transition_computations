@@ -47,7 +47,7 @@ Real InitialCondition::get_phase(Index ind) const
         break;
 
     case ICType::ConstantHalves:
-        if( x_rel < (param.domain.x_left + param.domain.x_right) / 2 )
+        if( param.domain.x_left + x_rel < (param.domain.x_left + param.domain.x_right) / 2 )
         {
             return static_cast<Real>(constants::Phase::alpha);
         }
@@ -111,7 +111,8 @@ Real InitialCondition::get_phase(Index ind) const
     }
 
     case ICType::PerpendicularStripes: {
-        if( (x_rel < param.domain.x_left + 0.1) || (y_rel > param.domain.y_right - 0.1) )
+        if( (param.domain.x_left + x_rel < param.domain.x_left + 0.1)
+            || (param.domain.y_left + y_rel > param.domain.y_right - 0.1) )
         {
             return static_cast<Real>(constants::Phase::alpha);
         }
@@ -123,8 +124,10 @@ Real InitialCondition::get_phase(Index ind) const
     }
 
     case ICType::Box:
-        if( (x_rel < param.domain.x_left + 0.1 || x_rel > param.domain.x_right - 0.1) ||
-            (y_rel < param.domain.y_left + 0.1 || y_rel > param.domain.y_right - 0.1) )
+        if( (param.domain.x_left + x_rel < param.domain.x_left + 0.1
+            || param.domain.x_left + x_rel > param.domain.x_right - 0.1)
+            || (param.domain.y_left + y_rel < param.domain.y_left + 0.1
+            || param.domain.y_left + y_rel > param.domain.y_right - 0.1) )
         {
             return static_cast<Real>(constants::Phase::alpha);
         }
@@ -135,19 +138,19 @@ Real InitialCondition::get_phase(Index ind) const
         break;
 
     case ICType::RandomBumps: {
-        // Poloměr kruhů
+        // Radius of the circles
         const Real cr = static_cast<Real>(0.03);
 
-        // Fixní x souřadnice všech kruhů
+        // Fixed x coordinate of all circles
         const Real cx = static_cast<Real>(0.1);
 
-        // y-interval pro rozmístění (stejný rozsah jako původně: 0.1 .. 0.9)
+        // y-interval for the placement (same range as originally: 0.1 .. 0.9)
         const Real y_min = static_cast<Real>(param.domain.y_left + 0.03);
         const Real y_max = static_cast<Real>(param.domain.y_right - 0.03);
         const Real y_range = y_max - y_min;
 
 
-        // Reprodukovatelný seed (změň pro jiné rozložení nebo předej z hostu)
+        // Reproducible seed (change it for a different layout or pass it from the host)
         const uint32_t seed = 1337u;
 
         bool inside_circle = false;
@@ -155,7 +158,7 @@ Real InitialCondition::get_phase(Index ind) const
         Index number_of_circles = (param.domain.y_right - param.domain.y_left) * 10;
 
         for (Index n = 0; n < number_of_circles; ++n) {
-            // t ∈ (n/20 .. (n+1)/20) s náhodným „jitterem“
+            // t ∈ (n/20 .. (n+1)/20) with random "jitter"
             const Real t = (static_cast<Real>(n) + rnd01(static_cast<uint32_t>(n), seed)) / static_cast<Real>(number_of_circles);
             const Real cy = y_min + t * y_range;
 
@@ -272,7 +275,7 @@ uint32_t InitialCondition::wang_hash(uint32_t x) {
 __cuda_callable__
 Real InitialCondition::rnd01(uint32_t idx, uint32_t seed) {
     uint32_t h = wang_hash(idx ^ seed);
-    // 24bit frakce -> (0,1)
+    // 24-bit fraction -> (0,1)
     return (h & 0x00FFFFFFu) / static_cast<Real>(16777216.0);
 }
 

@@ -78,7 +78,7 @@ Parameters Parameters::load(const std::filesystem::path& filename) {
     p.par_a = problem.value("a", 1.0);
     p.par_b = problem.value("b", 0.1);
     p.par_d = problem.value("d", 5e15);
-    p.T = problem.value("T", 1200);
+    p.T = problem.value("T", 1200.0);
     p.ksi   = problem.value("ksi", 0.01);
 
     // force term parameters
@@ -92,10 +92,13 @@ Parameters Parameters::load(const std::filesystem::path& filename) {
     // anisotropy parameters
     auto anisotropy = config.at("anisotropy");
     p.A = anisotropy.value("A", 0.3);
+    // m has to be an integer, otherwise psi is not 2*pi-periodic. value() would silently truncate 2.5 to 2.
+    if (anisotropy.contains("m") && !anisotropy.at("m").is_number_integer())
+        throw std::runtime_error("The anisotropy parameter m has to be an integer (e.g. 4, not 4.0 or 4.5).");
     p.m = anisotropy.value("m", 2);
     p.theta_0 = anisotropy.value("theta_0", 0.0);
-    if (p.m <= 1)
-        throw std::runtime_error("The number m is lower than 2.");
+    if (p.m < 2)
+        throw std::runtime_error("The anisotropy parameter m has to be at least 2.");
     if (p.A > 1.0/(p.m*p.m - 1))
         throw std::runtime_error("Parameters A and m do not fulfill the convexity condition.");
     
@@ -156,7 +159,7 @@ void Parameters::save_for_latex(const std::filesystem::path& filename) const {
         throw std::runtime_error("Unable to open the file " + filename.string());
     }
 
-    file << "\\textbf{Oblast:}" << std::endl << std::endl;
+    file << "\\textbf{Domain:}" << std::endl << std::endl;
     file << "\\begin{tabular}{ll}" << std::endl;
     file << "\\(\\Omega\\) & \\((" << std::defaultfloat 
     << domain.x_left << ", " << domain.x_right << ") \\times "
@@ -165,39 +168,39 @@ void Parameters::save_for_latex(const std::filesystem::path& filename) const {
     file << "\\(N_y\\) & " << sizeY << " \\\\" << std::endl;
     file << "\\end{tabular}" << std::endl << std::endl;
 
-    file << "\\textbf{Časové parametry:}" << std::endl << std::endl;
+    file << "\\textbf{Time parameters:}" << std::endl << std::endl;
     file << "\\begin{tabular}{ll}" << std::endl;
     file << "\\(t_{0}\\) & " << initial_time << " \\\\" << std::endl;
     file << "\\(t_{max}\\) & " << final_time << " \\\\" << std::endl;
     file << "\\(\\tau\\) & " << integrationTimeStep << " \\\\" << std::endl;
     file << "\\end{tabular}" << std::endl << std::endl;
 
-    file << "\\textbf{Počáteční podmínka:}" << std::endl << std::endl;
+    file << "\\textbf{Initial condition:}" << std::endl << std::endl;
     file << "\\begin{tabular}{ll}" << std::endl;
-    file << "typ & " << ICType_to_string(init_condition) << " \\\\" << std::endl;
-    file << "poloměr & " << init_cond_radius << " \\\\" << std::endl;
-    file << "šířka přechodu & " << init_cond_slope_width << " \\\\" << std::endl;
+    file << "type & " << ICType_to_string(init_condition) << " \\\\" << std::endl;
+    file << "radius & " << init_cond_radius << " \\\\" << std::endl;
+    file << "transition width & " << init_cond_slope_width << " \\\\" << std::endl;
     file << "\\end{tabular}" << std::endl << std::endl;
 
-    file << "\\textbf{Okrajové podmínky:}" << std::endl << std::endl;
+    file << "\\textbf{Boundary conditions:}" << std::endl << std::endl;
     file << "\\begin{tabular}{ll}" << std::endl;
     if (bc_phase_x == BCType::Dirichlet && bc_phase_y == BCType::Dirichlet &&
         bc_conc_x == BCType::Dirichlet && bc_conc_y == BCType::Dirichlet) {
-        file << "všude & Dirichlet \\\\" << std::endl << std::endl;
+        file << "everywhere & Dirichlet \\\\" << std::endl << std::endl;
     }
     else if (bc_phase_x == BCType::Neumann && bc_phase_y == BCType::Neumann &&
              bc_conc_x == BCType::Neumann && bc_conc_y == BCType::Neumann) {
-        file << "všude & Neumann \\\\" << std::endl << std::endl;
+        file << "everywhere & Neumann \\\\" << std::endl << std::endl;
     }
     else {            
-        file << "fázové pole v \\(x\\)-ovém směru & " << BCType_to_string(bc_phase_x) << " \\\\" << std::endl;
-        file << "fázové pole v \\(y\\)-ovém směru & " << BCType_to_string(bc_phase_y) << " \\\\" << std::endl;
-        file << "koncentrace v \\(x\\)-ovém směru & " << BCType_to_string(bc_conc_x) << " \\\\" << std::endl;
-        file << "koncentrace v \\(y\\)-ovém směru & " << BCType_to_string(bc_conc_y) << " \\\\" << std::endl;
+        file << "phase field in the \\(x\\) direction & " << BCType_to_string(bc_phase_x) << " \\\\" << std::endl;
+        file << "phase field in the \\(y\\) direction & " << BCType_to_string(bc_phase_y) << " \\\\" << std::endl;
+        file << "concentration in the \\(x\\) direction & " << BCType_to_string(bc_conc_x) << " \\\\" << std::endl;
+        file << "concentration in the \\(y\\) direction & " << BCType_to_string(bc_conc_y) << " \\\\" << std::endl;
     }
     file << "\\end{tabular}" << std::endl << std::endl;
 
-    file << "\\textbf{Parametry modelu:}" << std::endl << std::endl;
+    file << "\\textbf{Model parameters:}" << std::endl << std::endl;
     file << "\\begin{tabular}{ll}" << std::endl;
     file << "\\(\\alpha\\) & " << alpha << " \\\\" << std::endl;
     file << "\\(\\beta\\) & " << beta << " \\\\" << std::endl;
@@ -208,7 +211,7 @@ void Parameters::save_for_latex(const std::filesystem::path& filename) const {
     file << "\\(\\xi\\) & " << ksi << " \\\\" << std::endl;
     file << "\\end{tabular}" << std::endl << std::endl;
 
-    file << "\\textbf{Parametry anizotropie:}" << std::endl << std::endl;
+    file << "\\textbf{Anisotropy parameters:}" << std::endl << std::endl;
     file << "\\begin{tabular}{ll}" << std::endl;
     file << "\\(A\\) & " << A << " \\\\" << std::endl;
     file << "\\(m\\) & " << m << " \\\\" << std::endl;

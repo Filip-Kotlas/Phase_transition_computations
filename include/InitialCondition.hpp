@@ -23,7 +23,7 @@ public:
     __cuda_callable__
     Real get_concentration(Index index) const;
 
-    // Pomocné funkce: jednoduchý hash a uniformní [0,1)
+    // Helper functions: a simple hash and a uniform [0,1)
     __cuda_callable__ static
     uint32_t wang_hash(uint32_t x);
 

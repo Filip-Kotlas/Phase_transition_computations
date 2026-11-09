@@ -43,22 +43,22 @@ public:
     double force_term_size;
     // anisotropy parameters
     double A;
-    double m;
+    int m;
     double theta_0;
 
     // --- metody ---
     Parameters() = default;
 
-    // načtení z JSON souboru
+    // load from a JSON file
     static Parameters load(const std::filesystem::path& filename);
 
-    // uložení do textového souboru (pro info/parameters.txt)
+    // save to a text file (for info/parameters.txt)
     void save_human_readable(const std::filesystem::path& filename) const;
 
-    // uložení do textového souboru ve formátu vhodném pro zkopírování do LateXu
+    // save to a text file in a format suitable for copying into LaTeX
     void save_for_latex(const std::filesystem::path& filename) const;
 
-    // uloží přesnou kopii původního JSON
+    // save an exact copy of the original JSON
     void save_copy_of_config(const std::filesystem::path& original_path,
                              const std::filesystem::path& copy_path) const;
 

@@ -23,7 +23,7 @@ for param in param_values:
 ax.set_xlim(dim[0], dim[1])
 ax.set_ylim(dim[2], dim[3])
 
-# Zobraz všechny okraje (spines)
+# Show all borders (spines)
 for spine in ax.spines.values():
     spine.set_visible(True)
     spine.set_color('black')
@@ -32,11 +32,11 @@ for spine in ax.spines.values():
 ax.xaxis.set_ticks_position('bottom')
 ax.yaxis.set_ticks_position('left')
 
-# Souřadnicové osy
+# Coordinate axes
 ax.axhline(0, color='black', linewidth=0.5)
 ax.axvline(0, color='black', linewidth=0.5)
 
-# Popisky osy – zarovnané k pravému a hornímu okraji
+# Axis labels – aligned to the right and top edges
 ax.set_xlabel(x_name, color='black', labelpad=10, fontsize=20)
 ax.set_ylabel(y_name, color='black', labelpad=20, fontsize=20)
 ax.yaxis.label.set_rotation(0)
@@ -44,10 +44,10 @@ ax.yaxis.label.set_rotation(0)
 ax.tick_params(labelsize=17)
 
 
-# Černé hodnoty na osách
+# Black tick values on the axes
 ax.tick_params(colors='black')
 
-# Bez mřížky
+# No grid
 ax.grid(True)
 
 ax.set_aspect("auto")

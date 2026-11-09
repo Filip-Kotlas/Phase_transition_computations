@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Overview
 
-CUDA/C++17 phase-field solver for a 2D phase transition (anisotropic Allen–Cahn-type equation for the phase `p`, coupled with diffusion of the Nb concentration `c` in a Zr–Nb alloy). It is research code for a thesis at FNSPE CTU Prague. Python scripts post-process and plot the results. Comments and many messages are in Czech.
+CUDA/C++17 phase-field solver for a 2D phase transition (anisotropic Allen–Cahn-type equation for the phase `p`, coupled with diffusion of the Nb concentration `c` in a Zr–Nb alloy). It is research code for a thesis at FNSPE CTU Prague. Python scripts post-process and plot the results. Comments and messages are in English.
 
 ## Build & run
 

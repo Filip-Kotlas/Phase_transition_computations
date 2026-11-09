@@ -28,12 +28,12 @@ CUDA_ARCH ?= -arch=native
 COMPILER = nvcc
 COMPILER_FLAGS = -std=c++17 $(INCLUDE_DIR) -O3 --expt-relaxed-constexpr --extended-lambda -rdc=true $(CUDA_ARCH)
 
-# Potlačení zbytečných varování
-# -diag-suppress 20012 = "annotation ignored" (ArrayView apod.)
+# Suppress unnecessary warnings
+# -diag-suppress 20012 = "annotation ignored" (ArrayView etc.)
 # -diag-suppress 177 = "variable declared but never referenced"
 # -diag-suppress 186 = "pointless comparison"
 # -diag-suppress 297 = "declared but never referenced"
-# -Xcompiler -w = potlačí běžná CPU varování (gcc/clang)
+# -Xcompiler -w = suppresses common CPU warnings (gcc/clang)
 SUPPRESS_WARNINGS := -Xcudafe --diag_suppress=20012 -Xcudafe --diag_suppress=177 \
                      -Xcudafe --diag_suppress=186 -Xcudafe --diag_suppress=297 \
                      -Xcompiler -w
@@ -43,7 +43,7 @@ OBJ := $(patsubst $(SRC_DIR)/%,$(BUILD_DIR)/%,$(SRC:.cpp=.o))
 OBJ := $(OBJ:.cu=.o)
 OBJ := $(OBJ:.c=.o)
 
-# pravidla pro překlad
+# compilation rules
 $(BUILD_DIR)/%.o: $(SRC_DIR)/%.cpp
 	@mkdir -p $(BUILD_DIR)
 	$(COMPILER) $(COMPILER_FLAGS) $(SUPPRESS_WARNINGS) -c $< -o $@
@@ -56,7 +56,7 @@ $(BUILD_DIR)/%.o: $(SRC_DIR)/%.c
 	@mkdir -p $(BUILD_DIR)
 	$(COMPILER) $(COMPILER_FLAGS) $(SUPPRESS_WARNINGS) -x c -c $< -o $@
 
-# linkování
+# linking
 $(BUILD_DIR)/$(TARGET): $(OBJ)
 	$(COMPILER) $(COMPILER_FLAGS) $(SUPPRESS_WARNINGS) $(OBJ) -o $@ $(TNL_LDFLAGS)
 
@@ -84,7 +84,7 @@ run: $(BUILD_DIR)/$(TARGET)
 run_all:
 	@for cfg in $(CONFIGS_DIR)/*.json; do \
 		name=$$(basename $$cfg .json); \
-		echo "Spouštím výpočet pro konfiguraci: $$name"; \
+		echo "Running computation for configuration: $$name"; \
 		echo "========================================"; \
 		cp $$cfg $(CONFIG_TARGET); \
 		$(MAKE) run FOLDER=$$name; \

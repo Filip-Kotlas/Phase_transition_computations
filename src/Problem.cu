@@ -144,7 +144,7 @@ bool Problem::set_init_cond_from_file(Vector& u, const std::filesystem::path& fi
     std::ifstream file(filename, binary ? std::ios::in | std::ios::binary : std::ios::in);
     if (!file)
     {
-        std::cerr << "Nelze otevřít soubor: " << filename << '\n';
+        std::cerr << "Unable to open the file: " << filename << '\n';
         return false;
     }
 
@@ -178,11 +178,11 @@ bool Problem::set_init_cond_from_file(Vector& u, const std::filesystem::path& fi
         file.read(reinterpret_cast<char*>(file_phase.data()), bytes);
         file.read(reinterpret_cast<char*>(file_conc.data()), bytes);
         if (!file) {
-            std::cout << "Soubor obsahuje méně dat než očekáváno.\n";
+            std::cout << "The file contains less data than expected.\n";
             return false;
         }
         if (file.peek() != std::ifstream::traits_type::eof()) {
-            std::cout << "Soubor obsahuje více dat než očekáváno.\n";
+            std::cout << "The file contains more data than expected.\n";
             return false;
         }
     }
@@ -192,17 +192,17 @@ bool Problem::set_init_cond_from_file(Vector& u, const std::filesystem::path& fi
         Index count = 0;
 
         while (std::getline(file, line)) {
-            if (line.empty()) continue; // přeskoč prázdné řádky
+            if (line.empty()) continue; // skip empty lines
 
             std::istringstream iss(line);
             Real x, y, p, c;
             if (!(iss >> x >> y >> p >> c)) {
-                std::cout << "Chyba při čtení řádku: " << line << '\n';
+                std::cout << "Error while reading line: " << line << '\n';
                 return false;
             }
 
             if (count >= N) {
-                std::cout << "Soubor obsahuje více dat než očekáváno.\n";
+                std::cout << "The file contains more data than expected.\n";
                 return false;
             }
 
@@ -212,7 +212,7 @@ bool Problem::set_init_cond_from_file(Vector& u, const std::filesystem::path& fi
         }
 
         if (count < N) {
-            std::cout << "Soubor obsahuje méně dat než očekáváno.\n";
+            std::cout << "The file contains less data than expected.\n";
             return false;
         }
     }
@@ -221,8 +221,8 @@ bool Problem::set_init_cond_from_file(Vector& u, const std::filesystem::path& fi
 
     for (int k = 0; k < N; ++k)
     {
-        host_u[k] = static_cast<int>(constants::Phase::beta); // inicializace fáze
-        host_u[N + k] = constants::c_init_beta; // inicializace koncentrace
+        host_u[k] = static_cast<int>(constants::Phase::beta); // phase initialization
+        host_u[N + k] = constants::c_init_beta; // concentration initialization
     }
 
     const Index start_i = sizeX / 4;
@@ -266,7 +266,7 @@ void Problem::apply_boundary_condition_ydir(Index ind, VectorView u, VectorView 
 __cuda_callable__
 void Problem::apply_phase_boundary_condition_xdir(Index ind, VectorView u, VectorView fu)
 {
-    // Horní a dolní hrana
+    // Top and bottom edges
     fu[ind] = 0;
     fu[(sizeY - 1) * sizeX + ind] = 0;
 
@@ -283,7 +283,7 @@ void Problem::apply_phase_boundary_condition_xdir(Index ind, VectorView u, Vecto
 __cuda_callable__
 void Problem::apply_phase_boundary_condition_ydir(Index ind, VectorView u, VectorView fu)
 {
-    // Levá a pravá hrana
+    // Left and right edges
     fu[ind * sizeX] = 0;
     fu[(ind + 1) * sizeX - 1] = 0;
 
