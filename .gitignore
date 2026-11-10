@@ -39,6 +39,7 @@
 
 # Text files
 *.txt
+!requirements.txt
 
 results/
 build/

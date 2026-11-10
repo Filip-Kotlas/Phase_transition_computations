@@ -1,0 +1,13 @@
+# Python dependencies for the post-processing and plotting scripts in python/.
+# Install with: pip install -r requirements.txt
+
+numpy>=1.21
+matplotlib>=3.5        # also pulls in Pillow, used for gif animations (PillowWriter)
+contourpy>=1.0         # numerical 0.5-level interface in python/boundary.py
+
+# Optional: bundled ffmpeg for mp4 animations when no ffmpeg is on the PATH
+# (without it, basic_plot.py falls back to gif).
+imageio-ffmpeg>=0.4
+
+# Note: python/graphs/*.py use LaTeX text rendering (text.usetex), which needs
+# a system LaTeX installation (e.g. TeX Live), not a pip package.
