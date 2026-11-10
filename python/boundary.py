@@ -4,7 +4,6 @@ Nothing here draws. The plotters take the curves from the class Boundary and the
 write_boundary_files saves them for all the frames of a computation.
 """
 from contextlib import ExitStack
-from pathlib import Path
 from typing import List, Tuple
 import math
 import numpy as np
@@ -232,19 +231,19 @@ def crossings_with_grid_lines(curve_x, curve_y, grid_x, grid_y) -> List[np.ndarr
 
 def write_boundary_files(dataset: Dataset, include_analytic: bool) -> None:
     """
-    Saves the boundary of all the frames of the computation into the folder "info" of its results.
+    Saves the boundary of all the frames of the computation into the folder "info/boundary" of its results.
 
     The numerical boundary goes to interface_num.crv, the analytic one (if include_analytic) to
     interface_anal.crv. The files are always written from scratch, the frames follow one after another.
     The file has one block for every frame: the line "# Time level T = ...", the points "x y" and the line "##".
     """
     boundary = Boundary(dataset)
-    info_folder = Path(dataset.folder) / "info"
-    info_folder.mkdir(parents=True, exist_ok=True)
+    boundary_folder = dataset.boundary_folder
+    boundary_folder.mkdir(parents=True, exist_ok=True)
 
-    outputs = [(info_folder / NUMERICAL_FILE, boundary.numerical_curves)]
+    outputs = [(boundary_folder / NUMERICAL_FILE, boundary.numerical_curves)]
     if include_analytic:
-        outputs.append((info_folder / ANALYTIC_FILE, boundary.analytic_curves))
+        outputs.append((boundary_folder / ANALYTIC_FILE, boundary.analytic_curves))
 
     with ExitStack() as stack:
         files = [stack.enter_context(path.open("w", encoding="utf-8")) for path, _ in outputs]

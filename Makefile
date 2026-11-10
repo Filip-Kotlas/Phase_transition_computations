@@ -10,7 +10,7 @@ INCLUDE_DIR := -I./include -I~/.local/include
 SRC_DIR := ./src
 RESULTS_DIR := ./results
 PYTHON_DIR := ./python
-PARAM_PATH := info/parameters.txt
+PARAM_PATH := info/setup/parameters.txt
 
 DELETE_CALCS ?= 0
 
@@ -43,18 +43,25 @@ OBJ := $(patsubst $(SRC_DIR)/%,$(BUILD_DIR)/%,$(SRC:.cpp=.o))
 OBJ := $(OBJ:.cu=.o)
 OBJ := $(OBJ:.c=.o)
 
+# Header dependencies: while compiling, nvcc also writes build/sm_XX/<name>.d listing the
+# headers the object includes (-MMD: only the project's headers, not system ones such as TNL
+# in /usr/include). These files are included at the end of this Makefile, so changing a
+# header recompiles exactly the objects that include it. -MP adds an empty rule for each
+# header, so deleting or renaming a header does not break the build.
+DEPFLAGS = -MMD -MP -MF $(@:.o=.d)
+
 # compilation rules
 $(BUILD_DIR)/%.o: $(SRC_DIR)/%.cpp
 	@mkdir -p $(BUILD_DIR)
-	$(COMPILER) $(COMPILER_FLAGS) $(SUPPRESS_WARNINGS) -c $< -o $@
+	$(COMPILER) $(COMPILER_FLAGS) $(SUPPRESS_WARNINGS) $(DEPFLAGS) -c $< -o $@
 
 $(BUILD_DIR)/%.o: $(SRC_DIR)/%.cu
 	@mkdir -p $(BUILD_DIR)
-	$(COMPILER) $(COMPILER_FLAGS) $(SUPPRESS_WARNINGS) -c $< -o $@
+	$(COMPILER) $(COMPILER_FLAGS) $(SUPPRESS_WARNINGS) $(DEPFLAGS) -c $< -o $@
 
 $(BUILD_DIR)/%.o: $(SRC_DIR)/%.c
 	@mkdir -p $(BUILD_DIR)
-	$(COMPILER) $(COMPILER_FLAGS) $(SUPPRESS_WARNINGS) -x c -c $< -o $@
+	$(COMPILER) $(COMPILER_FLAGS) $(SUPPRESS_WARNINGS) $(DEPFLAGS) -x c -c $< -o $@
 
 # linking
 $(BUILD_DIR)/$(TARGET): $(OBJ)
@@ -63,9 +70,6 @@ $(BUILD_DIR)/$(TARGET): $(OBJ)
 .PHONY: run
 run: $(BUILD_DIR)/$(TARGET)
 	$(BUILD_DIR)/$(TARGET) $(RESULTS_DIR)/$(FOLDER) $(CONFIG)
-	echo "" >> $(RESULTS_DIR)/$(FOLDER)/$(PARAM_PATH)
-	echo -n "Run date: " >> $(RESULTS_DIR)/$(FOLDER)/$(PARAM_PATH)
-	date "+%d.%m.%Y %H:%M:%S" >> $(RESULTS_DIR)/$(FOLDER)/$(PARAM_PATH)
 	echo "Git commit: $(GIT_COMMIT)" >> $(RESULTS_DIR)/$(FOLDER)/$(PARAM_PATH)
 	python3 $(PYTHON_DIR)/basic_plot.py --name $(FOLDER) --type both || echo "WARNING: plotting failed, continuing"
 	@if [ "$(DELETE_CALCS)" = "1" ]; then \
@@ -93,3 +97,7 @@ run_all:
 .PHONY: clean
 clean:
 	rm -rf $(BUILD_ROOT)/*
+
+# Generated header dependencies (see DEPFLAGS). Kept at the end so that they cannot become the
+# default goal; the leading "-" ignores the files that do not exist yet (first build).
+-include $(OBJ:.o=.d)

@@ -1,9 +1,17 @@
 #include <cstdlib>
 #include <cassert>
+#include <cmath>
 #include <iostream>
+#include <fstream>
+#include <sstream>
+#include <iomanip>
+#include <chrono>
+#include <ctime>
 #include <vector>
 #include <filesystem>
 #include <json.hpp>
+#include <TNL/Backend/Functions.h>
+#include <TNL/Backend/DeviceInfo.h>
 #include <string>
 
 #include "Problem.hpp"
@@ -12,7 +20,24 @@
 #include "InitialCondition.hpp"
 #include "enums.hpp"
 
+// Name and compute capability of the GPU this process runs on, e.g. "NVIDIA GeForce RTX 3060 (compute capability 8.6)".
+std::string gpu_description()
+{
+    try {
+        const int device = TNL::Backend::getDevice();
+        return TNL::Backend::getDeviceName(device) + " (compute capability "
+               + std::to_string(TNL::Backend::getArchitectureMajor(device)) + "."
+               + std::to_string(TNL::Backend::getArchitectureMinor(device)) + ")";
+    }
+    catch (const std::exception&) {
+        // TNL throws when the CUDA call fails; the run itself does not depend on this information.
+        return "unknown";
+    }
+}
+
 int main(int argc, char** argv) {
+    const std::time_t run_start = std::time(nullptr);
+
     // usage: Phase-field [result_folder [config_file]]
     std::filesystem::path result_path = "Results";
     if (argc >= 2)
@@ -23,15 +48,15 @@ int main(int argc, char** argv) {
 
     Parameters parameters = Parameters::load(input_config_path);
 
-    std::filesystem::path info_path   = result_path / "info";
-    std::filesystem::path setup_path  = info_path / "parameters.txt";
+    // info/setup holds what the run was started with; the Python scripts add info/plots and info/boundary.
+    std::filesystem::path setup_dir   = result_path / "info" / "setup";
+    std::filesystem::path setup_path  = setup_dir / "parameters.txt";
     std::filesystem::path calc_path   = result_path / "calculations";
-    std::filesystem::path config_path = info_path / "config.json";
-    std::filesystem::path latex_path = info_path / "parameters.tex";
-    
+    std::filesystem::path config_path = setup_dir / "config.json";
+    std::filesystem::path latex_path  = setup_dir / "parameters.tex";
+
     try {
-        std::filesystem::create_directories(result_path);
-        std::filesystem::create_directories(info_path);
+        std::filesystem::create_directories(setup_dir);
         std::filesystem::create_directories(calc_path);
     }
     catch (const std::filesystem::filesystem_error& e) {
@@ -43,22 +68,39 @@ int main(int argc, char** argv) {
     parameters.save_copy_of_config(input_config_path, config_path);
     parameters.save_for_latex(latex_path);
 
+    // Written at the start, so that a run that crashes or is killed still records them.
+    // The computation time is appended at the end and "make run" appends the git commit after it.
+    {
+        std::ofstream setup_file(setup_path, std::ios::app);
+        setup_file << "\nRun date: " << std::put_time(std::localtime(&run_start), "%d.%m.%Y %H:%M:%S") << '\n'
+                   << "GPU: " << gpu_description() << '\n';
+        if (!setup_file)
+            std::cerr << "Warning: unable to write the run date and GPU to " << setup_path << std::endl;
+    }
+
     Problem problem(parameters);
     Vector u(problem.getDegreesOfFreedom());
 
     if (parameters.init_cond_from_file){
-        std::cout << "Setting initial condition from file: " << parameters.init_cond_file_path << std::endl;
-        if (!problem.set_init_cond_from_file(u, calc_path / parameters.init_cond_file_path, parameters.init_cond_scaling)){
-            std::cout << "Error setting initial condition from file. Exiting." << std::endl;
+        // The path in the config is relative to the calculations/ folder of this run.
+        const std::filesystem::path init_cond_path = calc_path / parameters.init_cond_file_path;
+        std::cout << "Setting initial condition from file: " << init_cond_path << std::endl;
+        if (!problem.set_init_cond_from_file(u, init_cond_path, parameters.init_cond_scaling)){
+            std::cerr << "Error: could not set the initial condition from the file " << init_cond_path
+                      << " (init_cond_file_path = " << parameters.init_cond_file_path
+                      << ", resolved relative to " << calc_path << "). Exiting." << std::endl;
             return EXIT_FAILURE;
         }
     }
     else{
-        std::cout << "Setting initial condition by code." << std::endl;
+        std::cout << "Setting initial condition from code: " << ICType_to_string(parameters.init_condition) << std::endl;
         InitialCondition init_cond(parameters);
         problem.set_init_cond_manually(u, init_cond);
     }
     std::cout << "Initial condition set." << std::endl;
+
+    // Wall time of the time stepping, including writing the frames.
+    const auto computation_start = std::chrono::steady_clock::now();
 
     ODESolver solver;
     solver.setTau( parameters.integrationTimeStep );
@@ -126,4 +168,19 @@ int main(int argc, char** argv) {
                   << std::setw(2) << elapsed_seconds << "s "
                   << std::setw(3) << elapsed_milisec << "ms" << std::endl;
     }
+
+    const double computation_seconds = std::chrono::duration<double>(std::chrono::steady_clock::now() - computation_start).count();
+    const long total_seconds = std::lround(computation_seconds);
+    std::ostringstream computation_time;
+    computation_time << total_seconds / 3600 << "h "
+                     << std::setfill('0') << std::setw(2) << (total_seconds % 3600) / 60 << "m "
+                     << std::setw(2) << total_seconds % 60 << "s"
+                     << " (" << std::fixed << std::setprecision(1) << computation_seconds << " s)";
+
+    std::cout << "Computation time: " << computation_time.str() << std::endl;
+
+    std::ofstream setup_file(setup_path, std::ios::app);
+    setup_file << "Computation time: " << computation_time.str() << '\n';
+    if (!setup_file)
+        std::cerr << "Warning: unable to write the computation time to " << setup_path << std::endl;
 }

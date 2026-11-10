@@ -188,16 +188,16 @@ Real InitialCondition::get_phase(Index ind) const
             x_wulff = init_cond_radius*(psi(wulff_theta)*cos(wulff_theta) - der_psi(wulff_theta)*sin(wulff_theta));
             y_wulff = init_cond_radius*(psi(wulff_theta)*sin(wulff_theta) + der_psi(wulff_theta)*cos(wulff_theta));
             Real theta_computed = atan2(y_wulff, x_wulff);
-            if (wulff_theta > M_PI/2 && theta_computed < 0)
-                theta_computed += 2*M_PI;
-            else if (wulff_theta < -M_PI/2 && theta_computed > 0)
-                theta_computed -= 2*M_PI;
+            if (wulff_theta > constants::pi/2 && theta_computed < 0)
+                theta_computed += 2*constants::pi;
+            else if (wulff_theta < -constants::pi/2 && theta_computed > 0)
+                theta_computed -= 2*constants::pi;
             return theta_computed - theta_origin;
         };
 
         auto compute_wulff_coords = [&]() -> void {
-            Real wulff_left = -M_PI;
-            Real wulff_right = M_PI;
+            Real wulff_left = -constants::pi;
+            Real wulff_right = constants::pi;
             Real wulff_mid = (wulff_left + wulff_right)/2;
 
             // Declare f_left and f_right to check for root at the boundaries
@@ -214,7 +214,7 @@ Real InitialCondition::get_phase(Index ind) const
 
             // check if theta_origin is outside the range of function values at the boundaries and adjust accordingly
             if (f_left*f_right > 0) {
-                theta_origin += (f_left > 0) ? 2*M_PI : -2*M_PI;
+                theta_origin += (f_left > 0) ? 2*constants::pi : -2*constants::pi;
             }
             f_left = f(wulff_left);
             f_right = f(wulff_right);

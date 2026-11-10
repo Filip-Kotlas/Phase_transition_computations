@@ -1,6 +1,5 @@
 from typing import List, Tuple
 from contextlib import ExitStack
-from pathlib import Path
 import math
 import numpy as np
 import matplotlib.pyplot as plt
@@ -44,11 +43,11 @@ class Plotter():
     def get_max_frame_number(self) -> int:
         return self.dataset.get_max_frame_number()
 
-    def check_for_info_folder(self) -> None:
-        path_to_visual = Path(self.folder) / "info"
-        if not path_to_visual.exists():
-            path_to_visual.mkdir(parents=True, exist_ok=True)
-            print("Creating folder \"info\" in ", self.folder)
+    def check_for_plots_folder(self) -> None:
+        plots_folder = self.dataset.plots_folder
+        if not plots_folder.exists():
+            plots_folder.mkdir(parents=True, exist_ok=True)
+            print("Creating folder", plots_folder)
 
     def set_time_title(self, frame: int, title) -> None:
         t0 = self.configuration["solver"]["initial_time"]
@@ -78,9 +77,9 @@ class Plotter():
         if frame >= len(self.file_paths):
             print(f"Frame {frame} is unavailable.")
             return
-        self.check_for_info_folder()
+        self.check_for_plots_folder()
         self.update(frame)
-        output_file = Path(self.folder) / "info" / ("ACE" + self.output_name_tag + f"_{frame:05d}.jpg")
+        output_file = self.dataset.plots_folder / ("ACE" + self.output_name_tag + f"_{frame:05d}.jpg")
         self.fig.savefig(output_file, dpi=300, bbox_inches='tight')
         print(f"Frame {frame} saved at:", output_file)
 
@@ -385,8 +384,8 @@ def save_animations(plotters: List[Plotter], file_format: str="auto") -> None:
     output_files = []
     for plotter in plotters:
         print("Preparing animation for", str(plotter.output_name_tag)[1:])
-        plotter.check_for_info_folder()
-        output_files.append(Path(plotter.folder) / "info" / ("ACE" + plotter.output_name_tag + "." + file_format))
+        plotter.check_for_plots_folder()
+        output_files.append(plotter.dataset.plots_folder / ("ACE" + plotter.output_name_tag + "." + file_format))
 
     # The gif writer collects the frames in memory and creates the file when the "with" block ends.
     # The mp4 writer sends every frame to ffmpeg at once.

@@ -52,7 +52,7 @@ public:
     // load from a JSON file
     static Parameters load(const std::filesystem::path& filename);
 
-    // save to a text file (for info/parameters.txt)
+    // save to a text file (for info/setup/parameters.txt)
     void save_human_readable(const std::filesystem::path& filename) const;
 
     // save to a text file in a format suitable for copying into LaTeX

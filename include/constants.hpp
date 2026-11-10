@@ -3,6 +3,9 @@
 #include "types.hpp"
 
 namespace constants {
+    // M_PI is not standard C++ (glibc provides it, other headers may not); same literal as glibc's M_PI.
+    inline constexpr Real pi = 3.14159265358979323846;
+
     inline constexpr Real R = 8.31446261815324;
     inline constexpr Real Cal_to_joule = 4.184;
 

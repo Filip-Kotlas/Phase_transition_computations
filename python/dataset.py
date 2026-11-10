@@ -9,7 +9,7 @@ class Dataset():
     """Access to the results of one computation stored in a results folder.
 
     The folder has to contain the subfolder "calculations" with the frames and the file
-    "info/config.json" with the configuration. A frame is stored in one of two formats:
+    "info/setup/config.json" with the configuration (older results have it in "info/config.json"). A frame is stored in one of two formats:
       - "Result-NNNNN.npy": array of the shape (2, sizeY, sizeX), phase first and concentration second.
         The coordinates are not stored, they are computed from the configuration.
       - "Result-NNNNN.txt": text file with the lines "x y phase concentration" (the older format).
@@ -28,9 +28,18 @@ class Dataset():
         if len(self.file_paths) == 0:
             raise FileNotFoundError(f"Folder {calc_folder} does not contain any Result-*.npy or Result-*.txt files!")
 
-        config_path = self.folder / "info" / "config.json"
+        # Subfolders of "info": the solver writes "setup", the Python scripts write the other two.
+        self.setup_folder = self.folder / "info" / "setup"
+        self.plots_folder = self.folder / "info" / "plots"
+        self.boundary_folder = self.folder / "info" / "boundary"
+
+        config_path = self.setup_folder / "config.json"
         if not config_path.exists():
-            raise FileNotFoundError(f"File {config_path} does not exist!")
+            # Results computed before the subfolders existed have the config directly in "info".
+            old_config_path = self.folder / "info" / "config.json"
+            if not old_config_path.exists():
+                raise FileNotFoundError(f"File {config_path} does not exist!")
+            config_path = old_config_path
         with config_path.open("r", encoding="utf-8") as file:
             self.configuration = json.load(file)
 
