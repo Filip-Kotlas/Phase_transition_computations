@@ -4,6 +4,9 @@
 #   slurm/cluster.sh submit MyRun [--delete-calcs] [--force] [--gpu TYPE]
 #                                                              upload code, sbatch the job
 #                                                              (--gpu rtx5080: only that card type)
+#   slurm/cluster.sh test MyTest [--against COMMIT] [--force] [--gpu TYPE]
+#                                                              regression test: your working tree
+#                                                              against COMMIT (default HEAD)
 #   slurm/cluster.sh status                                    show your queue
 #   slurm/cluster.sh list                                      all runs on the cluster and their state
 #   slurm/cluster.sh log                                       tail the newest slurm-*.out
@@ -20,6 +23,12 @@
 # submit refuses a name that is already used on the cluster (finished or still queued);
 # --force deletes the old results and upload of that name first. It does NOT stop a job
 # that is still running under that name, so check `status` first.
+# test uploads the working tree like submit, plus the committed version COMMIT (git archive) as
+# the baseline. The job builds both, runs every tests/configs/*.json with both on the same GPU
+# and compares them (tests/regression.sh, python/compare_runs.py); `log` shows the result and
+# results/MyTest/report.txt keeps it. So test your changes BEFORE committing them: once they are
+# committed, HEAD is the new code itself, and test refuses to compare the code with itself
+# (use --against HEAD~1, or the commit before your changes, then).
 # list shows each run in results/ and jobs/ with its state: queued, running (with progress),
 # finished (computation time; warns when the animations are missing) or stopped (no job any
 # more and not finished: crashed, cancelled or time limit; it names the log to look at).
@@ -69,24 +78,57 @@ check_name() {
 cmd="${1:-}"; shift || true
 
 case "$cmd" in
-submit)
-    folder=""; delete=0; force=0; gpu=""
+submit|test)
+    # test is submit with a second archive (the baseline) and MODE=test for run.sbatch.
+    mode=$cmd
+    folder=""; delete=0; force=0; gpu=""; against=""
     while [ $# -gt 0 ]; do
         case "$1" in
-            --delete-calcs) delete=1 ;;
+            --delete-calcs)
+                [ "$mode" = submit ] || { echo "--delete-calcs is only for submit." >&2; exit 1; }
+                delete=1 ;;
             --force)        force=1 ;;
             --gpu)
                 [ $# -ge 2 ] || { echo "--gpu needs a GPU type, e.g. --gpu rtx5080" >&2; exit 1; }
                 gpu="$2"; shift ;;
+            --against)
+                [ "$mode" = test ] || { echo "--against is only for test." >&2; exit 1; }
+                [ $# -ge 2 ] || { echo "--against needs a commit, e.g. --against HEAD~1" >&2; exit 1; }
+                against="$2"; shift ;;
             -*) echo "Unknown option: $1" >&2; exit 1 ;;
             *)  folder="$1" ;;
         esac
         shift
     done
-    [ -n "$folder" ] || { echo "Usage: cluster.sh submit FOLDER [--delete-calcs] [--force] [--gpu TYPE]" >&2; exit 1; }
+    if [ -z "$folder" ]; then
+        if [ "$mode" = test ]; then
+            echo "Usage: cluster.sh test NAME [--against COMMIT] [--force] [--gpu TYPE]" >&2
+        else
+            echo "Usage: cluster.sh submit FOLDER [--delete-calcs] [--force] [--gpu TYPE]" >&2
+        fi
+        exit 1
+    fi
     check_name "$folder"
     job_dir="jobs/$folder"
-    [ -f config/config.json ] || { echo "config/config.json does not exist, nothing to run." >&2; exit 1; }
+    if [ "$mode" = submit ]; then
+        [ -f config/config.json ] || { echo "config/config.json does not exist, nothing to run." >&2; exit 1; }
+    else
+        [ -n "$(ls tests/configs/*.json 2>/dev/null)" ] || { echo "There are no tests/configs/*.json, nothing to test." >&2; exit 1; }
+        against="${against:-HEAD}"
+        base_commit=$(git rev-parse --verify --quiet "$against^{commit}") \
+            || { echo "'$against' is not a commit." >&2; exit 1; }
+        base_short=$(git rev-parse --short "$base_commit")
+        # The test compares the working tree with the baseline. If they have the same code (e.g.
+        # the changes were committed before testing and the baseline is HEAD), both versions are
+        # the same and every case would come out IDENTICAL without saying anything.
+        # config/config.json does not count: the test does not use it.
+        if git diff --quiet "$base_commit" -- . ':(exclude)config/config.json' \
+           && [ -z "$(git ls-files -o --exclude-standard)" ]; then
+            echo "Your working tree has the same code as $against ($base_short), so the test would compare the code with itself." >&2
+            echo "If you have already committed your changes, compare with the commit before them, e.g. --against HEAD~1." >&2
+            exit 1
+        fi
+    fi
 
     # --gpu TYPE requests that card type (--gres=gpu:TYPE:1 overrides the "any GPU" line in
     # run.sbatch). Checked against the cluster before anything is uploaded.
@@ -126,6 +168,14 @@ submit)
         | tar --null -T - -czf - \
         | "$SSH" "$CLUSTER_HOST" "mkdir -p '$REMOTE_DIR/$job_dir' && cat > '$REMOTE_DIR/$job_dir/sources.tar.gz'"
 
+    if [ "$mode" = test ]; then
+        # The committed baseline, exactly as git stores it. core.autocrlf=false: old commits have
+        # no .gitattributes, and CRLF line endings would break make and the scripts on Linux.
+        echo ">> Uploading the baseline $against ($base_short) to $CLUSTER_HOST:$REMOTE_DIR/$job_dir/baseline.tar.gz"
+        git -c core.autocrlf=false archive --format=tar.gz "$base_commit" \
+            | "$SSH" "$CLUSTER_HOST" "cat > '$REMOTE_DIR/$job_dir/baseline.tar.gz'"
+    fi
+
     # Local commit, marked "-dirty" when uncommitted changes (or untracked files) were uploaded too.
     # config/config.json does not count: it is the input of the run, not code, and every run
     # keeps it in info/setup/config.json (and in sources.tar.gz) anyway.
@@ -135,8 +185,16 @@ submit)
     # The batch script comes from the uploaded archive too (sbatch reads it from stdin), so the
     # job script always matches the code. The job name is the run name, which `status` shows
     # and `cancel` and `clean` rely on. If sbatch fails, the upload is deleted so the name stays free.
-    echo ">> Submitting job (commit $commit, GPU ${gpu:-any})"
-    rssh "cd '$REMOTE_DIR' && { tar xzOf '$job_dir/sources.tar.gz' slurm/run.sbatch | sbatch --job-name='$folder' ${gres[*]:-} --export=ALL,FOLDER='$folder',DELETE_CALCS=$delete,GIT_COMMIT='$commit' || { rm -rf '$job_dir'; exit 1; }; }"
+    # A test takes minutes, so it gets a short time limit (overrides the 12 h in run.sbatch):
+    # if something hangs, it does not hold the GPU for long.
+    extra=()
+    if [ "$mode" = test ]; then
+        extra=(--time=01:00:00)
+        echo ">> Submitting test job (commit $commit against the baseline $base_short, GPU ${gpu:-any})"
+    else
+        echo ">> Submitting job (commit $commit, GPU ${gpu:-any})"
+    fi
+    rssh "cd '$REMOTE_DIR' && { tar xzOf '$job_dir/sources.tar.gz' slurm/run.sbatch | sbatch --job-name='$folder' ${gres[*]:-} ${extra[*]:-} --export=ALL,FOLDER='$folder',DELETE_CALCS=$delete,GIT_COMMIT='$commit',MODE=$mode,BASELINE_COMMIT='${base_short:-}' || { rm -rf '$job_dir'; exit 1; }; }"
     ;;
 status)
     # Queue plus progress of running jobs, read from the "Steps completed" lines that the
@@ -147,6 +205,11 @@ status)
 cd "$1" 2>/dev/null || { echo "Folder $1 does not exist on the cluster yet (nothing was submitted)."; exit 0; }
 squeue -u "$USER"
 squeue -u "$USER" -h -t RUNNING -o '%i %j' | while read -r id name; do
+    # A regression test runs many short cases, so its log has no overall progress.
+    if [ -f "results/$name/info/setup/baseline.tar.gz" ]; then
+        echo "job $id: regression test running (see slurm-$id.out)"
+        continue
+    fi
     if grep -q '^Computation time:' "results/$name/info/setup/parameters.txt" 2>/dev/null; then
         echo "job $id: computation finished, now plotting"
         continue
@@ -234,12 +297,27 @@ for name in $names; do
     fi
     size="-"
     [ -d "$r" ] && size=$(du -sh "$r" | cut -f1)
+    # A regression test (cluster.sh test) keeps the baseline next to the sources; it has no frames
+    # of its own (they are in new/ and base/), and report.txt is written at its end.
+    is_test=0
+    [ -f "$r/info/setup/baseline.tar.gz" ] && is_test=1
 
     case "$jstate" in
         PENDING) state=queued;  details="job $jid" ;;
-        RUNNING) state=running; details="job $jid on $node: $(progress "$jid" "$params")" ;;
+        RUNNING)
+            state=running
+            if [ "$is_test" = 1 ]; then details="job $jid on $node: regression test"
+            else details="job $jid on $node: $(progress "$jid" "$params")"; fi ;;
         "")
-            if [ ! -d "$r" ]; then
+            if [ "$is_test" = 1 ]; then
+                if [ -f "$r/report.txt" ]; then
+                    state=tested; details="$(tail -n 1 "$r/report.txt")"
+                else
+                    state=stopped
+                    log=$(find_log "$name")
+                    details="test did not finish${log:+; see $log}"
+                fi
+            elif [ ! -d "$r" ]; then
                 # A job that failed before it moved its upload to the results left this behind.
                 log=$(find_log "$name")
                 state=leftover; details="upload in jobs/ without a job${log:+ (it failed at the start, see $log)}; run clean"
