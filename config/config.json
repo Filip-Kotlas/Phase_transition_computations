@@ -2,17 +2,17 @@
     "solver":
     {
         "initial_time": 0.0,
-        "final_time": 0.01,
+        "final_time": 0.03,
         "domain": {
             "x_left": 0,
             "x_right": 1,
             "y_left": 0,
-            "y_right": 2
+            "y_right": 1
         },
         "custom_integration_time_step": false,
         "integration_time_step": 5.0e-6,
         "sizeX": 200,
-        "sizeY": 400,
+        "sizeY": 200,
         "frame_num": 100,
         "output_format": "npy"
     },
@@ -39,7 +39,7 @@
         "b": 3.53553391,
         "d": 1.6e15,
         "T": 1000,
-        "ksi": 0.25
+        "ksi": 0.125
     },
     "force_term":
     {

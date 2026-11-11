@@ -13,6 +13,7 @@
 #include <TNL/Backend/Functions.h>
 #include <TNL/Backend/DeviceInfo.h>
 #include <string>
+#include <unistd.h>
 
 #include "Problem.hpp"
 #include "Parameters.hpp"
@@ -33,6 +34,18 @@ std::string gpu_description()
         // TNL throws when the CUDA call fails; the run itself does not depend on this information.
         return "unknown";
     }
+}
+
+// Short name of the computer this process runs on, e.g. "gp11" on the cluster
+// (the system returns "gp11.fjfi.cvut.cz"; the domain is dropped).
+std::string host_name()
+{
+    char name[256] = {};
+    // The last byte stays '\0' even if the name is truncated.
+    if (gethostname(name, sizeof(name) - 1) != 0)
+        return "unknown";
+    const std::string full(name);
+    return full.substr(0, full.find('.'));
 }
 
 int main(int argc, char** argv) {
@@ -73,9 +86,10 @@ int main(int argc, char** argv) {
     {
         std::ofstream setup_file(setup_path, std::ios::app);
         setup_file << "\nRun date: " << std::put_time(std::localtime(&run_start), "%d.%m.%Y %H:%M:%S") << '\n'
+                   << "Computer: " << host_name() << '\n'
                    << "GPU: " << gpu_description() << '\n';
         if (!setup_file)
-            std::cerr << "Warning: unable to write the run date and GPU to " << setup_path << std::endl;
+            std::cerr << "Warning: unable to write the run date, computer and GPU to " << setup_path << std::endl;
     }
 
     Problem problem(parameters);

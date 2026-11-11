@@ -18,9 +18,9 @@ make run_all                          # run every comp_configurations/*.json (ea
 make clean
 ```
 
-- The binary is called as `Phase-field [result_folder [config_file]]`; the config defaults to `config/config.json` (`make run CONFIG=...` overrides it). `slurm/cluster.sh submit` uploads a per-run copy to `config/queued/<FOLDER>.json` on the cluster.
+- The binary is called as `Phase-field [result_folder [config_file]]`; the config defaults to `config/config.json` (`make run CONFIG=...` overrides it). `slurm/cluster.sh submit` uploads the sources of each run (including `config/config.json`) to `jobs/<FOLDER>/sources.tar.gz` on the cluster. The job unpacks them into the node's `/tmp`, builds them from scratch and runs `make run` there, with `results` linked to the shared results folder. A queued job therefore always runs the code it was submitted with, and jobs share no sources or build.
 - Run everything from the repo root. The binary resolves its default config through a relative path, and the Python scripts look in `./results/<name>`.
-- Header dependencies are tracked: nvcc writes `build/sm_XX/*.d` (`-MMD -MP`) and the Makefile includes them, so changing an `include/*.hpp` recompiles the objects that use it. System headers (TNL in `/usr/include`) are not tracked. `make clean` is still needed after changing compiler flags in the Makefile or after updating TNL. (Before this, stale `.o` files after header changes caused hard-to-find bugs.)
+- Header dependencies are tracked: nvcc writes `build/sm_XX/*.d` (`-MMD -MP`) and the Makefile includes them, so changing an `include/*.hpp` recompiles the objects that use it. System headers (TNL in `/usr/include`) are not tracked. `make clean` is still needed after changing compiler flags in the Makefile or after updating TNL (not on the cluster, where every job builds from scratch). (Before this, stale `.o` files after header changes caused hard-to-find bugs.)
 - `make run_all` overwrites the tracked `config/config.json`. `comp_configurations/` is gitignored, apart from `.gitkeep`.
 - There are no tests and no linter.
 
@@ -55,9 +55,10 @@ python3 python/plot.py --name MyRun --frame 10 --type phase   # --frame last wor
 - `calculations/Result-NNNNN.npy`: the default format (`solver.output_format: "npy"`). Array of shape `(2, sizeY, sizeX)` (phase, then concentration; x and y are not stored, they are computed from the config). Written and read by `include/npy.hpp`; `python/dataset.py` reads both formats (and prefers `.npy` when both files exist for a frame). About 240x faster to load and 5.6x smaller than `.txt`.
 - `calculations/Result-NNNNN.txt`: with `solver.output_format: "txt"`. Lines of `x y phase conc`, with a blank line after each grid row.
 - `info/setup/`: written by the binary at the start.
-  - `parameters.txt`: the parameters, then the run date (start time) and GPU (written by the binary at the start), the computation time (written at the end) and the git commit (appended by `make run`).
+  - `parameters.txt`: the parameters, then the run date (start time), computer (host name, e.g. `gp11`) and GPU (written by the binary at the start), the computation time (written at the end) and the git commit (appended by `make run`).
   - `config.json`: a copy of the config, which the Python plotters read. `Dataset` falls back to `info/config.json` for results computed before the subfolders existed.
   - `parameters.tex`
+  - `sources.tar.gz`: only for cluster runs, the exact sources the job compiled (with uncommitted changes and the config).
 - `info/plots/`: frames (`.jpg`) and animations (`.mp4`/`.gif`) from the Python plotters.
 - `info/boundary/`: `interface_num.crv` and `interface_anal.crv` from `write_boundary_files`.
 - The paths of the three subfolders are defined once in `Dataset` (`setup_folder`, `plots_folder`, `boundary_folder`).

@@ -1,0 +1,6 @@
+# The code runs on Linux (bash, make, nvcc on the cluster) and is uploaded from the working copy,
+# so text files keep LF line endings in every checkout, also on Windows, whatever core.autocrlf says.
+* text=auto eol=lf
+
+# Windows batch files are run by cmd.exe, which expects CRLF.
+*.cmd text eol=crlf
