@@ -336,7 +336,7 @@ void Problem::apply_concentration_boundary_condition_ydir(Index ind, VectorView 
 __cuda_callable__
 Real Problem::get_rhs_phase_at(const VectorView& u, Index i, Index j)
 {
-    return 1.0/param.alpha * (div_T0(u, i, j) + f_0(u, i , j) / param.ksi / param.ksi - param.par_b/param.ksi*grade_4_polynom(u, i, j)*F(u, i, j));
+    return Real(1.0)/param.alpha * (div_T0(u, i, j) + f_0(u, i , j) / param.ksi / param.ksi - param.par_b/param.ksi*grade_4_polynom(u, i, j)*F(u, i, j));
 }
 
 __cuda_callable__
@@ -472,7 +472,7 @@ Real Problem::div_D_grad_phase(const VectorView& u, Index i, Index j)
 __cuda_callable__
 Real Problem::get_conc_diff_coef(const VectorView& u, Index i, Index j)
 {
-    return param.par_b*param.par_d/30.0
+    return param.par_b*param.par_d/Real(30.0)
             * conc_at(u, i, j)
             * (1 - conc_at(u, i, j))
             * constants::M_Nb_beta(param.T)
@@ -483,7 +483,7 @@ Real Problem::get_conc_diff_coef(const VectorView& u, Index i, Index j)
 __cuda_callable__
 Real Problem::get_phas_diff_coef(const VectorView& u, Index i, Index j)
 {
-   return param.par_b*param.par_d/30.0
+   return param.par_b*param.par_d/Real(30.0)
           * conc_at(u, i, j)
 		  * (1 - conc_at(u, i, j))
           * constants::M_Nb_beta(param.T)
@@ -494,7 +494,7 @@ Real Problem::get_phas_diff_coef(const VectorView& u, Index i, Index j)
 __cuda_callable__
 Real Problem::f_0(const VectorView& u, Index i, Index j)
 {
-   return param.par_a*phase_at(u, i, j)*(1 - phase_at(u, i, j))*(phase_at(u, i, j) - 1.0/2.0);
+   return param.par_a*phase_at(u, i, j)*(1 - phase_at(u, i, j))*(phase_at(u, i, j) - Real(1.0)/Real(2.0));
 }
 
 __cuda_callable__
@@ -506,8 +506,8 @@ Real Problem::F(const VectorView& u, Index i, Index j)
     {
         Real mid_x = (domain.x_right - domain.x_left)/2;
         Real mid_y = (domain.y_right - domain.y_left)/2;
-        Real r = sqrt(pow(i*hx - mid_x, 2) + pow(j*hy - mid_y, 2));
-        return -2/std::max(r, 0.1);
+        Real r = sqrt(pow(i*hx - mid_x, Real(2)) + pow(j*hy - mid_y, Real(2)));
+        return -2/std::max(r, Real(0.1));
     }
     else if (param.force_term_type == FTType::Zirconium)
         return constants::G_m_alpha(conc_at(u, i, j), param.T) - constants::G_m_beta(conc_at(u, i, j), param.T);
@@ -542,19 +542,19 @@ double Problem::G(const double &t, double *u, int i, int j)
 __cuda_callable__
 Real Problem::grade_4_polynom(const VectorView& u, Index i, Index j)
 {
-   return pow(phase_at(u, i, j), 2) * pow(phase_at(u, i, j) - 1.0, 2);
+   return pow(phase_at(u, i, j), Real(2)) * pow(phase_at(u, i, j) - Real(1.0), Real(2));
 }
 
 __cuda_callable__
 Real Problem::polynom_p(const VectorView& u, Index i, Index j)
 {
-   return 6*pow(phase_at(u, i, j), 5) - 15*pow(phase_at(u, i, j), 4) + 10*pow(phase_at(u, i, j), 3);
+   return 6*pow(phase_at(u, i, j), Real(5)) - 15*pow(phase_at(u, i, j), Real(4)) + 10*pow(phase_at(u, i, j), Real(3));
 }
 
 __cuda_callable__
 Real Problem::der_polynom_p(const VectorView& u, Index i, Index j)
 {
-   return 30*(pow(phase_at(u, i, j), 4) - 2*pow(phase_at(u, i, j), 3) + pow(phase_at(u, i, j), 2));
+   return 30*(pow(phase_at(u, i, j), Real(4)) - 2*pow(phase_at(u, i, j), Real(3)) + pow(phase_at(u, i, j), Real(2)));
 }
 
 __cuda_callable__
@@ -581,7 +581,7 @@ Real Problem::deriv_of_g_w_resp_to_c_and_p(const VectorView& u, Index i, Index j
 						   - constants::G_Zr_beta_0(param.T)
 						   + constants::R * param.T * (log(c) - log(1-c))
 						   + (1 - 2 * c) * constants::L_0_beta(param.T)
-						   + (6*c - 6*pow(c, 2) - 1) * constants::L_0_i_beta(param.T);
+						   + (6*c - 6*pow(c, Real(2)) - 1) * constants::L_0_i_beta(param.T);
 
    return der_polynom_p(u, i, j)*(d_G_alpha_wrt_c - d_G_beta_wrt_c);
 }

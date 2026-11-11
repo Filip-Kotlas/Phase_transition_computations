@@ -12,22 +12,22 @@ Real InitialCondition::get_phase(Index ind) const
     Real x_central = x_coord - (param.domain.x_right + param.domain.x_left)/2;
     Real y_central = y_coord - (param.domain.y_right + param.domain.y_left)/2;
 
-    Real dist_to_center = sqrt(pow(x_central, 2) + pow(y_central, 2));
+    Real dist_to_center = sqrt(pow(x_central, Real(2)) + pow(y_central, Real(2)));
 
     switch (param.init_condition)
     {
     case ICType::HyperbolicTangent:
-        return 1.0/2 * tanh(-3/param.ksi*(dist_to_center - init_cond_radius)) + 1.0/2; //needs to be changed according to the correct phases
+        return Real(1.0)/2 * tanh(-3/param.ksi*(dist_to_center - init_cond_radius)) + Real(1.0)/2; //needs to be changed according to the correct phases
         break;
 
     case ICType::Circle:
-        if( dist_to_center < init_cond_radius - 0.5*slope_width )
+        if( dist_to_center < init_cond_radius - Real(0.5)*slope_width )
         {
             return static_cast<Real>(constants::Phase::alpha);
         }
-        else if( dist_to_center < init_cond_radius + 0.5*slope_width )
+        else if( dist_to_center < init_cond_radius + Real(0.5)*slope_width )
         {
-            return static_cast<Real>(constants::Phase::alpha) - (static_cast<Real>(constants::Phase::alpha) - static_cast<Real>(constants::Phase::beta))*(dist_to_center - (init_cond_radius - 0.5*slope_width)) / (slope_width);
+            return static_cast<Real>(constants::Phase::alpha) - (static_cast<Real>(constants::Phase::alpha) - static_cast<Real>(constants::Phase::beta))*(dist_to_center - (init_cond_radius - Real(0.5)*slope_width)) / (slope_width);
         }
         else
         {
@@ -58,7 +58,7 @@ Real InitialCondition::get_phase(Index ind) const
         break;
 
     case ICType::Stripe:
-        if( x_rel < 0.2 )
+        if( x_rel < Real(0.2) )
         {
             return static_cast<Real>(constants::Phase::alpha);
         }
@@ -70,8 +70,8 @@ Real InitialCondition::get_phase(Index ind) const
 
     case ICType::TwoBumps: {
         Real y = 2*j*hy;
-        if( (y < 1 && i*hx < y*y*(1-2*y+y*y)/0.625+0.1) ||
-            (y >= 1 && i*hx < (y-1)*(y-1)*(1-2*(y-1)+(y-1)*(y-1))/0.625+0.1))
+        if( (y < 1 && i*hx < y*y*(1-2*y+y*y)/Real(0.625)+Real(0.1)) ||
+            (y >= 1 && i*hx < (y-1)*(y-1)*(1-2*(y-1)+(y-1)*(y-1))/Real(0.625)+Real(0.1)))
         {
             return static_cast<Real>(constants::Phase::alpha);
         }
@@ -85,7 +85,7 @@ Real InitialCondition::get_phase(Index ind) const
     case ICType::Star: {
         Real phi = atan2( y_central, x_central);
             
-        if ( dist_to_center < 0.15 + 0.1 * sin(6 * phi) )
+        if ( dist_to_center < Real(0.15) + Real(0.1) * sin(6 * phi) )
         {
             return static_cast<Real>(constants::Phase::alpha);
         }
@@ -97,9 +97,9 @@ Real InitialCondition::get_phase(Index ind) const
         }
 
     case ICType::ThreeBumps: {
-        if( (pow(x_rel-0.2, 2) + pow(y_rel-0.25, 2) < 0.1*0.1) ||
-            (pow(x_rel-0.2, 2) + pow(y_rel-0.5, 2) < 0.1*0.1) ||
-            (pow(x_rel-0.2, 2) + pow(y_rel-0.75, 2) < 0.1*0.1))
+        if( (pow(x_rel-Real(0.2), Real(2)) + pow(y_rel-Real(0.25), Real(2)) < Real(0.1)*Real(0.1)) ||
+            (pow(x_rel-Real(0.2), Real(2)) + pow(y_rel-Real(0.5), Real(2)) < Real(0.1)*Real(0.1)) ||
+            (pow(x_rel-Real(0.2), Real(2)) + pow(y_rel-Real(0.75), Real(2)) < Real(0.1)*Real(0.1)))
         {
             return static_cast<Real>(constants::Phase::alpha);
         }
@@ -111,8 +111,8 @@ Real InitialCondition::get_phase(Index ind) const
     }
 
     case ICType::PerpendicularStripes: {
-        if( (param.domain.x_left + x_rel < param.domain.x_left + 0.1)
-            || (param.domain.y_left + y_rel > param.domain.y_right - 0.1) )
+        if( (param.domain.x_left + x_rel < param.domain.x_left + Real(0.1))
+            || (param.domain.y_left + y_rel > param.domain.y_right - Real(0.1)) )
         {
             return static_cast<Real>(constants::Phase::alpha);
         }
@@ -124,10 +124,10 @@ Real InitialCondition::get_phase(Index ind) const
     }
 
     case ICType::Box:
-        if( (param.domain.x_left + x_rel < param.domain.x_left + 0.1
-            || param.domain.x_left + x_rel > param.domain.x_right - 0.1)
-            || (param.domain.y_left + y_rel < param.domain.y_left + 0.1
-            || param.domain.y_left + y_rel > param.domain.y_right - 0.1) )
+        if( (param.domain.x_left + x_rel < param.domain.x_left + Real(0.1)
+            || param.domain.x_left + x_rel > param.domain.x_right - Real(0.1))
+            || (param.domain.y_left + y_rel < param.domain.y_left + Real(0.1)
+            || param.domain.y_left + y_rel > param.domain.y_right - Real(0.1)) )
         {
             return static_cast<Real>(constants::Phase::alpha);
         }
@@ -145,8 +145,8 @@ Real InitialCondition::get_phase(Index ind) const
         const Real cx = static_cast<Real>(0.1);
 
         // y-interval for the placement (same range as originally: 0.1 .. 0.9)
-        const Real y_min = static_cast<Real>(param.domain.y_left + 0.03);
-        const Real y_max = static_cast<Real>(param.domain.y_right - 0.03);
+        const Real y_min = static_cast<Real>(param.domain.y_left + Real(0.03));
+        const Real y_max = static_cast<Real>(param.domain.y_right - Real(0.03));
         const Real y_range = y_max - y_min;
 
 
@@ -219,7 +219,7 @@ Real InitialCondition::get_phase(Index ind) const
             f_left = f(wulff_left);
             f_right = f(wulff_right);
 
-            while(abs(f(wulff_mid)) > 1e-5) {
+            while(abs(f(wulff_mid)) > Real(1e-5)) {
                 iter_num++;
                 if (f_left*f(wulff_mid) < 0) {
                     wulff_right = wulff_mid;
@@ -238,11 +238,11 @@ Real InitialCondition::get_phase(Index ind) const
         
         compute_wulff_coords();
         Real radius_wulff = sqrt(x_wulff*x_wulff + y_wulff*y_wulff);
-        if ( dist_to_center < radius_wulff - 0.5*slope_width ) {
+        if ( dist_to_center < radius_wulff - Real(0.5)*slope_width ) {
             return static_cast<Real>(constants::Phase::alpha);
         }
-        else if ( dist_to_center < radius_wulff + 0.5*slope_width ) {
-            return static_cast<Real>(constants::Phase::alpha) - (static_cast<Real>(constants::Phase::alpha) - static_cast<Real>(constants::Phase::beta))*(dist_to_center - (radius_wulff - 0.5*slope_width)) / (slope_width);
+        else if ( dist_to_center < radius_wulff + Real(0.5)*slope_width ) {
+            return static_cast<Real>(constants::Phase::alpha) - (static_cast<Real>(constants::Phase::alpha) - static_cast<Real>(constants::Phase::beta))*(dist_to_center - (radius_wulff - Real(0.5)*slope_width)) / (slope_width);
         }
         else {
             return static_cast<Real>(constants::Phase::beta);

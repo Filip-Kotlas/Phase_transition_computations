@@ -72,5 +72,5 @@ python3 python/plot.py --name MyRun --frame 10 --type phase   # --frame last wor
   2. Add both string conversions in `src/enums.cu`.
   3. Add a `case` in `InitialCondition::get_phase` (and `get_concentration` if needed) in `src/InitialCondition.cu`.
   4. If it has an analytic solution, add its name to `ANALYTIC_INITIAL_CONDITIONS` and handle it in `analytic_polyline` (both in `python/boundary.py`; `decide_drawing` in `python/cli.py` uses the list).
-- **New config parameter:** add a field in `include/Parameters.hpp`, then read it in `Parameters::load`. Also add it to `save_human_readable` and `save_for_latex` so runs stay self-documenting.
+- **New config parameter:** add a field in `include/Parameters.hpp` (floating-point fields are `Real`, not `double`, so that a `float` build does no double arithmetic on the GPU), then read it in `Parameters::load`. Also add it to `save_human_readable` and `save_for_latex` so runs stay self-documenting.
 - **Initial condition from file:** with `init_cond_from_file: true`, the path is resolved relative to the run's `calculations/` folder and the file must use the `Result-*` format (`.txt` or `.npy`, chosen by the file extension; the grid must have `sizeX*sizeY` points). `scaling: true` embeds a grid with half the resolution into the centre of the domain.

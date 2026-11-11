@@ -1,12 +1,13 @@
 #pragma once
 #include <string>
 #include <stdexcept>
+#include "types.hpp"
 
 struct Domain {
-    double x_left;
-    double x_right;
-    double y_left;
-    double y_right;
+    Real x_left;
+    Real x_right;
+    Real y_left;
+    Real y_right;
 };
 
 enum class MODEL {

@@ -3,27 +3,28 @@
 #include <string>
 #include <json.hpp>
 #include <filesystem>
+#include "types.hpp"
 #include "constants.hpp"
 #include "enums.hpp"
 
 class Parameters {
 public:
     // solver parameters
-    double initial_time;
-    double final_time;
+    Real initial_time;
+    Real final_time;
     Domain domain;
     int sizeX;
     int sizeY;
     int frame_num;
-    double timeStep;
-    double integrationTimeStep;
+    Real timeStep;
+    Real integrationTimeStep;
     OutputFormat output_format;
     // initial condition parameters
     ICType init_condition;
     bool init_cond_from_file;
     std::string init_cond_file_path;
-    double init_cond_radius;
-    double init_cond_slope_width;
+    Real init_cond_radius;
+    Real init_cond_slope_width;
     bool init_cond_scaling;
     // boundary conditions
     BCType bc_phase_x;
@@ -31,20 +32,20 @@ public:
     BCType bc_conc_x;
     BCType bc_conc_y;
     // model parameters
-    double alpha;
-    double beta;
-    double par_a;
-    double par_b;
-    double par_d;
-    double T;
-    double ksi;
+    Real alpha;
+    Real beta;
+    Real par_a;
+    Real par_b;
+    Real par_d;
+    Real T;
+    Real ksi;
     // force term parameters
     FTType force_term_type;
-    double force_term_size;
+    Real force_term_size;
     // anisotropy parameters
-    double A;
+    Real A;
     int m;
-    double theta_0;
+    Real theta_0;
 
     // --- metody ---
     Parameters() = default;

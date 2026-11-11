@@ -23,6 +23,9 @@
 # list shows each run in results/ and jobs/ with its state: queued, running (with progress),
 # finished (computation time; warns when the animations are missing) or stopped (no job any
 # more and not finished: crashed, cancelled or time limit; it names the log to look at).
+# A run counts as finished only when the solver wrote "Computation time" into parameters.txt
+# (all frames written is not enough: the solver can hang after the last one). Runs from
+# before the run date was recorded have no such line; for them all frames is enough.
 # fetch refuses to write into an existing local results/MyRun; --force replaces it.
 # fetch without a name downloads every run on the cluster except the queued or running ones;
 # runs that already exist locally are skipped, or replaced with --force.
@@ -123,9 +126,11 @@ submit)
         | tar --null -T - -czf - \
         | "$SSH" "$CLUSTER_HOST" "mkdir -p '$REMOTE_DIR/$job_dir' && cat > '$REMOTE_DIR/$job_dir/sources.tar.gz'"
 
-    # Local commit, marked "-dirty" when uncommitted changes were uploaded too.
+    # Local commit, marked "-dirty" when uncommitted changes (or untracked files) were uploaded too.
+    # config/config.json does not count: it is the input of the run, not code, and every run
+    # keeps it in info/setup/config.json (and in sources.tar.gz) anyway.
     commit=$(git rev-parse --short HEAD)
-    [ -z "$(git status --porcelain)" ] || commit="$commit-dirty"
+    [ -z "$(git status --porcelain -- . ':(exclude)config/config.json')" ] || commit="$commit-dirty"
 
     # The batch script comes from the uploaded archive too (sbatch reads it from stdin), so the
     # job script always matches the code. The job name is the run name, which `status` shows
@@ -135,11 +140,17 @@ submit)
     ;;
 status)
     # Queue plus progress of running jobs, read from the "Steps completed" lines that the
-    # solver prints into slurm-<jobid>.out. The remote script is sent on stdin.
+    # solver prints into slurm-<jobid>.out. The computation is finished only when the solver
+    # has written "Computation time" into parameters.txt (see `list`).
+    # The remote script is sent on stdin.
     "$SSH" "$CLUSTER_HOST" bash -s -- "$REMOTE_DIR" <<'REMOTE_SCRIPT'
 cd "$1" 2>/dev/null || { echo "Folder $1 does not exist on the cluster yet (nothing was submitted)."; exit 0; }
 squeue -u "$USER"
-for id in $(squeue -u "$USER" -h -t RUNNING -o %i); do
+squeue -u "$USER" -h -t RUNNING -o '%i %j' | while read -r id name; do
+    if grep -q '^Computation time:' "results/$name/info/setup/parameters.txt" 2>/dev/null; then
+        echo "job $id: computation finished, now plotting"
+        continue
+    fi
     line=$(grep 'Steps completed' "slurm-$id.out" 2>/dev/null | tail -n 1)
     if [ -z "$line" ]; then
         echo "job $id: no progress yet (compiling or starting)"
@@ -148,7 +159,7 @@ for id in $(squeue -u "$USER" -h -t RUNNING -o %i); do
     pct=$(echo "$line" | sed -E 's/.*=> *([0-9.]+)%.*/\1/')
     rem=$(echo "$line" | sed -E 's/.*Time remaining: *(.*[0-9]s) +Elapsed.*/\1/' | tr -s ' ')
     case "$pct" in
-        100.00) echo "job $id: computation finished, now plotting" ;;
+        100.00) echo "job $id: all frames written, but the solver has not finished (stuck? see slurm-$id.out)" ;;
         *)      echo "job $id: ${pct}% done, about ${rem} left" ;;
     esac
 done
@@ -163,15 +174,20 @@ shopt -s nullglob
 # Your queued and running jobs, one per line: "name state jobid node" (the job name is the run name).
 active=$(squeue -u "$USER" -h -o '%j %T %i %N') || exit 1
 
-# Progress of a running job, from the last "Steps completed" line in its log (as in `status`).
+# Progress of running job $1 with parameters file $2, as in `status`: the percentage comes from
+# the last "Steps completed" line in its log. The solver is done only when it has written
+# "Computation time" into parameters.txt; 100% without it means it still runs after the last frame.
 progress() {
     local line pct rem
+    if [ -n "$2" ] && grep -q '^Computation time:' "$2" 2>/dev/null; then
+        echo "computed, now plotting"; return
+    fi
     line=$(grep 'Steps completed' "slurm-$1.out" 2>/dev/null | tail -n 1)
     if [ -z "$line" ]; then echo "compiling or starting"; return; fi
     pct=$(echo "$line" | sed -E 's/.*=> *([0-9.]+)%.*/\1/')
     rem=$(echo "$line" | sed -E 's/.*Time remaining: *(.*[0-9]s) +Elapsed.*/\1/' | tr -s ' ')
     case "$pct" in
-        100.00) echo "computed, now plotting" ;;
+        100.00) echo "all frames written, but the solver has not finished (stuck? see slurm-$1.out)" ;;
         *)      echo "${pct}% computed, about ${rem} left" ;;
     esac
 }
@@ -202,24 +218,32 @@ for name in $names; do
     frames="-"
     [ -n "$last$total" ] && frames="${last:-0}/${total:-?}"
 
-    date="-"; comp_time=""
+    date="-"; comp_time=""; d=""
     if [ -n "$params" ]; then
         d=$(sed -n 's/^Run date: *//p' "$params" | cut -c1-16)
         [ -n "$d" ] && date=$d
         comp_time=$(sed -n 's/^Computation time: *//p' "$params" | sed 's/ *(.*//')
+    fi
+    # Since the binary records the run date, it also records the computation time when it ends,
+    # so only that line means "finished". Older runs have neither; for them all frames have to do.
+    complete=0
+    if [ -n "$comp_time" ]; then
+        complete=1
+    elif [ -z "$d" ] && [ -n "$last" ] && [ "$last" = "$total" ]; then
+        complete=1
     fi
     size="-"
     [ -d "$r" ] && size=$(du -sh "$r" | cut -f1)
 
     case "$jstate" in
         PENDING) state=queued;  details="job $jid" ;;
-        RUNNING) state=running; details="job $jid on $node: $(progress "$jid")" ;;
+        RUNNING) state=running; details="job $jid on $node: $(progress "$jid" "$params")" ;;
         "")
             if [ ! -d "$r" ]; then
                 # A job that failed before it moved its upload to the results left this behind.
                 log=$(find_log "$name")
                 state=leftover; details="upload in jobs/ without a job${log:+ (it failed at the start, see $log)}; run clean"
-            elif [ -n "$comp_time" ] || { [ -n "$last" ] && [ "$last" = "$total" ]; }; then
+            elif [ "$complete" = 1 ]; then
                 state=finished; details=${comp_time:+"computed in $comp_time"}
                 # Animations are .mp4, or .gif without ffmpeg; old results have them directly in info/.
                 if [ -z "$(find "$r/info" \( -name '*.mp4' -o -name '*.gif' \) -print -quit 2>/dev/null)" ]; then
@@ -229,6 +253,9 @@ for name in $names; do
                 state=stopped
                 log=$(find_log "$name")
                 details="crashed, cancelled or time limit${log:+; see $log}"
+                if [ -n "$last" ] && [ "$last" = "$total" ]; then
+                    details="all frames written, but the solver did not finish: $details"
+                fi
             fi ;;
         *) state=$(echo "$jstate" | tr '[:upper:]' '[:lower:]'); details="job $jid" ;;
     esac

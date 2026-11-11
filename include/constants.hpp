@@ -29,43 +29,43 @@ namespace constants {
 
     inline constexpr Real L_0_alpha = 24411;
     __cuda_callable__ inline Real L_0_beta(Real T) {
-        return 15911 + 3.35*T;
+        return 15911 + Real(3.35)*T;
     }
     __cuda_callable__ inline Real L_0_i_beta(Real T){
-        return 3919 - 1.091*T;
+        return 3919 - Real(1.091)*T;
     }
 
     __cuda_callable__ inline Real G_Nb_alpha_0(Real T){
-        return 1480.647
-               + 144.445475*T
-               - 26.4711*T*log(T)
-               + 2.03475e-4*T*T
-               - 3.5012e-7*T*T*T
+        return Real(1480.647)
+               + Real(144.445475)*T
+               - Real(26.4711)*T*log(T)
+               + Real(2.03475e-4)*T*T
+               - Real(3.5012e-7)*T*T*T
                + 93399/T;
     }
     __cuda_callable__ inline Real G_Zr_alpha_0(Real T){
-        return -7827.595
-        + 125.64905*T
-        - 24.1618*T*log(T)
-        - 4.37791e-3*T*T
+        return -Real(7827.595)
+        + Real(125.64905)*T
+        - Real(24.1618)*T*log(T)
+        - Real(4.37791e-3)*T*T
         + 34971/T;
     }
     __cuda_callable__ inline Real G_Nb_beta_0(Real T){
-        return -8519.353
-        + 142.045475*T
-        - 26.4711*T*log(T)
-        + 2.03475e-4*T*T
-        - 3.5012e-7*T*T*T
+        return -Real(8519.353)
+        + Real(142.045475)*T
+        - Real(26.4711)*T*log(T)
+        + Real(2.03475e-4)*T*T
+        - Real(3.5012e-7)*T*T*T
         + 93399/T;
     }
     __cuda_callable__ inline Real G_Zr_beta_0(Real T){
-        return -525.539
-        + 124.9457*T
-        - 25.607406*T*log(T)
-        - 3.40084e-4*T*T
-        - 9.729e-9*T*T*T
+        return -Real(525.539)
+        + Real(124.9457)*T
+        - Real(25.607406)*T*log(T)
+        - Real(3.40084e-4)*T*T
+        - Real(9.729e-9)*T*T*T
         + 25233/T
-        - 7.6143e-11*T*T*T*T;
+        - Real(7.6143e-11)*T*T*T*T;
     }
 
     __cuda_callable__ inline Real G_m_alpha(Real c, Real T){
@@ -82,13 +82,13 @@ namespace constants {
     }
 
     __cuda_callable__ inline Real D_Nb_alpha(Real T){
-        return 6.6e-10*exp(-31500*Cal_to_joule/(R*T));
+        return Real(6.6e-10)*exp(-31500*Cal_to_joule/(R*T));
     }
     __cuda_callable__ inline Real D_Nb_beta(Real T){
-        return 9e-10*pow(T/1136.0, 18.1)*exp(-(25100+35.5*(T-1136))*Cal_to_joule/(R*T));
+        return Real(9e-10)*pow(T/Real(1136.0), Real(18.1))*exp(-(25100+Real(35.5)*(T-1136))*Cal_to_joule/(R*T));
     }
     __cuda_callable__ inline Real D_eff(Real T){
-        return pow(sqrt(D_Nb_alpha(T)) + sqrt(D_Nb_beta(T)), 2);
+        return pow(sqrt(D_Nb_alpha(T)) + sqrt(D_Nb_beta(T)), Real(2));
     }
 
     __cuda_callable__ inline Real M_Nb_alpha(Real T){
@@ -99,7 +99,7 @@ namespace constants {
     }
 
     __cuda_callable__ inline Real M_phi(Real T){
-        return 0.235 * D_eff(T) * delta_fixed / delta* molar_volume / (b*b*R*T);
+        return Real(0.235) * D_eff(T) * delta_fixed / delta* molar_volume / (b*b*R*T);
     }
     __cuda_callable__ inline Real M_phi_tilde(Real T){
         return M_phi(T)*l*l/(M_Nb_alpha(T)*molar_volume);

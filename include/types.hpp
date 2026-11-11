@@ -5,7 +5,7 @@
 #include <TNL/Solvers/ODE/Methods/KuttaMerson.h>
 #include <TNL/Solvers/IterativeSolverMonitor.h>
 
-using Real = double;
+using Real = float;
 using Index = int;
 using Device = TNL::Devices::Cuda;
 

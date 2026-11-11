@@ -36,9 +36,9 @@ Parameters Parameters::load(const std::filesystem::path& filename) {
     p.domain.y_right = domain.value("y_right", 1.0);
    
     // integration time step
-    double computed_integration_step = pow(std::min((p.domain.x_right - p.domain.x_left) / (p.sizeX - 1),
-                                                    (p.domain.y_right - p.domain.y_left) / (p.sizeY - 1)),
-                                           2) / 5.0;
+    Real computed_integration_step = pow(std::min((p.domain.x_right - p.domain.x_left) / (p.sizeX - 1),
+                                                  (p.domain.y_right - p.domain.y_left) / (p.sizeY - 1)),
+                                         2) / 5.0;
     if (solver.value("custom_integration_time_step", false)) {
         p.integrationTimeStep = solver.value("integration_time_step", computed_integration_step);
     } else {
@@ -50,8 +50,8 @@ Parameters Parameters::load(const std::filesystem::path& filename) {
     p.init_cond_from_file = initial_condition.value("init_cond_from_file", false);
     p.init_cond_file_path = initial_condition.value("init_cond_file_path", "");
     p.init_condition = string_to_ICType(initial_condition.value("initial_condition", "constant_circle"));
-    double smaller_side = std::min(p.domain.x_right - p.domain.x_left,
-                                   p.domain.y_right - p.domain.y_left);
+    Real smaller_side = std::min(p.domain.x_right - p.domain.x_left,
+                                 p.domain.y_right - p.domain.y_left);
     p.init_cond_radius = smaller_side * initial_condition.value("radius_proportion", 0.5);
     p.init_cond_slope_width = initial_condition.value("slope_width", 0.05);
     p.init_cond_scaling = initial_condition.value("scaling", false);
