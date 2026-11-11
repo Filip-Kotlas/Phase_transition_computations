@@ -12,8 +12,7 @@
         "integration_time_step": 5e-06,
         "sizeX": 100,
         "sizeY": 100,
-        "frame_num": 5,
-        "output_format": "npy"
+        "frame_num": 5
     },
     "init_cond": {
         "init_cond_from_file": false,

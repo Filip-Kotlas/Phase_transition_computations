@@ -203,11 +203,34 @@ status)
     # The remote script is sent on stdin.
     "$SSH" "$CLUSTER_HOST" bash -s -- "$REMOTE_DIR" <<'REMOTE_SCRIPT'
 cd "$1" 2>/dev/null || { echo "Folder $1 does not exist on the cluster yet (nothing was submitted)."; exit 0; }
+# Seconds as "3 min 20 s".
+duration() {
+    if [ "$1" -ge 60 ]; then echo "$(( $1 / 60 )) min $(( $1 % 60 )) s"; else echo "$1 s"; fi
+}
+# Progress of the regression test in results/$2 (job $1), from the progress file that
+# tests/regression.sh rewrites at every step. No estimate of the time left: the cases take very
+# different times.
+test_progress() {
+    local phase a b c d e
+    phase=""
+    [ -f "results/$2/progress" ] && read -r phase a b c d e < "results/$2/progress"
+    case "$phase" in
+        build)   echo "job $1: regression test, compiling the $a version" ;;
+        compare) echo "job $1: regression test, comparing the results" ;;
+        run)
+            # a = this run, b = number of runs, c = start of this run, d = case, e = version.
+            echo "job $1: regression test, run $a/$b ($d, $e version), running for $(duration $(( $(date +%s) - c )))" ;;
+        # Tests submitted before regression.sh wrote the progress file, or the job is still
+        # unpacking the sources.
+        *)       echo "job $1: regression test running (see slurm-$1.out)" ;;
+    esac
+}
+
 squeue -u "$USER"
 squeue -u "$USER" -h -t RUNNING -o '%i %j' | while read -r id name; do
-    # A regression test runs many short cases, so its log has no overall progress.
+    # A regression test runs many short cases, so it reports which run it is at.
     if [ -f "results/$name/info/setup/baseline.tar.gz" ]; then
-        echo "job $id: regression test running (see slurm-$id.out)"
+        test_progress "$id" "$name"
         continue
     fi
     if grep -q '^Computation time:' "results/$name/info/setup/parameters.txt" 2>/dev/null; then

@@ -1,4 +1,6 @@
 #include "InitialCondition.hpp"
+#include <vector>
+#include "ResultIO.hpp"
 
 __cuda_callable__
 Real InitialCondition::get_phase(Index ind) const
@@ -289,4 +291,62 @@ __cuda_callable__
 Real InitialCondition::der_psi(const Real theta) const
 {
     return -param.A*param.m*sin(param.m*(theta - param.theta_0));
+}
+void set_init_cond_manually(Vector& u, const InitialCondition& init_cond, Index sizeX, Index sizeY)
+{
+    const Index N = sizeX * sizeY;
+
+    u.forElements( 0, N,
+        [ = ] __cuda_callable__( Index ind, Real& value )
+        {
+            value = init_cond.get_phase(ind);
+        } );
+
+    u.forElements( N, 2 * N,
+        [ = ] __cuda_callable__( Index ind, Real& value )
+        {
+            value = init_cond.get_concentration(ind - N);
+        } );
+}
+
+bool set_init_cond_from_file(Vector& u, const std::filesystem::path& filename, Index sizeX, Index sizeY, bool scaling)
+{
+    const Index N = sizeX * sizeY;
+
+    // Values from the file, the point k = j*sizeX + i is on the position k.
+    std::vector<Real> file_phase;
+    std::vector<Real> file_conc;
+    if (!read_frame(filename, sizeX, sizeY, file_phase, file_conc))
+        return false;
+
+    TNL::Containers::Vector<Real, TNL::Devices::Host, Index> host_u(2 * N);
+
+    for (Index k = 0; k < N; ++k)
+    {
+        host_u[k] = static_cast<Real>(constants::Phase::beta); // phase initialization
+        host_u[N + k] = constants::c_init_beta; // concentration initialization
+    }
+
+    const Index start_i = sizeX / 4;
+    const Index start_j = sizeY / 4;
+
+    for (Index count = 0; count < N; ++count) {
+        if (scaling) {
+            Index i = count % sizeX;
+            Index j = count / sizeX;
+            if (i % 2 == 0 && j % 2 == 0) {
+                Index scale_index = start_i + (i / 2) + (start_j + (j / 2)) * sizeX;
+                host_u[scale_index] = file_phase[count];
+                host_u[N + scale_index] = file_conc[count];
+            }
+        }
+        else {
+            host_u[count] = file_phase[count];
+            host_u[N + count] = file_conc[count];
+        }
+    }
+
+    u = host_u;
+
+    return true;
 }

@@ -13,13 +13,12 @@
         "integration_time_step": 5.0e-6,
         "sizeX": 200,
         "sizeY": 200,
-        "frame_num": 100,
-        "output_format": "npy"
+        "frame_num": 100
     },
     "init_cond":
     {
         "init_cond_from_file": false,
-        "init_cond_file_path": "init.txt",
+        "init_cond_file_path": "init.npy",
         "initial_condition": "Circle",
         "radius_proportion": 0.05,
         "slope_width": 0.005,

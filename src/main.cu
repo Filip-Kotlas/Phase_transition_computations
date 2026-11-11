@@ -19,6 +19,7 @@
 #include "Parameters.hpp"
 #include "types.hpp"
 #include "InitialCondition.hpp"
+#include "ResultIO.hpp"
 #include "enums.hpp"
 
 // Name and compute capability of the GPU this process runs on, e.g. "NVIDIA GeForce RTX 3060 (compute capability 8.6)".
@@ -99,7 +100,7 @@ int main(int argc, char** argv) {
         // The path in the config is relative to the calculations/ folder of this run.
         const std::filesystem::path init_cond_path = calc_path / parameters.init_cond_file_path;
         std::cout << "Setting initial condition from file: " << init_cond_path << std::endl;
-        if (!problem.set_init_cond_from_file(u, init_cond_path, parameters.init_cond_scaling)){
+        if (!set_init_cond_from_file(u, init_cond_path, parameters.sizeX, parameters.sizeY, parameters.init_cond_scaling)){
             std::cerr << "Error: could not set the initial condition from the file " << init_cond_path
                       << " (init_cond_file_path = " << parameters.init_cond_file_path
                       << ", resolved relative to " << calc_path << "). Exiting." << std::endl;
@@ -109,7 +110,7 @@ int main(int argc, char** argv) {
     else{
         std::cout << "Setting initial condition from code: " << ICType_to_string(parameters.init_condition) << std::endl;
         InitialCondition init_cond(parameters);
-        problem.set_init_cond_manually(u, init_cond);
+        set_init_cond_manually(u, init_cond, parameters.sizeX, parameters.sizeY);
     }
     std::cout << "Initial condition set." << std::endl;
 
@@ -121,7 +122,7 @@ int main(int argc, char** argv) {
     solver.setTime( parameters.initial_time );
     
     Index step_number = static_cast<Index>(round(solver.getTime() / parameters.timeStep));
-    problem.writeSolution(0.0, step_number, u, calc_path);
+    write_frame(calc_path, step_number, u, parameters.sizeX, parameters.sizeY);
     
     while( solver.getTime() < parameters.final_time ) {
         solver.setStopTime( TNL::min( solver.getTime() + parameters.timeStep, parameters.final_time ) );
@@ -152,7 +153,7 @@ int main(int argc, char** argv) {
         auto stepStart = std::chrono::high_resolution_clock::now();
         solver.solve( u, time_stepping );
         step_number = static_cast<Index>(round(solver.getTime() / parameters.timeStep));
-        problem.writeSolution(solver.getTime(), step_number, u, calc_path);
+        write_frame(calc_path, step_number, u, parameters.sizeX, parameters.sizeY);
         auto stepEnd = std::chrono::high_resolution_clock::now();
 
         int elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(stepEnd - stepStart).count();

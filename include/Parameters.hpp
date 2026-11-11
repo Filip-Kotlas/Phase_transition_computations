@@ -18,7 +18,6 @@ public:
     int frame_num;
     Real timeStep;
     Real integrationTimeStep;
-    OutputFormat output_format;
     // initial condition parameters
     ICType init_condition;
     bool init_cond_from_file;

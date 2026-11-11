@@ -1,26 +1,5 @@
 #include "enums.hpp"
 
-std::string OutputFormat_to_string(OutputFormat output_format) {
-    switch (output_format) {
-        case OutputFormat::Txt:
-            return "txt";
-        case OutputFormat::Npy:
-            return "npy";
-        default:
-            return "unknown";
-    }
-}
-
-OutputFormat string_to_OutputFormat(const std::string& str) {
-    if (str == "txt") {
-        return OutputFormat::Txt;
-    } else if (str == "npy") {
-        return OutputFormat::Npy;
-    } else {
-        throw std::runtime_error("Unknown output format: " + str + " (use \"txt\" or \"npy\")");
-    }
-}
-
 std::string BCType_to_string(BCType bc_type) {
     switch (bc_type) {
         case BCType::Dirichlet:

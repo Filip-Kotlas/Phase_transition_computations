@@ -7,8 +7,10 @@ RUN_FOLDER/calculations/<init_cond_file_path> (the solver resolves the path rela
 folder). Otherwise nothing happens. The file is generated rather than stored in the repo, and
 it is always the same, so both versions of the code in a regression test read identical input.
 
-Only the text format is written: the solver reads its numbers into Real, so the same file works
-for float and double builds (a .npy file has to match the Real type of the build).
+The file is a Result-*.npy frame stored as float32. The solver converts float and double frames to
+its Real type, so the file works for float and double builds. (Versions of the solver before
+2026-11-11 accept only the Real type of the build, i.e. float32 for float builds; a regression
+test against such a version as the baseline needs a float build.)
 """
 from pathlib import Path
 import json
@@ -30,8 +32,8 @@ def main() -> None:
     if not init_cond.get("init_cond_from_file", False):
         return
     target = run_folder / "calculations" / init_cond["init_cond_file_path"]
-    if target.suffix == ".npy":
-        sys.exit(f"{config_path}: use a .txt file for init_cond_file_path, it works for float and double builds.")
+    if target.suffix != ".npy":
+        sys.exit(f"{config_path}: init_cond_file_path has to be a .npy file, the solver reads no other format.")
 
     solver = config["solver"]
     domain = solver["domain"]
@@ -51,13 +53,9 @@ def main() -> None:
     phase = 0.5 * (1.0 - np.tanh((distance - radius) / (0.03 * min(width, height))))
     concentration = C_ALPHA * phase + C_BETA * (1.0 - phase)
 
-    # The Result-*.txt format: lines "x y phase conc", a blank line after each grid row.
+    # The Result-*.npy format: shape (2, sizeY, sizeX), phase first; x changes fastest, as in phase[j, i].
     target.parent.mkdir(parents=True, exist_ok=True)
-    with target.open("w", encoding="utf-8", newline="\n") as file:
-        for j in range(size_y):
-            for i in range(size_x):
-                file.write(f"{x[j, i]:.17g} {y[j, i]:.17g} {phase[j, i]:.17g} {concentration[j, i]:.17g}\n")
-            file.write("\n")
+    np.save(target, np.stack([phase, concentration]).astype("<f4"))
 
 
 if __name__ == "__main__":

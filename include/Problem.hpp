@@ -2,22 +2,12 @@
 
 #define _USE_MATH_DEFINES
 #include <cmath>
-#include <iostream>
-#include <fstream>
-#include <vector>
-#include <sstream>
-#include <iomanip>
-#include <filesystem>
-#include <unistd.h>
-#include <cassert>
 #include <algorithm>
-#include <list>
 #include <string>
 
 #include "constants.hpp"
 #include "Parameters.hpp"
 #include "types.hpp"
-#include "InitialCondition.hpp"
 #include "enums.hpp"
 
 class Problem
@@ -27,7 +17,6 @@ class Problem
     Problem(Parameters param);
     
     Index getDegreesOfFreedom();
-    bool writeSolution( const Real& t, Index step, const VectorView& u, const std::filesystem::path& output_folder);
 
     __cuda_callable__
     Index get_size_x() { return sizeX; };
@@ -56,12 +45,6 @@ class Problem
     __cuda_callable__
     Real get_rhs_concentration_at(const VectorView& u, Index i, Index j);
     
-    /*
-    * Initial conditions
-    */
-    void set_init_cond_manually( Vector &u, InitialCondition& init_cond);
-    bool set_init_cond_from_file(Vector& u, const std::filesystem::path& filename, const bool scaling);
-
     /*
     * Boundary conditions
     */

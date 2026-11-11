@@ -1,6 +1,6 @@
 """Loading of the computed results, separated from the plotting."""
 from pathlib import Path
-from typing import Dict, List, Tuple
+from typing import List, Tuple
 import json
 import numpy as np
 
@@ -9,11 +9,9 @@ class Dataset():
     """Access to the results of one computation stored in a results folder.
 
     The folder has to contain the subfolder "calculations" with the frames and the file
-    "info/setup/config.json" with the configuration (older results have it in "info/config.json"). A frame is stored in one of two formats:
-      - "Result-NNNNN.npy": array of the shape (2, sizeY, sizeX), phase first and concentration second.
-        The coordinates are not stored, they are computed from the configuration.
-      - "Result-NNNNN.txt": text file with the lines "x y phase concentration" (the older format).
-    If both files exist for a frame, the .npy file is used.
+    "info/setup/config.json" with the configuration (older results have it in "info/config.json").
+    A frame is stored in "Result-NNNNN.npy", an array of the shape (2, sizeY, sizeX), phase first
+    and concentration second. The coordinates are not stored, they are computed from the configuration.
     The last loaded frame is kept in memory, so several plotters asking for
     the same frame read the file only once.
     """
@@ -26,7 +24,7 @@ class Dataset():
         # Only the frames written by the solver, nothing else from the folder.
         self.file_paths: List[Path] = self._find_frames(calc_folder)
         if len(self.file_paths) == 0:
-            raise FileNotFoundError(f"Folder {calc_folder} does not contain any Result-*.npy or Result-*.txt files!")
+            raise FileNotFoundError(f"Folder {calc_folder} does not contain any Result-*.npy files!")
 
         # Subfolders of "info": the solver writes "setup", the Python scripts write the other two.
         self.setup_folder = self.folder / "info" / "setup"
@@ -45,16 +43,14 @@ class Dataset():
 
         self.time_step = self._calculate_time_step()
 
-        self._grid_xy = None    # coordinates for the .npy frames, computed when first needed
+        self._grid_xy = None    # coordinates of the grid points, computed when first needed
         self._cached_frame = None
         self._cached_data = None
 
     @staticmethod
     def _find_frames(calc_folder: Path) -> List[Path]:
-        """One file per frame, ordered by the frame number. The .npy file wins over the .txt one."""
-        by_name: Dict[str, Path] = {path.stem: path for path in calc_folder.glob("Result-*.txt")}
-        by_name.update({path.stem: path for path in calc_folder.glob("Result-*.npy")})
-        return [by_name[name] for name in sorted(by_name)]
+        """One file per frame, ordered by the frame number."""
+        return sorted(calc_folder.glob("Result-*.npy"), key=lambda path: path.name)
 
     def _calculate_time_step(self) -> float:
         """Time between two saved frames."""
@@ -106,16 +102,12 @@ class Dataset():
         """Returns x, y, phase and concentration of the frame, reading the file only if it is not cached."""
         if self._cached_frame != frame:
             path = self.file_paths[frame]
-            if path.suffix == ".npy":
-                x, y = self._grid_coordinates()
-                fields = np.load(path)
-                expected = (2, self._size_y(), self._size_x())
-                if fields.shape != expected:
-                    raise ValueError(f"File {path} has the shape {fields.shape}, the configuration says {expected}.")
-                phase, concentration = fields[0].ravel(), fields[1].ravel()
-            else:
-                data = np.loadtxt(path)
-                x, y, phase, concentration = data[:, 0], data[:, 1], data[:, 2], data[:, 3]
+            x, y = self._grid_coordinates()
+            fields = np.load(path)
+            expected = (2, self._size_y(), self._size_x())
+            if fields.shape != expected:
+                raise ValueError(f"File {path} has the shape {fields.shape}, the configuration says {expected}.")
+            phase, concentration = fields[0].ravel(), fields[1].ravel()
             for array in (x, y, phase, concentration):
                 array.flags.writeable = False
             self._cached_data = (x, y, phase, concentration)

@@ -29,6 +29,13 @@ CASE_TIMEOUT=600
 configs=("$new_dir"/tests/configs/*.json)
 [ -e "${configs[0]}" ] || { echo "No configs in $new_dir/tests/configs" >&2; exit 2; }
 
+# Progress for `cluster.sh status`: one line in OUT_DIR/progress, rewritten at every step:
+#   build VERSION
+#   run K TOTAL START CASE VERSION   (K-th of TOTAL runs, started at START in seconds since 1970)
+#   compare
+# It is deleted when the test ends normally.
+progress() { echo "$*" > "$out/progress"; }
+
 # Builds the version in $1 and prints the path of its binary. Only plain `make` is used, which
 # every version of the Makefile has (the binary moved from build/ to build/sm_XX/ over time).
 build() {
@@ -40,21 +47,28 @@ build() {
     [ -n "$binary" ] || { echo "No Phase-field binary in $1/build after the build" >&2; exit 1; }
     echo "$binary"
 }
+progress build new
 new_binary=$(build "$new_dir")
+progress build base
 base_binary=$(build "$base_dir")
+
+total=$(( 2 * ${#configs[@]} ))
+k=0
 
 for config in "${configs[@]}"; do
     case_name=$(basename "$config" .json)
     for version in base new; do
         if [ "$version" = new ]; then binary=$new_binary; src=$new_dir; commit=$new_commit
         else                          binary=$base_binary; src=$base_dir; commit=$base_commit; fi
+        k=$(( k + 1 ))
+        progress run "$k" "$total" "$(date +%s)" "$case_name" "$version"
         run_dir="$out/$version/$case_name"
         rm -rf "$run_dir"
         mkdir -p "$run_dir"
         # The input file of a case that starts from a file (nothing for the other cases).
         python3 "$new_dir/tests/prepare_input.py" "$config" "$run_dir"
 
-        echo ">> $case_name: running the $version version ($commit)"
+        echo ">> [$k/$total] $case_name: running the $version version ($commit)"
         # Run from the source tree, like `make run` does; the output goes to solver.log.
         status=0
         (cd "$src" && timeout "$CASE_TIMEOUT" "$binary" "$run_dir" "$config") > "$run_dir/solver.log" 2>&1 || status=$?
@@ -71,7 +85,9 @@ done
 echo
 echo ">> Comparing base ($base_commit) with new ($new_commit)"
 # The exit code of the comparison is the exit code of the test.
+progress compare
 status=0
 python3 "$new_dir/python/compare_runs.py" "$out/base" "$out/new" > "$out/report.txt" || status=$?
 cat "$out/report.txt"
+rm -f "$out/progress"
 exit "$status"
