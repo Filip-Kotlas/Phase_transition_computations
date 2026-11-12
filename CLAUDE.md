@@ -22,7 +22,7 @@ make clean
 - Run everything from the repo root. The binary resolves its default config through a relative path, and the Python scripts look in `./results/<name>`.
 - Header dependencies are tracked: nvcc writes `build/sm_XX/*.d` (`-MMD -MP`) and the Makefile includes them, so changing an `include/*.hpp` recompiles the objects that use it. System headers (TNL in `/usr/include`) are not tracked. `make clean` is still needed after changing compiler flags in the Makefile or after updating TNL (not on the cluster, where every job builds from scratch). (Before this, stale `.o` files after header changes caused hard-to-find bugs.)
 - `make run_all` overwrites the tracked `config/config.json`. `comp_configurations/` is gitignored, apart from `.gitkeep`.
-- There is no linter. There is a regression test (see below).
+- There is no linter. There is a regression test and a benchmark (see below).
 
 ## Regression test
 
@@ -40,6 +40,21 @@ It answers "did my change alter the results?", not "are the results correct?" (t
 - Verdicts: IDENTICAL (bitwise), CLOSE (phase difference and concentration difference relative to its range ≤ `--tol`, default 1e-4, and no cell crossed 0.5), DIFFERENT, FAILED (missing, unfinished or NaN), INCOMPATIBLE (different grids). Cleanup should give IDENTICAL; reordered arithmetic (performance work) at best CLOSE. For reference, float vs double on the 200×200 zirconium run differed by 3.5e-4 in the phase after 100 frames.
 - The test draws no plots. After `cluster.cmd fetch MyTest`, `python3 python/basic_plot.py --name MyTest` plots every run in it (it does that for any `--name` folder that is not a run itself but contains runs); one case: `--name MyTest/new/zirconium`.
 - `python3 python/compare_runs.py results/A results/B` compares any two runs (or two folders of runs) the same way, e.g. two `submit` runs on different GPUs.
+
+## Benchmark
+
+It answers "how much faster is my change?". Built like the regression test: working tree vs a baseline commit, both on the same GPU, nothing stored in the repo.
+
+```bash
+.\slurm\cluster.cmd bench MyBench                          # working tree vs HEAD, 3 runs of each version per case
+.\slurm\cluster.cmd bench MyBench --against HEAD~1 --repeat 5 --gpu rtx3060
+.\slurm\cluster.cmd log                                    # the result; also in results/MyBench/report.txt
+```
+- The job (`run.sbatch` with `MODE=bench`, time limit 1 h + 15 min per run above 3) runs `tests/benchmark.sh`: it builds both versions and runs every `tests/benchmark_configs/*.json` N times with each, alternating the order (base new, new base, …), so a drift on the node hits both alike. `tests/common.sh` holds the build and run functions shared with `regression.sh`.
+- Time = the solver's own `Computation time` from `parameters.txt` (time loop including frame writing, without start-up and IC). Baselines older than 98e885c do not write it; then the wall time of the process is used for that case (marked `*`). `python/compare_times.py` reports median (fastest–slowest) per version and the speedup base/new (> 1: new is faster; `~` = the ranges overlap, i.e. within the noise), and the geometric mean over the cases.
+- Output in `results/MyBench/`: `times.csv` (every run), `report.txt`, `{base,new}/<case>` (first run, complete) with `comparison.txt` from `compare_runs.py` (a speedup only counts if the results still agree), `repeats/` (the other runs, without frames).
+- Cases (about half a minute each on an RTX 2070 SUPER, estimated): `zirconium_200` (the production config, shortened: the time per frame is constant during a run), `zirconium_400` (the same at 400×400), `wulff_radial_200` (anisotropy and radial force, no concentration).
+- Unlike `test`, `bench` runs when both versions have the same code: that shows the noise. Times depend on the GPU type, so compare speedups, or use `--gpu` to benchmark on the same type.
 
 Plotting (it runs from the repo root and needs `results/<name>/info/setup/config.json`):
 ```bash
@@ -75,9 +90,10 @@ python3 python/plot.py --name MyRun --frame 10 --type phase   # --frame last wor
   - `config.json`: a copy of the config, which the Python plotters read. `Dataset` falls back to `info/config.json` for results computed before the subfolders existed.
   - `parameters.tex`
   - `sources.tar.gz`: only for cluster runs, the exact sources the job compiled (with uncommitted changes and the config).
+  - `mode.txt`: only for cluster jobs, `run`, `test` or `bench` (written by `run.sbatch`; tests and benchmarks also keep `baseline.tar.gz`).
 - `info/plots/`: frames (`.jpg`) and animations (`.mp4`/`.gif`) from the Python plotters.
 - `info/boundary/`: `interface_num.crv` and `interface_anal.crv` from `write_boundary_files`.
-- The paths of the three subfolders are defined once in `Dataset` (`setup_folder`, `plots_folder`, `boundary_folder`); on the C++ side the paths are in `RunFolder`. The Makefile (`PARAM_PATH`) and `tests/regression.sh` also know where `parameters.txt` is.
+- The paths of the three subfolders are defined once in `Dataset` (`setup_folder`, `plots_folder`, `boundary_folder`); on the C++ side the paths are in `RunFolder`. The Makefile (`PARAM_PATH`), `tests/common.sh` and `tests/benchmark.sh` also know where `parameters.txt` is.
 
 **Python (`python/plotter.py`):** `Plotter` base class with `BoundaryPlotter2D` (draws the 0.5-level contour, which can be overlaid with the analytic circle or Wulff boundary), `SurfacePlotter` (3D) and `CutPlotter` (1D cut). The boundary computation does not live in the plotters: `python/boundary.py` has the class `Boundary` (numerical curves from contourpy, analytic curves) and `write_boundary_files`, which `basic_plot.py` calls once to write `info/boundary/interface_num.crv` and `interface_anal.crv` for all frames (the files are always rewritten from scratch; `plot.py` never writes them). `python/cli.py` is shared by `basic_plot.py` and `plot.py`: it holds the common arguments, `decide_drawing` (whether to draw concentration plots and the analytic boundary, from `force_term.type` and the `initial_condition` name) and `build_plotters`.
 

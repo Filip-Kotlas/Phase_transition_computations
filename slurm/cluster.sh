@@ -7,7 +7,10 @@
 #   slurm/cluster.sh test MyTest [--against COMMIT] [--force] [--gpu TYPE]
 #                                                              regression test: your working tree
 #                                                              against COMMIT (default HEAD)
-#   slurm/cluster.sh status                                    show your queue
+#   slurm/cluster.sh bench MyBench [--against COMMIT] [--repeat N] [--force] [--gpu TYPE]
+#                                                              benchmark: computation times of your
+#                                                              working tree against COMMIT
+#   slurm/cluster.sh status                                   show your queue
 #   slurm/cluster.sh list                                      all runs on the cluster and their state
 #   slurm/cluster.sh log                                       tail the newest slurm-*.out
 #   slurm/cluster.sh gpus                                      GPU types and how many are free now
@@ -29,6 +32,11 @@
 # results/MyTest/report.txt keeps it. So test your changes BEFORE committing them: once they are
 # committed, HEAD is the new code itself, and test refuses to compare the code with itself
 # (use --against HEAD~1, or the commit before your changes, then).
+# bench uploads the same two versions as test, runs every tests/benchmark_configs/*.json N times
+# (default 3) with each of them on the same GPU and compares the computation times
+# (tests/benchmark.sh, python/compare_times.py); `log` shows the result and
+# results/MyBench/report.txt keeps it. Unlike test it also runs when both versions have the same
+# code: that measures the noise of the timings.
 # list shows each run in results/ and jobs/ with its state: queued, running (with progress),
 # finished (computation time; warns when the animations are missing) or stopped (no job any
 # more and not finished: crashed, cancelled or time limit; it names the log to look at).
@@ -78,10 +86,11 @@ check_name() {
 cmd="${1:-}"; shift || true
 
 case "$cmd" in
-submit|test)
-    # test is submit with a second archive (the baseline) and MODE=test for run.sbatch.
+submit|test|bench)
+    # test and bench are submit with a second archive (the baseline) and MODE=test or MODE=bench
+    # for run.sbatch.
     mode=$cmd
-    folder=""; delete=0; force=0; gpu=""; against=""
+    folder=""; delete=0; force=0; gpu=""; against=""; repeat=3
     while [ $# -gt 0 ]; do
         case "$1" in
             --delete-calcs)
@@ -92,20 +101,25 @@ submit|test)
                 [ $# -ge 2 ] || { echo "--gpu needs a GPU type, e.g. --gpu rtx5080" >&2; exit 1; }
                 gpu="$2"; shift ;;
             --against)
-                [ "$mode" = test ] || { echo "--against is only for test." >&2; exit 1; }
+                [ "$mode" != submit ] || { echo "--against is only for test and bench." >&2; exit 1; }
                 [ $# -ge 2 ] || { echo "--against needs a commit, e.g. --against HEAD~1" >&2; exit 1; }
                 against="$2"; shift ;;
+            --repeat)
+                [ "$mode" = bench ] || { echo "--repeat is only for bench." >&2; exit 1; }
+                [ $# -ge 2 ] || { echo "--repeat needs a number of runs, e.g. --repeat 5" >&2; exit 1; }
+                case "$2" in ""|*[!0-9]*|0) echo "--repeat needs a positive number, not '$2'." >&2; exit 1 ;; esac
+                repeat="$2"; shift ;;
             -*) echo "Unknown option: $1" >&2; exit 1 ;;
             *)  folder="$1" ;;
         esac
         shift
     done
     if [ -z "$folder" ]; then
-        if [ "$mode" = test ]; then
-            echo "Usage: cluster.sh test NAME [--against COMMIT] [--force] [--gpu TYPE]" >&2
-        else
-            echo "Usage: cluster.sh submit FOLDER [--delete-calcs] [--force] [--gpu TYPE]" >&2
-        fi
+        case "$mode" in
+            test)  echo "Usage: cluster.sh test NAME [--against COMMIT] [--force] [--gpu TYPE]" >&2 ;;
+            bench) echo "Usage: cluster.sh bench NAME [--against COMMIT] [--repeat N] [--force] [--gpu TYPE]" >&2 ;;
+            *)     echo "Usage: cluster.sh submit FOLDER [--delete-calcs] [--force] [--gpu TYPE]" >&2 ;;
+        esac
         exit 1
     fi
     check_name "$folder"
@@ -113,7 +127,9 @@ submit|test)
     if [ "$mode" = submit ]; then
         [ -f config/config.json ] || { echo "config/config.json does not exist, nothing to run." >&2; exit 1; }
     else
-        [ -n "$(ls tests/configs/*.json 2>/dev/null)" ] || { echo "There are no tests/configs/*.json, nothing to test." >&2; exit 1; }
+        configs_dir=tests/configs
+        [ "$mode" = bench ] && configs_dir=tests/benchmark_configs
+        [ -n "$(ls $configs_dir/*.json 2>/dev/null)" ] || { echo "There are no $configs_dir/*.json, nothing to run." >&2; exit 1; }
         against="${against:-HEAD}"
         base_commit=$(git rev-parse --verify --quiet "$against^{commit}") \
             || { echo "'$against' is not a commit." >&2; exit 1; }
@@ -122,11 +138,15 @@ submit|test)
         # the changes were committed before testing and the baseline is HEAD), both versions are
         # the same and every case would come out IDENTICAL without saying anything.
         # config/config.json does not count: the test does not use it.
+        # A benchmark of the same code is still useful: it shows the noise of the timings.
         if git diff --quiet "$base_commit" -- . ':(exclude)config/config.json' \
            && [ -z "$(git ls-files -o --exclude-standard)" ]; then
-            echo "Your working tree has the same code as $against ($base_short), so the test would compare the code with itself." >&2
-            echo "If you have already committed your changes, compare with the commit before them, e.g. --against HEAD~1." >&2
-            exit 1
+            if [ "$mode" = test ]; then
+                echo "Your working tree has the same code as $against ($base_short), so the test would compare the code with itself." >&2
+                echo "If you have already committed your changes, compare with the commit before them, e.g. --against HEAD~1." >&2
+                exit 1
+            fi
+            echo ">> Note: your working tree has the same code as $against ($base_short), so this benchmark measures only the noise of the timings."
         fi
     fi
 
@@ -168,7 +188,7 @@ submit|test)
         | tar --null -T - -czf - \
         | "$SSH" "$CLUSTER_HOST" "mkdir -p '$REMOTE_DIR/$job_dir' && cat > '$REMOTE_DIR/$job_dir/sources.tar.gz'"
 
-    if [ "$mode" = test ]; then
+    if [ "$mode" != submit ]; then
         # The committed baseline, exactly as git stores it. core.autocrlf=false: old commits have
         # no .gitattributes, and CRLF line endings would break make and the scripts on Linux.
         echo ">> Uploading the baseline $against ($base_short) to $CLUSTER_HOST:$REMOTE_DIR/$job_dir/baseline.tar.gz"
@@ -186,15 +206,21 @@ submit|test)
     # job script always matches the code. The job name is the run name, which `status` shows
     # and `cancel` and `clean` rely on. If sbatch fails, the upload is deleted so the name stays free.
     # A test takes minutes, so it gets a short time limit (overrides the 12 h in run.sbatch):
-    # if something hangs, it does not hold the GPU for long.
+    # if something hangs, it does not hold the GPU for long. A benchmark runs every case
+    # 2 x N times for about half a minute each; 1 h for N = 3, plus 15 min for every further run.
     extra=()
-    if [ "$mode" = test ]; then
-        extra=(--time=01:00:00)
-        echo ">> Submitting test job (commit $commit against the baseline $base_short, GPU ${gpu:-any})"
-    else
-        echo ">> Submitting job (commit $commit, GPU ${gpu:-any})"
-    fi
-    rssh "cd '$REMOTE_DIR' && { tar xzOf '$job_dir/sources.tar.gz' slurm/run.sbatch | sbatch --job-name='$folder' ${gres[*]:-} ${extra[*]:-} --export=ALL,FOLDER='$folder',DELETE_CALCS=$delete,GIT_COMMIT='$commit',MODE=$mode,BASELINE_COMMIT='${base_short:-}' || { rm -rf '$job_dir'; exit 1; }; }"
+    case "$mode" in
+        test)
+            extra=(--time=01:00:00)
+            echo ">> Submitting test job (commit $commit against the baseline $base_short, GPU ${gpu:-any})" ;;
+        bench)
+            minutes=$(( 60 + 15 * (repeat > 3 ? repeat - 3 : 0) ))
+            extra=(--time=$minutes)
+            echo ">> Submitting benchmark job (commit $commit against the baseline $base_short, $repeat run(s) of each, GPU ${gpu:-any})" ;;
+        *)
+            echo ">> Submitting job (commit $commit, GPU ${gpu:-any})" ;;
+    esac
+    rssh "cd '$REMOTE_DIR' && { tar xzOf '$job_dir/sources.tar.gz' slurm/run.sbatch | sbatch --job-name='$folder' ${gres[*]:-} ${extra[*]:-} --export=ALL,FOLDER='$folder',DELETE_CALCS=$delete,GIT_COMMIT='$commit',MODE=$mode,BASELINE_COMMIT='${base_short:-}',REPEAT=$repeat || { rm -rf '$job_dir'; exit 1; }; }"
     ;;
 status)
     # Queue plus progress of running jobs, read from the "Steps completed" lines that the
@@ -207,28 +233,29 @@ cd "$1" 2>/dev/null || { echo "Folder $1 does not exist on the cluster yet (noth
 duration() {
     if [ "$1" -ge 60 ]; then echo "$(( $1 / 60 )) min $(( $1 % 60 )) s"; else echo "$1 s"; fi
 }
-# Progress of the regression test in results/$2 (job $1), from the progress file that
-# tests/regression.sh rewrites at every step. No estimate of the time left: the cases take very
-# different times.
+# Progress of the regression test or benchmark in results/$2 (job $1), from the progress file
+# that tests/regression.sh and tests/benchmark.sh rewrite at every step. No estimate of the time
+# left: the cases take very different times.
 test_progress() {
-    local phase a b c d e
+    local phase a b c d e kind="regression test"
+    [ "$(cat "results/$2/info/setup/mode.txt" 2>/dev/null)" = bench ] && kind=benchmark
     phase=""
     [ -f "results/$2/progress" ] && read -r phase a b c d e < "results/$2/progress"
     case "$phase" in
-        build)   echo "job $1: regression test, compiling the $a version" ;;
-        compare) echo "job $1: regression test, comparing the results" ;;
+        build)   echo "job $1: $kind, compiling the $a version" ;;
+        compare) echo "job $1: $kind, comparing the results" ;;
         run)
             # a = this run, b = number of runs, c = start of this run, d = case, e = version.
-            echo "job $1: regression test, run $a/$b ($d, $e version), running for $(duration $(( $(date +%s) - c )))" ;;
+            echo "job $1: $kind, run $a/$b ($d, $e version), running for $(duration $(( $(date +%s) - c )))" ;;
         # Tests submitted before regression.sh wrote the progress file, or the job is still
         # unpacking the sources.
-        *)       echo "job $1: regression test running (see slurm-$1.out)" ;;
+        *)       echo "job $1: $kind running (see slurm-$1.out)" ;;
     esac
 }
 
 squeue -u "$USER"
 squeue -u "$USER" -h -t RUNNING -o '%i %j' | while read -r id name; do
-    # A regression test runs many short cases, so it reports which run it is at.
+    # A regression test or benchmark runs many short cases, so it reports which run it is at.
     if [ -f "results/$name/info/setup/baseline.tar.gz" ]; then
         test_progress "$id" "$name"
         continue
@@ -320,16 +347,18 @@ for name in $names; do
     fi
     size="-"
     [ -d "$r" ] && size=$(du -sh "$r" | cut -f1)
-    # A regression test (cluster.sh test) keeps the baseline next to the sources; it has no frames
-    # of its own (they are in new/ and base/), and report.txt is written at its end.
-    is_test=0
+    # A regression test or benchmark (cluster.sh test or bench) keeps the baseline next to the
+    # sources; it has no frames of its own (they are in new/ and base/), and report.txt is
+    # written at its end. mode.txt tells the two apart (tests from before it are regression tests).
+    is_test=0; kind="regression test"
     [ -f "$r/info/setup/baseline.tar.gz" ] && is_test=1
+    [ "$(cat "$r/info/setup/mode.txt" 2>/dev/null)" = bench ] && kind=benchmark
 
     case "$jstate" in
         PENDING) state=queued;  details="job $jid" ;;
         RUNNING)
             state=running
-            if [ "$is_test" = 1 ]; then details="job $jid on $node: regression test"
+            if [ "$is_test" = 1 ]; then details="job $jid on $node: $kind"
             else details="job $jid on $node: $(progress "$jid" "$params")"; fi ;;
         "")
             if [ "$is_test" = 1 ]; then
@@ -338,7 +367,7 @@ for name in $names; do
                 else
                     state=stopped
                     log=$(find_log "$name")
-                    details="test did not finish${log:+; see $log}"
+                    details="$kind did not finish${log:+; see $log}"
                 fi
             elif [ ! -d "$r" ]; then
                 # A job that failed before it moved its upload to the results left this behind.
@@ -534,7 +563,7 @@ delete-results)
     echo ">> Deleted all results and uploads in $CLUSTER_HOST:$REMOTE_DIR"
     ;;
 *)
-    sed -n '2,37p' "$0"
+    sed -n '2,45p' "$0"
     exit 1
     ;;
 esac

@@ -5,7 +5,9 @@
 #
 # `slurm/cluster.sh test` submits it with MODE=test: it also uploads the baseline version as
 # jobs/<FOLDER>/baseline.tar.gz and passes BASELINE_COMMIT. The job then runs the regression
-# test (tests/regression.sh) instead of `make run`.
+# test (tests/regression.sh) instead of `make run`. `slurm/cluster.sh bench` is the same with
+# MODE=bench (and REPEAT): the job runs the benchmark (tests/benchmark.sh).
+# The mode is kept in results/<FOLDER>/info/setup/mode.txt, for `cluster.sh status` and `list`.
 #
 #SBATCH --partition=gp               # any GPU node; the Makefile compiles for whichever GPU it lands on
 #SBATCH --gres=gpu:1                 # one GPU is enough, the solver is single-GPU
@@ -31,6 +33,8 @@ case "$mode" in
     run)  archives="sources.tar.gz" ;;
     test) archives="sources.tar.gz baseline.tar.gz"
           echo "Regression test: ${GIT_COMMIT:-unknown} against the baseline ${BASELINE_COMMIT:-unknown}" ;;
+    bench) archives="sources.tar.gz baseline.tar.gz"
+          echo "Benchmark: ${GIT_COMMIT:-unknown} against the baseline ${BASELINE_COMMIT:-unknown}, ${REPEAT:-3} run(s) of each" ;;
     *)    echo "Unknown MODE '$mode'" >&2; exit 1 ;;
 esac
 job_dir="$base/jobs/$FOLDER"
@@ -57,7 +61,7 @@ trap 'rm -rf "$work" "$base_work"' EXIT
 trap 'exit 143' TERM                 # scancel or time limit: exit, so that the EXIT cleanup runs
 mkdir -p "$work"
 tar xzf "$job_dir/sources.tar.gz" -C "$work"
-if [ "$mode" = test ]; then
+if [ "$mode" != run ]; then
     mkdir -p "$base_work"
     tar xzf "$job_dir/baseline.tar.gz" -C "$base_work"
 fi
@@ -68,6 +72,7 @@ mkdir -p "results/$FOLDER/info/setup"
 for a in $archives; do
     cp "$job_dir/$a" "results/$FOLDER/info/setup/$a"
 done
+echo "$mode" > "results/$FOLDER/info/setup/mode.txt"
 rm -rf "$job_dir"
 
 # The binary and the Python scripts write to ./results, so point it to the shared results folder.
@@ -85,6 +90,9 @@ if [ "$mode" = test ]; then
     # Both versions run on this GPU, so differences between GPU types cannot show up as
     # differences between the versions. The results and report.txt go to results/$FOLDER.
     bash tests/regression.sh "$work" "$base_work" "results/$FOLDER" "${GIT_COMMIT:-unknown}" "${BASELINE_COMMIT:-unknown}"
+elif [ "$mode" = bench ]; then
+    # The same for the times: both versions on this GPU, report.txt in results/$FOLDER.
+    REPEAT="${REPEAT:-3}" bash tests/benchmark.sh "$work" "$base_work" "results/$FOLDER" "${GIT_COMMIT:-unknown}" "${BASELINE_COMMIT:-unknown}"
 else
     # The copy has no .git folder, so the commit comes from cluster.sh. config/config.json is the
     # config from the uploaded sources, i.e. the one that was in your repo when you submitted.
