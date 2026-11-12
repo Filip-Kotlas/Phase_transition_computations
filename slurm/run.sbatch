@@ -7,6 +7,9 @@
 # jobs/<FOLDER>/baseline.tar.gz and passes BASELINE_COMMIT. The job then runs the regression
 # test (tests/regression.sh) instead of `make run`. `slurm/cluster.sh bench` is the same with
 # MODE=bench (and REPEAT): the job runs the benchmark (tests/benchmark.sh).
+# With --new COMMIT, test and bench also upload that commit as jobs/<FOLDER>/new.tar.gz and pass
+# NEW_COMMIT: it is then the version under test, and sources.tar.gz (your working tree) only
+# supplies this script, the test scripts, the configs and the comparison.
 # The mode is kept in results/<FOLDER>/info/setup/mode.txt, for `cluster.sh status` and `list`.
 #
 #SBATCH --partition=gp               # any GPU node; the Makefile compiles for whichever GPU it lands on
@@ -37,6 +40,10 @@ case "$mode" in
           echo "Benchmark: ${GIT_COMMIT:-unknown} against the baseline ${BASELINE_COMMIT:-unknown}, ${REPEAT:-3} run(s) of each" ;;
     *)    echo "Unknown MODE '$mode'" >&2; exit 1 ;;
 esac
+if [ "$mode" != run ] && [ -n "${NEW_COMMIT:-}" ]; then
+    archives="$archives new.tar.gz"
+    echo "The version under test is the commit $NEW_COMMIT, not the uploaded working tree."
+fi
 job_dir="$base/jobs/$FOLDER"
 uploaded() {
     local a
@@ -54,16 +61,23 @@ uploaded || { echo "Missing $archives in $job_dir after waiting 2 minutes (was t
 
 # Every job compiles and runs its own copy of the sources, unpacked on the node's local disk.
 # So a later submit cannot change the code of a queued job, and jobs cannot disturb each other.
-# A test also unpacks the baseline version, into its own folder.
+# A test also unpacks the baseline version, into its own folder, and the version under test, if
+# it is a commit (otherwise the version under test is the working tree in $work).
 work="${TMPDIR:-/tmp}/phase-field-${SLURM_JOB_ID}"
 base_work="$work-baseline"
-trap 'rm -rf "$work" "$base_work"' EXIT
+new_work="$work"
+trap 'rm -rf "$work" "$base_work" "$work-new"' EXIT
 trap 'exit 143' TERM                 # scancel or time limit: exit, so that the EXIT cleanup runs
 mkdir -p "$work"
 tar xzf "$job_dir/sources.tar.gz" -C "$work"
 if [ "$mode" != run ]; then
     mkdir -p "$base_work"
     tar xzf "$job_dir/baseline.tar.gz" -C "$base_work"
+    if [ -n "${NEW_COMMIT:-}" ]; then
+        new_work="$work-new"
+        mkdir -p "$new_work"
+        tar xzf "$job_dir/new.tar.gz" -C "$new_work"
+    fi
 fi
 
 # Keep the exact sources with the results. This also creates results/$FOLDER right away, so the
@@ -89,10 +103,10 @@ nvidia-smi --query-gpu=name,compute_cap --format=csv
 if [ "$mode" = test ]; then
     # Both versions run on this GPU, so differences between GPU types cannot show up as
     # differences between the versions. The results and report.txt go to results/$FOLDER.
-    bash tests/regression.sh "$work" "$base_work" "results/$FOLDER" "${GIT_COMMIT:-unknown}" "${BASELINE_COMMIT:-unknown}"
+    bash tests/regression.sh "$new_work" "$base_work" "results/$FOLDER" "${GIT_COMMIT:-unknown}" "${BASELINE_COMMIT:-unknown}"
 elif [ "$mode" = bench ]; then
     # The same for the times: both versions on this GPU, report.txt in results/$FOLDER.
-    REPEAT="${REPEAT:-3}" bash tests/benchmark.sh "$work" "$base_work" "results/$FOLDER" "${GIT_COMMIT:-unknown}" "${BASELINE_COMMIT:-unknown}"
+    REPEAT="${REPEAT:-3}" bash tests/benchmark.sh "$new_work" "$base_work" "results/$FOLDER" "${GIT_COMMIT:-unknown}" "${BASELINE_COMMIT:-unknown}"
 else
     # The copy has no .git folder, so the commit comes from cluster.sh. config/config.json is the
     # config from the uploaded sources, i.e. the one that was in your repo when you submitted.

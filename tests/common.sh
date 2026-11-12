@@ -1,8 +1,11 @@
 # Functions shared by tests/regression.sh and tests/benchmark.sh. Sourced, not run.
 # The script that sources it sets $out (its output folder) first.
 
-# Folder of the test scripts (this file's folder), for prepare_input.py.
+# Folder of the test scripts (this file's folder), for prepare_input.py, and the source tree it
+# belongs to: the harness, which supplies the configs and the comparison scripts. It is the
+# version under test, unless that is another commit (cluster.sh test/bench --new COMMIT).
 tests_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+harness_dir=$(cd "$tests_dir/.." && pwd)
 
 # A test case that runs longer than this is stuck; the solver loop has hung before (job 53761)
 # and would otherwise hold the GPU until the job's time limit.
@@ -47,9 +50,14 @@ run_case() {
     run_seconds=$(awk -v s="$start" -v e="$end" 'BEGIN { printf "%.2f", e - s }')
 
     # parameters.txt gets the commit like with `make run`, so compare_runs.py can show it.
-    if [ -f "$run_dir/info/setup/parameters.txt" ]; then
-        echo "Git commit: $commit" >> "$run_dir/info/setup/parameters.txt"
-    fi
+    # (Versions before commit 98e885c write it into info/ instead of info/setup/.)
+    local parameters
+    for parameters in "$run_dir/info/setup/parameters.txt" "$run_dir/info/parameters.txt"; do
+        if [ -f "$parameters" ]; then
+            echo "Git commit: $commit" >> "$parameters"
+            break
+        fi
+    done
     if [ "$run_status" != 0 ]; then
         if [ "$run_status" = 124 ]; then echo "   timed out after $CASE_TIMEOUT s"
         else echo "   failed with exit code $run_status"; fi

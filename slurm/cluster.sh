@@ -4,12 +4,14 @@
 #   slurm/cluster.sh submit MyRun [--delete-calcs] [--force] [--gpu TYPE]
 #                                                              upload code, sbatch the job
 #                                                              (--gpu rtx5080: only that card type)
-#   slurm/cluster.sh test MyTest [--against COMMIT] [--force] [--gpu TYPE]
+#   slurm/cluster.sh test MyTest [--against COMMIT] [--new COMMIT] [--force] [--gpu TYPE]
 #                                                              regression test: your working tree
-#                                                              against COMMIT (default HEAD)
-#   slurm/cluster.sh bench MyBench [--against COMMIT] [--repeat N] [--force] [--gpu TYPE]
+#                                                              (or --new COMMIT) against COMMIT
+#                                                              (default HEAD)
+#   slurm/cluster.sh bench MyBench [--against COMMIT] [--new COMMIT] [--repeat N] [--force] [--gpu TYPE]
 #                                                              benchmark: computation times of your
-#                                                              working tree against COMMIT
+#                                                              working tree (or --new COMMIT)
+#                                                              against COMMIT
 #   slurm/cluster.sh status                                   show your queue
 #   slurm/cluster.sh list                                      all runs on the cluster and their state
 #   slurm/cluster.sh log                                       tail the newest slurm-*.out
@@ -37,6 +39,11 @@
 # (tests/benchmark.sh, python/compare_times.py); `log` shows the result and
 # results/MyBench/report.txt keeps it. Unlike test it also runs when both versions have the same
 # code: that measures the noise of the timings.
+# --new COMMIT (test and bench) puts that commit in place of your working tree as the version
+# under test, e.g. `bench Old --against 5e9bccb~1 --new 5e9bccb` for an old change. Your working
+# tree is still uploaded: the job script, the test scripts, the configs and the comparison come
+# from it, so they also work for commits from before they existed (the commits still have to
+# accept `Phase-field RESULT_FOLDER CONFIG` and read today's configs).
 # list shows each run in results/ and jobs/ with its state: queued, running (with progress),
 # finished (computation time; warns when the animations are missing) or stopped (no job any
 # more and not finished: crashed, cancelled or time limit; it names the log to look at).
@@ -90,7 +97,7 @@ submit|test|bench)
     # test and bench are submit with a second archive (the baseline) and MODE=test or MODE=bench
     # for run.sbatch.
     mode=$cmd
-    folder=""; delete=0; force=0; gpu=""; against=""; repeat=3
+    folder=""; delete=0; force=0; gpu=""; against=""; new=""; repeat=3
     while [ $# -gt 0 ]; do
         case "$1" in
             --delete-calcs)
@@ -104,6 +111,10 @@ submit|test|bench)
                 [ "$mode" != submit ] || { echo "--against is only for test and bench." >&2; exit 1; }
                 [ $# -ge 2 ] || { echo "--against needs a commit, e.g. --against HEAD~1" >&2; exit 1; }
                 against="$2"; shift ;;
+            --new)
+                [ "$mode" != submit ] || { echo "--new is only for test and bench." >&2; exit 1; }
+                [ $# -ge 2 ] || { echo "--new needs a commit, e.g. --new HEAD" >&2; exit 1; }
+                new="$2"; shift ;;
             --repeat)
                 [ "$mode" = bench ] || { echo "--repeat is only for bench." >&2; exit 1; }
                 [ $# -ge 2 ] || { echo "--repeat needs a number of runs, e.g. --repeat 5" >&2; exit 1; }
@@ -116,8 +127,8 @@ submit|test|bench)
     done
     if [ -z "$folder" ]; then
         case "$mode" in
-            test)  echo "Usage: cluster.sh test NAME [--against COMMIT] [--force] [--gpu TYPE]" >&2 ;;
-            bench) echo "Usage: cluster.sh bench NAME [--against COMMIT] [--repeat N] [--force] [--gpu TYPE]" >&2 ;;
+            test)  echo "Usage: cluster.sh test NAME [--against COMMIT] [--new COMMIT] [--force] [--gpu TYPE]" >&2 ;;
+            bench) echo "Usage: cluster.sh bench NAME [--against COMMIT] [--new COMMIT] [--repeat N] [--force] [--gpu TYPE]" >&2 ;;
             *)     echo "Usage: cluster.sh submit FOLDER [--delete-calcs] [--force] [--gpu TYPE]" >&2 ;;
         esac
         exit 1
@@ -134,19 +145,33 @@ submit|test|bench)
         base_commit=$(git rev-parse --verify --quiet "$against^{commit}") \
             || { echo "'$against' is not a commit." >&2; exit 1; }
         base_short=$(git rev-parse --short "$base_commit")
-        # The test compares the working tree with the baseline. If they have the same code (e.g.
-        # the changes were committed before testing and the baseline is HEAD), both versions are
-        # the same and every case would come out IDENTICAL without saying anything.
+        # The version under test: the working tree, or the commit given with --new.
+        new_commit=""; new_short=""
+        if [ -n "$new" ]; then
+            new_commit=$(git rev-parse --verify --quiet "$new^{commit}") \
+                || { echo "'$new' is not a commit." >&2; exit 1; }
+            new_short=$(git rev-parse --short "$new_commit")
+        fi
+        # The test compares the version under test with the baseline. If they have the same code
+        # (e.g. the changes were committed before testing and the baseline is HEAD), both versions
+        # are the same and every case would come out IDENTICAL without saying anything.
         # config/config.json does not count: the test does not use it.
         # A benchmark of the same code is still useful: it shows the noise of the timings.
-        if git diff --quiet "$base_commit" -- . ':(exclude)config/config.json' \
-           && [ -z "$(git ls-files -o --exclude-standard)" ]; then
+        if [ -n "$new_commit" ]; then
+            git diff --quiet "$base_commit" "$new_commit" -- . ':(exclude)config/config.json' && same=1 || same=0
+            tested="The commit $new ($new_short)"
+        else
+            git diff --quiet "$base_commit" -- . ':(exclude)config/config.json' \
+                && [ -z "$(git ls-files -o --exclude-standard)" ] && same=1 || same=0
+            tested="Your working tree"
+        fi
+        if [ "$same" = 1 ]; then
             if [ "$mode" = test ]; then
-                echo "Your working tree has the same code as $against ($base_short), so the test would compare the code with itself." >&2
-                echo "If you have already committed your changes, compare with the commit before them, e.g. --against HEAD~1." >&2
+                echo "$tested has the same code as $against ($base_short), so the test would compare the code with itself." >&2
+                [ -z "$new_commit" ] && echo "If you have already committed your changes, compare with the commit before them, e.g. --against HEAD~1." >&2
                 exit 1
             fi
-            echo ">> Note: your working tree has the same code as $against ($base_short), so this benchmark measures only the noise of the timings."
+            echo ">> Note: $tested has the same code as $against ($base_short), so this benchmark measures only the noise of the timings."
         fi
     fi
 
@@ -194,13 +219,22 @@ submit|test|bench)
         echo ">> Uploading the baseline $against ($base_short) to $CLUSTER_HOST:$REMOTE_DIR/$job_dir/baseline.tar.gz"
         git -c core.autocrlf=false archive --format=tar.gz "$base_commit" \
             | "$SSH" "$CLUSTER_HOST" "cat > '$REMOTE_DIR/$job_dir/baseline.tar.gz'"
+        # With --new, the version under test too; the working tree uploaded above then only
+        # supplies the job script, the test scripts, the configs and the comparison.
+        if [ -n "${new_commit:-}" ]; then
+            echo ">> Uploading the version under test $new ($new_short) to $CLUSTER_HOST:$REMOTE_DIR/$job_dir/new.tar.gz"
+            git -c core.autocrlf=false archive --format=tar.gz "$new_commit" \
+                | "$SSH" "$CLUSTER_HOST" "cat > '$REMOTE_DIR/$job_dir/new.tar.gz'"
+        fi
     fi
 
     # Local commit, marked "-dirty" when uncommitted changes (or untracked files) were uploaded too.
     # config/config.json does not count: it is the input of the run, not code, and every run
     # keeps it in info/setup/config.json (and in sources.tar.gz) anyway.
+    # With --new, the version under test is exactly that commit.
     commit=$(git rev-parse --short HEAD)
     [ -z "$(git status --porcelain -- . ':(exclude)config/config.json')" ] || commit="$commit-dirty"
+    [ -n "${new_short:-}" ] && commit=$new_short
 
     # The batch script comes from the uploaded archive too (sbatch reads it from stdin), so the
     # job script always matches the code. The job name is the run name, which `status` shows
@@ -220,7 +254,7 @@ submit|test|bench)
         *)
             echo ">> Submitting job (commit $commit, GPU ${gpu:-any})" ;;
     esac
-    rssh "cd '$REMOTE_DIR' && { tar xzOf '$job_dir/sources.tar.gz' slurm/run.sbatch | sbatch --job-name='$folder' ${gres[*]:-} ${extra[*]:-} --export=ALL,FOLDER='$folder',DELETE_CALCS=$delete,GIT_COMMIT='$commit',MODE=$mode,BASELINE_COMMIT='${base_short:-}',REPEAT=$repeat || { rm -rf '$job_dir'; exit 1; }; }"
+    rssh "cd '$REMOTE_DIR' && { tar xzOf '$job_dir/sources.tar.gz' slurm/run.sbatch | sbatch --job-name='$folder' ${gres[*]:-} ${extra[*]:-} --export=ALL,FOLDER='$folder',DELETE_CALCS=$delete,GIT_COMMIT='$commit',MODE=$mode,BASELINE_COMMIT='${base_short:-}',NEW_COMMIT='${new_short:-}',REPEAT=$repeat || { rm -rf '$job_dir'; exit 1; }; }"
     ;;
 status)
     # Queue plus progress of running jobs, read from the "Steps completed" lines that the
@@ -563,7 +597,7 @@ delete-results)
     echo ">> Deleted all results and uploads in $CLUSTER_HOST:$REMOTE_DIR"
     ;;
 *)
-    sed -n '2,45p' "$0"
+    sed -n '2,52p' "$0"
     exit 1
     ;;
 esac

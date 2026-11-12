@@ -6,8 +6,8 @@
 #   tests/benchmark.sh NEW_DIR BASE_DIR OUT_DIR [NEW_COMMIT [BASE_COMMIT]]
 #   REPEAT=5 tests/benchmark.sh ...          (default REPEAT=3)
 #
-# NEW_DIR and BASE_DIR are unpacked source trees, as for tests/regression.sh; the configs, the
-# scripts and the comparison come from NEW_DIR. In OUT_DIR:
+# NEW_DIR and BASE_DIR are unpacked source trees, as for tests/regression.sh; the configs and the
+# comparison come from the tree of this script (normally NEW_DIR itself). In OUT_DIR:
 #   times.csv          one line per run: case, version, repetition, computation time (the solver's
 #                      own "Computation time" from parameters.txt: the time loop including frame
 #                      writing, without start-up, config and initial condition; empty in versions
@@ -41,8 +41,8 @@ case "$repeat" in ""|*[!0-9]*|0) echo "REPEAT has to be a positive number, not '
 # progress, build, run_case and CASE_TIMEOUT.
 source "$(dirname "${BASH_SOURCE[0]}")/common.sh"
 
-configs=("$new_dir"/tests/benchmark_configs/*.json)
-[ -e "${configs[0]}" ] || { echo "No configs in $new_dir/tests/benchmark_configs" >&2; exit 2; }
+configs=("$harness_dir"/tests/benchmark_configs/*.json)
+[ -e "${configs[0]}" ] || { echo "No configs in $harness_dir/tests/benchmark_configs" >&2; exit 2; }
 
 progress build new
 new_binary=$(build "$new_dir")
@@ -85,13 +85,13 @@ done
 echo
 echo ">> Comparing the results of base ($base_commit) and new ($new_commit)"
 progress compare
-python3 "$new_dir/python/compare_runs.py" "$out/base" "$out/new" > "$out/comparison.txt" || true
+python3 "$harness_dir/python/compare_runs.py" "$out/base" "$out/new" > "$out/comparison.txt" || true
 tail -n 1 "$out/comparison.txt"
 
 echo
 echo ">> Comparing the times"
 status=0
-python3 "$new_dir/python/compare_times.py" "$out" > "$out/report.txt" || status=$?
+python3 "$harness_dir/python/compare_times.py" "$out" > "$out/report.txt" || status=$?
 cat "$out/report.txt"
 rm -f "$out/progress"
 exit "$status"

@@ -77,8 +77,11 @@ def read_times(path: Path) -> List[Case]:
 
 
 def setup_line(folder: Path, key: str) -> Optional[str]:
-    """The value of 'key: value' in parameters.txt of the run in folder, if there is one."""
+    """The value of 'key: value' in parameters.txt of the run in folder, if there is one
+    (in info/setup/, or in info/ for versions before commit 98e885c)."""
     parameters = folder / "info" / "setup" / "parameters.txt"
+    if not parameters.exists():
+        parameters = folder / "info" / "parameters.txt"
     if not parameters.exists():
         return None
     match = re.search(rf"^{key}:\s*(.+)$", parameters.read_text(encoding="utf-8", errors="replace"), re.MULTILINE)
