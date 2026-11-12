@@ -4,13 +4,13 @@
         "final_time": 0.02,
         "domain": {
             "x_left": 0,
-            "x_right": 1,
+            "x_right": 1.5,
             "y_left": 0,
             "y_right": 1
         },
         "custom_integration_time_step": false,
         "integration_time_step": 5e-06,
-        "sizeX": 100,
+        "sizeX": 120,
         "sizeY": 100,
         "frame_num": 5
     },

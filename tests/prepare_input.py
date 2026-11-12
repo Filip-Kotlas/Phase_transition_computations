@@ -7,6 +7,13 @@ RUN_FOLDER/calculations/<init_cond_file_path> (the solver resolves the path rela
 folder). Otherwise nothing happens. The file is generated rather than stored in the repo, and
 it is always the same, so both versions of the code in a regression test read identical input.
 
+The file name chooses the content:
+- random*.npy: independent random values at every point (fixed seed). Every point differs from its
+  neighbours, so any mistake in an index (a wrong row or column in a boundary condition, x and y
+  swapped, a shifted block) changes the result. A smooth field can hide such mistakes where it is
+  constant, e.g. near the edges.
+- any other name: a smooth circle of the alpha phase, placed off the centre.
+
 The file is a Result-*.npy frame stored as float32. The solver converts float and double frames to
 its Real type, so the file works for float and double builds. (Versions of the solver before
 2026-11-11 accept only the Real type of the build, i.e. float32 for float builds; a regression
@@ -36,14 +43,25 @@ def main() -> None:
         sys.exit(f"{config_path}: init_cond_file_path has to be a .npy file, the solver reads no other format.")
 
     solver = config["solver"]
+    if target.name.startswith("random"):
+        phase, concentration = random_fields(solver)
+    else:
+        phase, concentration = smooth_circle(solver)
+
+    # The Result-*.npy format: shape (2, sizeY, sizeX), phase first; x changes fastest, as in phase[j, i].
+    target.parent.mkdir(parents=True, exist_ok=True)
+    np.save(target, np.stack([phase, concentration]).astype("<f4"))
+
+
+def smooth_circle(solver: dict) -> tuple:
+    """A smooth circle (alpha inside) placed off the centre, so that a mistake in the placement
+    of the file data (e.g. a transposed or shifted grid) changes the result."""
     domain = solver["domain"]
     size_x, size_y = solver["sizeX"], solver["sizeY"]
     x_lines = np.linspace(domain["x_left"], domain["x_right"], size_x)
     y_lines = np.linspace(domain["y_left"], domain["y_right"], size_y)
     x, y = np.meshgrid(x_lines, y_lines)   # shape (size_y, size_x), x changes fastest
 
-    # A smooth circle (alpha inside) placed off the centre, so that a mistake in the placement
-    # of the file data (e.g. a transposed or shifted grid) changes the result.
     width = domain["x_right"] - domain["x_left"]
     height = domain["y_right"] - domain["y_left"]
     centre_x = domain["x_left"] + 0.45 * width
@@ -52,10 +70,17 @@ def main() -> None:
     distance = np.hypot(x - centre_x, y - centre_y)
     phase = 0.5 * (1.0 - np.tanh((distance - radius) / (0.03 * min(width, height))))
     concentration = C_ALPHA * phase + C_BETA * (1.0 - phase)
+    return phase, concentration
 
-    # The Result-*.npy format: shape (2, sizeY, sizeX), phase first; x changes fastest, as in phase[j, i].
-    target.parent.mkdir(parents=True, exist_ok=True)
-    np.save(target, np.stack([phase, concentration]).astype("<f4"))
+
+def random_fields(solver: dict) -> tuple:
+    """Independent uniform random values: the phase in [0, 1], the concentration between the
+    equilibrium concentrations of the two phases (the zirconium model needs 0 < c < 1)."""
+    shape = (solver["sizeY"], solver["sizeX"])
+    rng = np.random.default_rng(seed=2026)
+    phase = rng.uniform(0.0, 1.0, shape)
+    concentration = rng.uniform(C_ALPHA, C_BETA, shape)
+    return phase, concentration
 
 
 if __name__ == "__main__":
