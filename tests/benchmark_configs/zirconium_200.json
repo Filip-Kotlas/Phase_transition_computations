@@ -1,7 +1,7 @@
 {
     "solver": {
         "initial_time": 0.0,
-        "final_time": 0.012,
+        "final_time": 0.013,
         "domain": {
             "x_left": 0,
             "x_right": 1,

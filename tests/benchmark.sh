@@ -5,6 +5,8 @@
 #
 #   tests/benchmark.sh NEW_DIR BASE_DIR OUT_DIR [NEW_COMMIT [BASE_COMMIT]]
 #   REPEAT=5 tests/benchmark.sh ...          (default REPEAT=3)
+#   BENCH_SET=long tests/benchmark.sh ...     the long benchmark: tests/benchmark_configs_long/*.json
+#                                             (cluster.sh bench --long, which passes REPEAT=1)
 #
 # NEW_DIR and BASE_DIR are unpacked source trees, as for tests/regression.sh; the configs and the
 # comparison come from the tree of this script (normally NEW_DIR itself). In OUT_DIR:
@@ -28,7 +30,7 @@
 
 set -euo pipefail
 
-[ $# -ge 3 ] || { echo "Usage: [REPEAT=N] $0 NEW_DIR BASE_DIR OUT_DIR [NEW_COMMIT [BASE_COMMIT]]" >&2; exit 2; }
+[ $# -ge 3 ] || { echo "Usage: [REPEAT=N] [BENCH_SET=long] $0 NEW_DIR BASE_DIR OUT_DIR [NEW_COMMIT [BASE_COMMIT]]" >&2; exit 2; }
 new_dir=$(cd "$1" && pwd)
 base_dir=$(cd "$2" && pwd)
 mkdir -p "$3"
@@ -38,11 +40,19 @@ base_commit="${5:-unknown}"
 repeat="${REPEAT:-3}"
 case "$repeat" in ""|*[!0-9]*|0) echo "REPEAT has to be a positive number, not '$repeat'" >&2; exit 2 ;; esac
 
+# The cases of the long benchmark take about 10 minutes each, longer than the default timeout
+# for a stuck case in common.sh.
+case "${BENCH_SET:-}" in
+    "")   configs_folder=benchmark_configs ;;
+    long) configs_folder=benchmark_configs_long; CASE_TIMEOUT=${CASE_TIMEOUT:-2400} ;;
+    *)    echo "BENCH_SET has to be empty or 'long', not '$BENCH_SET'" >&2; exit 2 ;;
+esac
+
 # progress, build, run_case and CASE_TIMEOUT.
 source "$(dirname "${BASH_SOURCE[0]}")/common.sh"
 
-configs=("$harness_dir"/tests/benchmark_configs/*.json)
-[ -e "${configs[0]}" ] || { echo "No configs in $harness_dir/tests/benchmark_configs" >&2; exit 2; }
+configs=("$harness_dir"/tests/$configs_folder/*.json)
+[ -e "${configs[0]}" ] || { echo "No configs in $harness_dir/tests/$configs_folder" >&2; exit 2; }
 
 progress build new
 new_binary=$(build "$new_dir")

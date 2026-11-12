@@ -10,8 +10,8 @@
         },
         "custom_integration_time_step": false,
         "integration_time_step": 5e-06,
-        "sizeX": 200,
-        "sizeY": 200,
+        "sizeX": 300,
+        "sizeY": 300,
         "frame_num": 4
     },
     "init_cond": {

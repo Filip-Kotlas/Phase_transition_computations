@@ -1,21 +1,28 @@
 #!/bin/bash
 # Run from your own computer (Git Bash / WSL / Linux), from anywhere in the repo.
 #
-#   slurm/cluster.sh submit MyRun [--delete-calcs] [--force] [--gpu TYPE]
+#   slurm/cluster.sh submit MyRun [--delete-calcs] [--force] [--gpu TYPE] [--mem SIZE]
 #                                                              upload code, sbatch the job
-#                                                              (--gpu rtx5080: only that card type)
+#                                                              (--gpu rtx5080: only that card type;
+#                                                              --mem 4G: host RAM instead of the
+#                                                              default in run.sbatch; also for
+#                                                              test and bench)
 #   slurm/cluster.sh test MyTest [--against COMMIT] [--new COMMIT] [--force] [--gpu TYPE]
 #                                                              regression test: your working tree
 #                                                              (or --new COMMIT) against COMMIT
 #                                                              (default HEAD)
-#   slurm/cluster.sh bench MyBench [--against COMMIT] [--new COMMIT] [--repeat N] [--force] [--gpu TYPE]
+#   slurm/cluster.sh bench MyBench [--against COMMIT] [--new COMMIT] [--repeat N] [--long] [--force] [--gpu TYPE]
 #                                                              benchmark: computation times of your
 #                                                              working tree (or --new COMMIT)
-#                                                              against COMMIT
+#                                                              against COMMIT (--long: one large
+#                                                              case, about 10 min per run)
 #   slurm/cluster.sh status                                   show your queue
 #   slurm/cluster.sh list                                      all runs on the cluster and their state
 #   slurm/cluster.sh log                                       tail the newest slurm-*.out
 #   slurm/cluster.sh gpus                                      GPU types and how many are free now
+#   slurm/cluster.sh nodes [--mem SIZE]                        every node: free GPUs, CPUs and RAM,
+#                                                              its running jobs, and whether our
+#                                                              job would fit there now
 #   slurm/cluster.sh fetch [MyRun] [--no-calcs] [--force]      download results/MyRun, or all runs
 #   slurm/cluster.sh cancel JOBID
 #   slurm/cluster.sh clean                                     delete leftover upload folders jobs/*
@@ -39,6 +46,9 @@
 # (tests/benchmark.sh, python/compare_times.py); `log` shows the result and
 # results/MyBench/report.txt keeps it. Unlike test it also runs when both versions have the same
 # code: that measures the noise of the timings.
+# bench --long runs tests/benchmark_configs_long/*.json instead: one large case (800x800) of about
+# 10 minutes per run on an RTX 2070 SUPER, once with each version (unless --repeat N). It shows
+# whether a speedup holds on a large grid, where the GPU is fully loaded.
 # --new COMMIT (test and bench) puts that commit in place of your working tree as the version
 # under test, e.g. `bench Old --against 5e9bccb~1 --new 5e9bccb` for an old change. Your working
 # tree is still uploaded: the job script, the test scripts, the configs and the comparison come
@@ -90,6 +100,23 @@ check_name() {
     esac
 }
 
+# A Slurm memory size: a whole number with an optional unit K, M (the default), G or T.
+check_mem() {
+    [[ "$1" =~ ^[1-9][0-9]*[KMGT]?$ ]] \
+        || { echo "Invalid memory size '$1': use e.g. 4G or 3000M." >&2; exit 1; }
+}
+
+# The same size in MB (to compare it with what sinfo reports).
+mem_to_mb() {
+    local n=${1%[KMGT]}
+    case "$1" in
+        *K) echo $(( n / 1024 )) ;;
+        *G) echo $(( n * 1024 )) ;;
+        *T) echo $(( n * 1024 * 1024 )) ;;
+        *)  echo "$n" ;;
+    esac
+}
+
 cmd="${1:-}"; shift || true
 
 case "$cmd" in
@@ -97,7 +124,7 @@ submit|test|bench)
     # test and bench are submit with a second archive (the baseline) and MODE=test or MODE=bench
     # for run.sbatch.
     mode=$cmd
-    folder=""; delete=0; force=0; gpu=""; against=""; new=""; repeat=3
+    folder=""; delete=0; force=0; gpu=""; mem=""; against=""; new=""; repeat=""; long=0
     while [ $# -gt 0 ]; do
         case "$1" in
             --delete-calcs)
@@ -107,6 +134,10 @@ submit|test|bench)
             --gpu)
                 [ $# -ge 2 ] || { echo "--gpu needs a GPU type, e.g. --gpu rtx5080" >&2; exit 1; }
                 gpu="$2"; shift ;;
+            --mem)
+                [ $# -ge 2 ] || { echo "--mem needs a size, e.g. --mem 4G" >&2; exit 1; }
+                check_mem "$2"
+                mem="$2"; shift ;;
             --against)
                 [ "$mode" != submit ] || { echo "--against is only for test and bench." >&2; exit 1; }
                 [ $# -ge 2 ] || { echo "--against needs a commit, e.g. --against HEAD~1" >&2; exit 1; }
@@ -120,6 +151,9 @@ submit|test|bench)
                 [ $# -ge 2 ] || { echo "--repeat needs a number of runs, e.g. --repeat 5" >&2; exit 1; }
                 case "$2" in ""|*[!0-9]*|0) echo "--repeat needs a positive number, not '$2'." >&2; exit 1 ;; esac
                 repeat="$2"; shift ;;
+            --long)
+                [ "$mode" = bench ] || { echo "--long is only for bench." >&2; exit 1; }
+                long=1 ;;
             -*) echo "Unknown option: $1" >&2; exit 1 ;;
             *)  folder="$1" ;;
         esac
@@ -127,19 +161,22 @@ submit|test|bench)
     done
     if [ -z "$folder" ]; then
         case "$mode" in
-            test)  echo "Usage: cluster.sh test NAME [--against COMMIT] [--new COMMIT] [--force] [--gpu TYPE]" >&2 ;;
-            bench) echo "Usage: cluster.sh bench NAME [--against COMMIT] [--new COMMIT] [--repeat N] [--force] [--gpu TYPE]" >&2 ;;
-            *)     echo "Usage: cluster.sh submit FOLDER [--delete-calcs] [--force] [--gpu TYPE]" >&2 ;;
+            test)  echo "Usage: cluster.sh test NAME [--against COMMIT] [--new COMMIT] [--force] [--gpu TYPE] [--mem SIZE]" >&2 ;;
+            bench) echo "Usage: cluster.sh bench NAME [--against COMMIT] [--new COMMIT] [--repeat N] [--long] [--force] [--gpu TYPE] [--mem SIZE]" >&2 ;;
+            *)     echo "Usage: cluster.sh submit FOLDER [--delete-calcs] [--force] [--gpu TYPE] [--mem SIZE]" >&2 ;;
         esac
         exit 1
     fi
     check_name "$folder"
     job_dir="jobs/$folder"
+    # The long benchmark runs one case of about 10 minutes, once with each version by default.
+    bench_set=""; [ "$long" = 1 ] && bench_set=long
+    [ -n "$repeat" ] || { [ "$long" = 1 ] && repeat=1 || repeat=3; }
     if [ "$mode" = submit ]; then
         [ -f config/config.json ] || { echo "config/config.json does not exist, nothing to run." >&2; exit 1; }
     else
         configs_dir=tests/configs
-        [ "$mode" = bench ] && configs_dir=tests/benchmark_configs
+        [ "$mode" = bench ] && configs_dir=tests/benchmark_configs${bench_set:+_$bench_set}
         [ -n "$(ls $configs_dir/*.json 2>/dev/null)" ] || { echo "There are no $configs_dir/*.json, nothing to run." >&2; exit 1; }
         against="${against:-HEAD}"
         base_commit=$(git rev-parse --verify --quiet "$against^{commit}") \
@@ -242,19 +279,29 @@ submit|test|bench)
     # A test takes minutes, so it gets a short time limit (overrides the 12 h in run.sbatch):
     # if something hangs, it does not hold the GPU for long. A benchmark runs every case
     # 2 x N times for about half a minute each; 1 h for N = 3, plus 15 min for every further run.
+    # The long benchmark runs its case 2 x N times for about 10 minutes: 30 min per repetition,
+    # plus 30 min for the builds and as a margin.
     extra=()
     case "$mode" in
         test)
             extra=(--time=01:00:00)
             echo ">> Submitting test job (commit $commit against the baseline $base_short, GPU ${gpu:-any})" ;;
         bench)
-            minutes=$(( 60 + 15 * (repeat > 3 ? repeat - 3 : 0) ))
+            if [ "$long" = 1 ]; then minutes=$(( 30 + 30 * repeat ))
+            else                     minutes=$(( 60 + 15 * (repeat > 3 ? repeat - 3 : 0) )); fi
             extra=(--time=$minutes)
-            echo ">> Submitting benchmark job (commit $commit against the baseline $base_short, $repeat run(s) of each, GPU ${gpu:-any})" ;;
+            echo ">> Submitting ${bench_set:+$bench_set }benchmark job (commit $commit against the baseline $base_short, $repeat run(s) of each, GPU ${gpu:-any})" ;;
         *)
             echo ">> Submitting job (commit $commit, GPU ${gpu:-any})" ;;
     esac
-    rssh "cd '$REMOTE_DIR' && { tar xzOf '$job_dir/sources.tar.gz' slurm/run.sbatch | sbatch --job-name='$folder' ${gres[*]:-} ${extra[*]:-} --export=ALL,FOLDER='$folder',DELETE_CALCS=$delete,GIT_COMMIT='$commit',MODE=$mode,BASELINE_COMMIT='${base_short:-}',NEW_COMMIT='${new_short:-}',REPEAT=$repeat || { rm -rf '$job_dir'; exit 1; }; }"
+    # --mem SIZE overrides the host RAM in run.sbatch. Slurm starts a job only on a node where
+    # that much RAM is not yet reserved by other jobs, so a smaller request can start sooner
+    # (see `nodes`).
+    if [ -n "$mem" ]; then
+        extra+=(--mem="$mem")
+        echo ">> Host RAM: $mem"
+    fi
+    rssh "cd '$REMOTE_DIR' && { tar xzOf '$job_dir/sources.tar.gz' slurm/run.sbatch | sbatch --job-name='$folder' ${gres[*]:-} ${extra[*]:-} --export=ALL,FOLDER='$folder',DELETE_CALCS=$delete,GIT_COMMIT='$commit',MODE=$mode,BASELINE_COMMIT='${base_short:-}',NEW_COMMIT='${new_short:-}',REPEAT=$repeat,BENCH_SET='${bench_set:-}' || { rm -rf '$job_dir'; exit 1; }; }"
     ;;
 status)
     # Queue plus progress of running jobs, read from the "Steps completed" lines that the
@@ -462,6 +509,88 @@ END {
     printf "\nPending jobs of all users that accept any GPU type: %d\n", wait_any
     print "UNAVAILABLE = idle GPUs on drained or down nodes; WAITING = pending jobs that asked for that type."
     print "Choose a type with: cluster.cmd submit NAME --gpu TYPE"
+    print "A free GPU is of no use while other jobs hold all the CPUs or RAM of its node: see cluster.cmd nodes."
+}'
+REMOTE_SCRIPT
+    ;;
+nodes)
+    # Every node of the gp partition: free GPUs, CPUs and RAM, the running jobs grouped by user
+    # and job name, and whether a job of ours would fit there now. Free RAM is RAM that no job
+    # has reserved (Slurm schedules by the reservations, not by what is really in use).
+    # "Our job" is what run.sbatch asks for (1 GPU, its CPUs and RAM), or --mem SIZE as with submit.
+    mem=""
+    while [ $# -gt 0 ]; do
+        case "$1" in
+            --mem)
+                [ $# -ge 2 ] || { echo "--mem needs a size, e.g. --mem 4G" >&2; exit 1; }
+                check_mem "$2"; mem="$2"; shift ;;
+            *) echo "Usage: cluster.sh nodes [--mem SIZE]" >&2; exit 1 ;;
+        esac
+        shift
+    done
+    need_cpu=$(sed -nE 's/^#SBATCH --cpus-per-task=([0-9]+).*/\1/p' slurm/run.sbatch)
+    need_cpu=${need_cpu:-1}
+    [ -n "$mem" ] || mem=$(sed -nE 's/^#SBATCH --mem=([0-9]+[KMGT]?).*/\1/p' slurm/run.sbatch)
+    echo "Our job: 1 GPU, $need_cpu CPU(s), $mem RAM"
+    echo
+    "$SSH" "$CLUSTER_HOST" bash -s -- "$need_cpu" "$(mem_to_mb "$mem")" <<'REMOTE_SCRIPT'
+{
+    # "node NAME STATE CPUS(A/I/O/T) MEMORY_MB ALLOCMEM_MB GRES GRES_USED"
+    sinfo -N -h -p gp -O "NodeList:20,StateLong:20,CPUsState:30,Memory:20,AllocMem:20,Gres:80,GresUsed:80" | sed 's/^/node /'
+    # "job NODELIST USER cpu=2,mem=8G,node=1,billing=8,gres/gpu=1 NAME" (the name last: it may contain spaces)
+    squeue -h -t RUNNING -O "NodeList:40,UserName:30,tres-alloc:200,Name:200" | sed 's/^/job /'
+} | awk -v need_cpu="$1" -v need_mem="$2" '
+function mb(s,   v) {                                     # "8G" -> 8192, "1500M" -> 1500
+    v = s + 0
+    if (s ~ /T$/) v *= 1048576; else if (s ~ /G$/) v *= 1024; else if (s ~ /K$/) v /= 1024
+    return v
+}
+$1 == "node" {
+    n = $2; order[++nn] = n; state[n] = $3
+    split($4, c, "/"); cfree[n] = c[2]; ctot[n] = c[4]
+    mtot[n] = $5; mfree[n] = $5 - $6
+    gtot[n] = 0; gfree[n] = 0; gtype[n] = "none"
+    if ($7 ~ /^gpu:/) {
+        split($7, g, ":"); gtype[n] = g[2]; gtot[n] = g[3] + 0      # "gpu:rtx3060:2(S:0)"   -> 2
+        split($8, u, ":"); gfree[n] = gtot[n] - (u[3] + 0)          # "gpu:rtx3060:1(IDX:0)" -> 1 used
+    }
+}
+$1 == "job" {
+    name = $5; for (i = 6; i <= NF; i++) name = name " " $i
+    cpu = 0; mem = 0; gpu = 0
+    k = split($4, t, ",")
+    for (i = 1; i <= k; i++) {
+        split(t[i], kv, "=")
+        if (kv[1] == "cpu") cpu = kv[2]
+        else if (kv[1] == "mem") mem = mb(kv[2])
+        else if (kv[1] == "gres/gpu") gpu = kv[2]
+    }
+    key = $2 SUBSEP $3 SUBSEP name
+    if (!(key in cnt)) { nk[$2]++; keys[$2, nk[$2]] = key }
+    cnt[key]++; kcpu[key] += cpu; kmem[key] += mem; kgpu[key] += gpu
+}
+END {
+    for (i = 1; i <= nn; i++) {
+        n = order[i]
+        why = ""
+        if (state[n] ~ /drain|down|fail|maint|not_resp|unk/) why = why ", node " state[n]
+        if (gfree[n] < 1)          why = why ", no free GPU"
+        if (cfree[n] < need_cpu)   why = why ", too few free CPUs"
+        if (mfree[n] < need_mem)   why = why ", too little free RAM"
+        fits = (why == "") ? "FITS" : "no" why
+        printf "%-5s %-10s GPU %d/%d free (%s)  CPU %d/%d free  RAM %.1f/%.0f GB free  -> %s\n", \
+            n, state[n], gfree[n], gtot[n], gtype[n], cfree[n], ctot[n], mfree[n] / 1024, mtot[n] / 1024, fits
+        for (j = 1; j <= nk[n]; j++) {
+            key = keys[n, j]; split(key, f, SUBSEP)
+            printf "      %-10s %3d job(s) %4d CPU %6.1f GB %2d GPU   %s\n", \
+                f[2], cnt[key], kcpu[key], kmem[key] / 1024, kgpu[key], f[3]
+        }
+    }
+    print ""
+    print "Free RAM = RAM that no job has reserved; Slurm schedules by the reservations, not by real use."
+    print "A state ending in \"-\" (e.g. mixed-) means the node is planned for a pending job with a higher"
+    print "priority; a job of ours can still start there if its time limit ends before that job is due."
+    print "Your pending jobs and why they wait: cluster.cmd status. Smaller RAM request: --mem 4G."
 }'
 REMOTE_SCRIPT
     ;;
@@ -597,7 +726,7 @@ delete-results)
     echo ">> Deleted all results and uploads in $CLUSTER_HOST:$REMOTE_DIR"
     ;;
 *)
-    sed -n '2,52p' "$0"
+    sed -n '2,/^$/p' "$0"                 # the comment at the top, up to the first empty line
     exit 1
     ;;
 esac

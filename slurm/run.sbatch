@@ -6,7 +6,8 @@
 # `slurm/cluster.sh test` submits it with MODE=test: it also uploads the baseline version as
 # jobs/<FOLDER>/baseline.tar.gz and passes BASELINE_COMMIT. The job then runs the regression
 # test (tests/regression.sh) instead of `make run`. `slurm/cluster.sh bench` is the same with
-# MODE=bench (and REPEAT): the job runs the benchmark (tests/benchmark.sh).
+# MODE=bench (and REPEAT, and BENCH_SET=long for --long): the job runs the benchmark
+# (tests/benchmark.sh).
 # With --new COMMIT, test and bench also upload that commit as jobs/<FOLDER>/new.tar.gz and pass
 # NEW_COMMIT: it is then the version under test, and sources.tar.gz (your working tree) only
 # supplies this script, the test scripts, the configs and the comparison.
@@ -17,7 +18,9 @@
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=2
-#SBATCH --mem=8G                     # host RAM; cluster default is 2G (max 60G), too tight for nvcc + matplotlib
+# Host RAM: the cluster default 2G (max 60G) is too tight for nvcc + matplotlib. Jobs peaked at 1.7 GB
+# (sacct MaxRSS, 2026-11-12); raise it (or use cluster.sh --mem) if a job is killed for lack of memory.
+#SBATCH --mem=4G
 #SBATCH --time=12:00:00
 #SBATCH --output=slurm-%j.out
 
@@ -37,7 +40,7 @@ case "$mode" in
     test) archives="sources.tar.gz baseline.tar.gz"
           echo "Regression test: ${GIT_COMMIT:-unknown} against the baseline ${BASELINE_COMMIT:-unknown}" ;;
     bench) archives="sources.tar.gz baseline.tar.gz"
-          echo "Benchmark: ${GIT_COMMIT:-unknown} against the baseline ${BASELINE_COMMIT:-unknown}, ${REPEAT:-3} run(s) of each" ;;
+          echo "Benchmark${BENCH_SET:+ ($BENCH_SET)}: ${GIT_COMMIT:-unknown} against the baseline ${BASELINE_COMMIT:-unknown}, ${REPEAT:-3} run(s) of each" ;;
     *)    echo "Unknown MODE '$mode'" >&2; exit 1 ;;
 esac
 if [ "$mode" != run ] && [ -n "${NEW_COMMIT:-}" ]; then
@@ -106,7 +109,7 @@ if [ "$mode" = test ]; then
     bash tests/regression.sh "$new_work" "$base_work" "results/$FOLDER" "${GIT_COMMIT:-unknown}" "${BASELINE_COMMIT:-unknown}"
 elif [ "$mode" = bench ]; then
     # The same for the times: both versions on this GPU, report.txt in results/$FOLDER.
-    REPEAT="${REPEAT:-3}" bash tests/benchmark.sh "$new_work" "$base_work" "results/$FOLDER" "${GIT_COMMIT:-unknown}" "${BASELINE_COMMIT:-unknown}"
+    REPEAT="${REPEAT:-3}" BENCH_SET="${BENCH_SET:-}" bash tests/benchmark.sh "$new_work" "$base_work" "results/$FOLDER" "${GIT_COMMIT:-unknown}" "${BASELINE_COMMIT:-unknown}"
 else
     # The copy has no .git folder, so the commit comes from cluster.sh. config/config.json is the
     # config from the uploaded sources, i.e. the one that was in your repo when you submitted.
