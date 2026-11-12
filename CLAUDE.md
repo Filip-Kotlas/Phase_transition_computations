@@ -75,6 +75,8 @@ python3 python/plot.py --name MyRun --frame 10 --type phase   # --frame last wor
 
 **State vector:** there is a single TNL `Vector` `u` of length `2*sizeX*sizeY` that lives on the CUDA device. Phase values are in `[0, N)` and concentration values in `[N, 2N)`, with `N = sizeX*sizeY` and linear index `j*sizeX + i`. Use `Problem::phase_at` / `conc_at` to read them.
 
+**Grid (`include/Grid.hpp`):** a plain struct with `sizeX`, `sizeY`, `domain` and the steps `hx`, `hy` (computed once by its constructor), plus `points()` (= N), `index(i, j)` and the coordinates `x(i)`, `y(j)`. It is built from the config by `Parameters::grid()`, held by `Problem` and `InitialCondition` and passed to `write_frame`/`read_frame` and the IC setters. Use it instead of writing the index arithmetic or computing h again.
+
 **Time stepping (`main.cu`):** the RHS lambda is evaluated with `parallelFor` on interior points only. Boundary conditions are separate `parallelFor`s that set `fu = 0` on the boundary and write Dirichlet or Neumann values **directly into `u`**. The outer loop advances the solver one output frame at a time (`timeStep = (final-initial)/frame_num`) and writes one file per frame. Unless `custom_integration_time_step` is set, the integration step defaults to `min(hx,hy)^2/5`.
 
 **GPU constraints:** `Problem` and `InitialCondition` are captured **by value** in device lambdas. Any method called from the RHS, BCs or IC must be `__cuda_callable__`, and their members (including the `Parameters` copy) end up on the device. Lambdas use `--extended-lambda`, and the build uses relocatable device code (`-rdc=true`).

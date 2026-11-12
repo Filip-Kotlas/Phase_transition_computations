@@ -5,14 +5,14 @@
 __cuda_callable__
 Real InitialCondition::get_phase(Index ind) const
 {
-    Index i = ind % param.sizeX;
-    Index j = ind / param.sizeX;
-    Real x_coord = param.domain.x_left + i * hx;
-    Real y_coord = param.domain.y_left + j * hy;
-    Real x_rel = i * hx; //relative to domain left
-    Real y_rel = j * hy; //relative to domain bottom
-    Real x_central = x_coord - (param.domain.x_right + param.domain.x_left)/2;
-    Real y_central = y_coord - (param.domain.y_right + param.domain.y_left)/2;
+    Index i = ind % grid.sizeX;
+    Index j = ind / grid.sizeX;
+    Real x_coord = grid.x(i);
+    Real y_coord = grid.y(j);
+    Real x_rel = i * grid.hx; //relative to domain left
+    Real y_rel = j * grid.hy; //relative to domain bottom
+    Real x_central = x_coord - (grid.domain.x_right + grid.domain.x_left)/2;
+    Real y_central = y_coord - (grid.domain.y_right + grid.domain.y_left)/2;
 
     Real dist_to_center = sqrt(pow(x_central, Real(2)) + pow(y_central, Real(2)));
 
@@ -49,7 +49,7 @@ Real InitialCondition::get_phase(Index ind) const
         break;
 
     case ICType::ConstantHalves:
-        if( param.domain.x_left + x_rel < (param.domain.x_left + param.domain.x_right) / 2 )
+        if( grid.domain.x_left + x_rel < (grid.domain.x_left + grid.domain.x_right) / 2 )
         {
             return static_cast<Real>(constants::Phase::alpha);
         }
@@ -71,9 +71,9 @@ Real InitialCondition::get_phase(Index ind) const
         break;
 
     case ICType::TwoBumps: {
-        Real y = 2*j*hy;
-        if( (y < 1 && i*hx < y*y*(1-2*y+y*y)/Real(0.625)+Real(0.1)) ||
-            (y >= 1 && i*hx < (y-1)*(y-1)*(1-2*(y-1)+(y-1)*(y-1))/Real(0.625)+Real(0.1)))
+        Real y = 2*j*grid.hy;
+        if( (y < 1 && i*grid.hx < y*y*(1-2*y+y*y)/Real(0.625)+Real(0.1)) ||
+            (y >= 1 && i*grid.hx < (y-1)*(y-1)*(1-2*(y-1)+(y-1)*(y-1))/Real(0.625)+Real(0.1)))
         {
             return static_cast<Real>(constants::Phase::alpha);
         }
@@ -113,8 +113,8 @@ Real InitialCondition::get_phase(Index ind) const
     }
 
     case ICType::PerpendicularStripes: {
-        if( (param.domain.x_left + x_rel < param.domain.x_left + Real(0.1))
-            || (param.domain.y_left + y_rel > param.domain.y_right - Real(0.1)) )
+        if( (grid.domain.x_left + x_rel < grid.domain.x_left + Real(0.1))
+            || (grid.domain.y_left + y_rel > grid.domain.y_right - Real(0.1)) )
         {
             return static_cast<Real>(constants::Phase::alpha);
         }
@@ -126,10 +126,10 @@ Real InitialCondition::get_phase(Index ind) const
     }
 
     case ICType::Box:
-        if( (param.domain.x_left + x_rel < param.domain.x_left + Real(0.1)
-            || param.domain.x_left + x_rel > param.domain.x_right - Real(0.1))
-            || (param.domain.y_left + y_rel < param.domain.y_left + Real(0.1)
-            || param.domain.y_left + y_rel > param.domain.y_right - Real(0.1)) )
+        if( (grid.domain.x_left + x_rel < grid.domain.x_left + Real(0.1)
+            || grid.domain.x_left + x_rel > grid.domain.x_right - Real(0.1))
+            || (grid.domain.y_left + y_rel < grid.domain.y_left + Real(0.1)
+            || grid.domain.y_left + y_rel > grid.domain.y_right - Real(0.1)) )
         {
             return static_cast<Real>(constants::Phase::alpha);
         }
@@ -147,8 +147,8 @@ Real InitialCondition::get_phase(Index ind) const
         const Real cx = static_cast<Real>(0.1);
 
         // y-interval for the placement (same range as originally: 0.1 .. 0.9)
-        const Real y_min = static_cast<Real>(param.domain.y_left + Real(0.03));
-        const Real y_max = static_cast<Real>(param.domain.y_right - Real(0.03));
+        const Real y_min = static_cast<Real>(grid.domain.y_left + Real(0.03));
+        const Real y_max = static_cast<Real>(grid.domain.y_right - Real(0.03));
         const Real y_range = y_max - y_min;
 
 
@@ -157,7 +157,7 @@ Real InitialCondition::get_phase(Index ind) const
 
         bool inside_circle = false;
 
-        Index number_of_circles = (param.domain.y_right - param.domain.y_left) * 10;
+        Index number_of_circles = (grid.domain.y_right - grid.domain.y_left) * 10;
 
         for (Index n = 0; n < number_of_circles; ++n) {
             // t ∈ (n/20 .. (n+1)/20) with random "jitter"
@@ -292,9 +292,9 @@ Real InitialCondition::der_psi(const Real theta) const
 {
     return -param.A*param.m*sin(param.m*(theta - param.theta_0));
 }
-void set_init_cond_manually(Vector& u, const InitialCondition& init_cond, Index sizeX, Index sizeY)
+void set_init_cond_manually(Vector& u, const InitialCondition& init_cond, const Grid& grid)
 {
-    const Index N = sizeX * sizeY;
+    const Index N = grid.points();
 
     u.forElements( 0, N,
         [ = ] __cuda_callable__( Index ind, Real& value )
@@ -309,14 +309,14 @@ void set_init_cond_manually(Vector& u, const InitialCondition& init_cond, Index 
         } );
 }
 
-bool set_init_cond_from_file(Vector& u, const std::filesystem::path& filename, Index sizeX, Index sizeY, bool scaling)
+bool set_init_cond_from_file(Vector& u, const std::filesystem::path& filename, const Grid& grid, bool scaling)
 {
-    const Index N = sizeX * sizeY;
+    const Index N = grid.points();
 
-    // Values from the file, the point k = j*sizeX + i is on the position k.
+    // Values from the file, the point (i, j) is on the position k = grid.index(i, j).
     std::vector<Real> file_phase;
     std::vector<Real> file_conc;
-    if (!read_frame(filename, sizeX, sizeY, file_phase, file_conc))
+    if (!read_frame(filename, grid, file_phase, file_conc))
         return false;
 
     TNL::Containers::Vector<Real, TNL::Devices::Host, Index> host_u(2 * N);
@@ -327,15 +327,15 @@ bool set_init_cond_from_file(Vector& u, const std::filesystem::path& filename, I
         host_u[N + k] = constants::c_init_beta; // concentration initialization
     }
 
-    const Index start_i = sizeX / 4;
-    const Index start_j = sizeY / 4;
+    const Index start_i = grid.sizeX / 4;
+    const Index start_j = grid.sizeY / 4;
 
     for (Index count = 0; count < N; ++count) {
         if (scaling) {
-            Index i = count % sizeX;
-            Index j = count / sizeX;
+            Index i = count % grid.sizeX;
+            Index j = count / grid.sizeX;
             if (i % 2 == 0 && j % 2 == 0) {
-                Index scale_index = start_i + (i / 2) + (start_j + (j / 2)) * sizeX;
+                Index scale_index = grid.index(start_i + i / 2, start_j + j / 2);
                 host_u[scale_index] = file_phase[count];
                 host_u[N + scale_index] = file_conc[count];
             }

@@ -34,25 +34,21 @@
 */
 
 Problem::Problem(Parameters param)
-:  sizeX(param.sizeX),
-   sizeY(param.sizeY),
-   domain(param.domain),
-   hx((domain.x_right - domain.x_left)/(sizeX-1)),
-   hy((domain.y_right - domain.y_left)/(sizeY-1)),
+:  grid(param.grid()),
    param(param)
 {}
 
 Index Problem::getDegreesOfFreedom()
 {
-    return 2 * this->sizeX * this->sizeY;
+    return 2 * grid.points();
 }
 
 __cuda_callable__
 void Problem::set_rhs_at(const VectorView& u, VectorView& fu, Index i, Index j)
 {
-    Index offset = this->sizeX * this->sizeY;
-    fu[j*this->sizeX + i] = get_rhs_phase_at(u, i, j);
-    fu[offset + j*this->sizeX + i] = get_rhs_concentration_at(u, i, j);
+    const Index offset = grid.points();
+    fu[grid.index(i, j)] = get_rhs_phase_at(u, i, j);
+    fu[offset + grid.index(i, j)] = get_rhs_concentration_at(u, i, j);
 }
 
 __cuda_callable__
@@ -72,70 +68,82 @@ void Problem::apply_boundary_condition_ydir(Index ind, VectorView u, VectorView 
 __cuda_callable__
 void Problem::apply_phase_boundary_condition_xdir(Index ind, VectorView u, VectorView fu)
 {
-    // Top and bottom edges
-    fu[ind] = 0;
-    fu[(sizeY - 1) * sizeX + ind] = 0;
+    // Bottom and top edges, ind = i
+    const Index bottom = grid.index(ind, 0);
+    const Index top = grid.index(ind, grid.sizeY - 1);
+
+    fu[bottom] = 0;
+    fu[top] = 0;
 
     if (param.bc_phase_x == BCType::Dirichlet) {
-        u[ind] = 0;
-        u[(sizeY - 1) * sizeX + ind] = 0;
+        u[bottom] = 0;
+        u[top] = 0;
     }
     else if (param.bc_phase_x == BCType::Neumann) {
-        u[ind] = u[ind + sizeX];
-        u[(sizeY - 1) * sizeX + ind] = u[(sizeY - 2) * sizeX + ind];
+        u[bottom] = u[grid.index(ind, 1)];
+        u[top] = u[grid.index(ind, grid.sizeY - 2)];
     }
 }
 
 __cuda_callable__
 void Problem::apply_phase_boundary_condition_ydir(Index ind, VectorView u, VectorView fu)
 {
-    // Left and right edges
-    fu[ind * sizeX] = 0;
-    fu[(ind + 1) * sizeX - 1] = 0;
+    // Left and right edges, ind = j
+    const Index left = grid.index(0, ind);
+    const Index right = grid.index(grid.sizeX - 1, ind);
+
+    fu[left] = 0;
+    fu[right] = 0;
 
     if (param.bc_phase_y == BCType::Dirichlet) {
-        u[ind * sizeX] = 0;
-        u[(ind + 1) * sizeX - 1] = 0;
+        u[left] = 0;
+        u[right] = 0;
     }
     else if (param.bc_phase_y == BCType::Neumann) {
-        u[ind * sizeX] = u[ind * sizeX + 1];
-        u[(ind + 1) * sizeX - 1] = u[(ind + 1) * sizeX - 2];
+        u[left] = u[grid.index(1, ind)];
+        u[right] = u[grid.index(grid.sizeX - 2, ind)];
     }
 }
 
 __cuda_callable__
 void Problem::apply_concentration_boundary_condition_xdir(Index ind, VectorView u, VectorView fu)
 {
-    Index offset = sizeX * sizeY;
+    // Bottom and top edges, ind = i
+    const Index offset = grid.points();
+    const Index bottom = offset + grid.index(ind, 0);
+    const Index top = offset + grid.index(ind, grid.sizeY - 1);
 
-    fu[offset + ind] = 0;
-    fu[offset + (sizeY - 1) * sizeX + ind] = 0;
+    fu[bottom] = 0;
+    fu[top] = 0;
 
     if (param.bc_conc_x == BCType::Dirichlet) {
-        u[offset + ind] = constants::c_init_beta;
-        u[offset + (sizeY - 1) * sizeX + ind] = constants::c_init_beta;
+        u[bottom] = constants::c_init_beta;
+        u[top] = constants::c_init_beta;
     }
     else if (param.bc_conc_x == BCType::Neumann) {
-        u[offset + ind] = u[offset + ind + sizeX];
-        u[offset + (sizeY - 1) * sizeX + ind] = u[offset + (sizeY - 2) * sizeX + ind];
+        u[bottom] = u[offset + grid.index(ind, 1)];
+        u[top] = u[offset + grid.index(ind, grid.sizeY - 2)];
     }
 }
 
 __cuda_callable__
 void Problem::apply_concentration_boundary_condition_ydir(Index ind, VectorView u, VectorView fu)
 {
-    Index offset = sizeX * sizeY;
+    // Left and right edges, ind = j
+    const Index offset = grid.points();
+    const Index left = offset + grid.index(0, ind);
+    const Index right = offset + grid.index(grid.sizeX - 1, ind);
 
-    fu[offset + ind * sizeX] = 0;
-    fu[offset + (ind + 1) * sizeX - 1] = 0;
+    fu[left] = 0;
+    fu[right] = 0;
 
     if (param.bc_conc_y == BCType::Dirichlet) {
-        u[offset + ind * sizeX] = constants::c_init_beta;
-        u[offset + (ind + 1) * sizeX - 1] = constants::c_init_beta;
+        u[left] = constants::c_init_beta;
+        u[right] = constants::c_init_beta;
     }
     else if (param.bc_conc_y == BCType::Neumann) {
-        u[offset + ind * sizeX] = u[offset + ind * sizeX + 1];
-        u[offset + (ind + 1) * sizeX - 1] = u[offset + (ind + 1) * sizeX - 2];
+        u[left] = u[offset + grid.index(1, ind)];
+        u[right] = u[offset + grid.index(grid.sizeX - 2, ind)];
     }
 }
 
@@ -157,44 +165,44 @@ Real Problem::get_rhs_concentration_at(const VectorView& u, Index i, Index j)
 __cuda_callable__
 Real Problem::laplace(const VectorView& u, Index i, Index j)
 {
-   return (phase_at(u, i - 1, j) - 2*phase_at(u, i, j) + phase_at(u, i + 1, j))/hx/hx +
-          (phase_at(u, i, j - 1) - 2*phase_at(u, i, j) + phase_at(u, i, j + 1))/hy/hy;
+   return (phase_at(u, i - 1, j) - 2*phase_at(u, i, j) + phase_at(u, i + 1, j))/grid.hx/grid.hx +
+          (phase_at(u, i, j - 1) - 2*phase_at(u, i, j) + phase_at(u, i, j + 1))/grid.hy/grid.hy;
 }
 
 __cuda_callable__
 Real Problem::grad_p_1_central(const VectorView& u, Index i, Index j)
 {
-    return (phase_at(u, i+1, j) - phase_at(u, i-1, j))/(2*hx);
+    return (phase_at(u, i+1, j) - phase_at(u, i-1, j))/(2*grid.hx);
 }
 
 __cuda_callable__
 Real Problem::grad_p_2_central(const VectorView& u, Index i, Index j)
 {
-    return (phase_at(u, i, j+1) - phase_at(u, i, j-1))/(2*hy);
+    return (phase_at(u, i, j+1) - phase_at(u, i, j-1))/(2*grid.hy);
 }
 
 __cuda_callable__
 Real Problem::grad_p_1_forward(const VectorView& u, Index i, Index j)
 {
-    return (phase_at(u, i+1, j) - phase_at(u, i, j))/hx;
+    return (phase_at(u, i+1, j) - phase_at(u, i, j))/grid.hx;
 }
 
 __cuda_callable__
 Real Problem::grad_p_2_forward(const VectorView& u, Index i, Index j)
 {
-   return (phase_at(u, i, j+1) - phase_at(u, i, j))/hy;
+   return (phase_at(u, i, j+1) - phase_at(u, i, j))/grid.hy;
 }
 
 __cuda_callable__
 Real Problem::grad_p_1_backward(const VectorView& u, Index i, Index j)
 {
-    return (phase_at(u, i, j) - phase_at(u, i-1, j))/hx;
+    return (phase_at(u, i, j) - phase_at(u, i-1, j))/grid.hx;
 }
 
 __cuda_callable__
 Real Problem::grad_p_2_backward(const VectorView& u, Index i, Index j)
 {
-   return (phase_at(u, i, j) - phase_at(u, i, j-1))/hy;
+   return (phase_at(u, i, j) - phase_at(u, i, j-1))/grid.hy;
 }
 
 __cuda_callable__
@@ -202,8 +210,8 @@ Real Problem::div_T0(const VectorView& u, Index i, Index j)
 {
     //if (i == 1 || i == sizeX-2 || j == 1 || j == sizeY-2)
         //forward
-        return (T0_1(grad_p_1_forward(u, i, j), grad_p_2_forward(u, i, j)) - T0_1(grad_p_1_forward(u, i-1, j), grad_p_2_forward(u, i-1, j)))/hx
-               + (T0_2(grad_p_1_forward(u, i, j), grad_p_2_forward(u, i, j)) - T0_2(grad_p_1_forward(u, i, j-1), grad_p_2_forward(u, i, j-1)))/hy;
+        return (T0_1(grad_p_1_forward(u, i, j), grad_p_2_forward(u, i, j)) - T0_1(grad_p_1_forward(u, i-1, j), grad_p_2_forward(u, i-1, j)))/grid.hx
+               + (T0_2(grad_p_1_forward(u, i, j), grad_p_2_forward(u, i, j)) - T0_2(grad_p_1_forward(u, i, j-1), grad_p_2_forward(u, i, j-1)))/grid.hy;
         //backward
         //return (T0_1(grad_p_1_backward(u, i+1, j), grad_p_2_backward(u, i+1, j)) - T0_1(grad_p_1_backward(u, i, j), grad_p_2_backward(u, i, j)))/hx
         //       + (T0_2(grad_p_1_backward(u, i, j+1), grad_p_2_backward(u, i, j+1)) - T0_2(grad_p_1_backward(u, i, j), grad_p_2_backward(u, i, j)))/hy;
@@ -248,15 +256,15 @@ Real Problem::div_D_grad_concentration(const VectorView& u, Index i, Index j)
 {
 	Real coeff_plus_half = (get_conc_diff_coef(u, i + 1, j) + get_conc_diff_coef(u, i, j)) / 2;
 	Real coeff_minus_half = (get_conc_diff_coef(u, i, j) + get_conc_diff_coef(u, i - 1, j)) / 2;
-	Real x_direction = coeff_plus_half * (conc_at(u, i+1, j) - conc_at(u, i, j)) / hx
-				         - coeff_minus_half * (conc_at(u, i, j) - conc_at(u, i-1, j)) / hx;
+	Real x_direction = coeff_plus_half * (conc_at(u, i+1, j) - conc_at(u, i, j)) / grid.hx
+				         - coeff_minus_half * (conc_at(u, i, j) - conc_at(u, i-1, j)) / grid.hx;
 
 	coeff_plus_half = (get_conc_diff_coef(u, i, j+1) + get_conc_diff_coef(u, i, j)) / 2;
 	coeff_minus_half = (get_conc_diff_coef(u, i, j) + get_conc_diff_coef(u, i, j-1)) / 2;
-	Real y_direction = coeff_plus_half * (conc_at(u, i, j+1) - conc_at(u, i, j)) / hy
-                      	 - coeff_minus_half * (conc_at(u, i, j) - conc_at(u, i, j-1)) / hy;
+	Real y_direction = coeff_plus_half * (conc_at(u, i, j+1) - conc_at(u, i, j)) / grid.hy
+                      	 - coeff_minus_half * (conc_at(u, i, j) - conc_at(u, i, j-1)) / grid.hy;
 
-	return x_direction / hx + y_direction / hy;
+	return x_direction / grid.hx + y_direction / grid.hy;
 }
 
 __cuda_callable__
@@ -264,15 +272,15 @@ Real Problem::div_D_grad_phase(const VectorView& u, Index i, Index j)
 {
 	Real coeff_plus_half = (get_phas_diff_coef(u, i + 1, j) + get_phas_diff_coef(u, i, j)) / 2;
 	Real coeff_minus_half = (get_phas_diff_coef(u, i, j) + get_phas_diff_coef(u, i - 1, j)) / 2;
-	Real x_direction = coeff_plus_half * (phase_at(u, i+1, j) - phase_at(u, i, j)) / hx
-				         - coeff_minus_half * (phase_at(u, i, j) - phase_at(u, i-1, j)) / hx;
+	Real x_direction = coeff_plus_half * (phase_at(u, i+1, j) - phase_at(u, i, j)) / grid.hx
+				         - coeff_minus_half * (phase_at(u, i, j) - phase_at(u, i-1, j)) / grid.hx;
 
 	coeff_plus_half = (get_phas_diff_coef(u, i, j+1) + get_phas_diff_coef(u, i, j)) / 2;
 	coeff_minus_half = (get_phas_diff_coef(u, i, j) + get_phas_diff_coef(u, i, j-1)) / 2;
-	Real y_direction = coeff_plus_half * (phase_at(u, i, j+1) - phase_at(u, i, j)) / hy
-                      	 - coeff_minus_half * (phase_at(u, i, j) - phase_at(u, i, j-1)) / hy;
+	Real y_direction = coeff_plus_half * (phase_at(u, i, j+1) - phase_at(u, i, j)) / grid.hy
+                      	 - coeff_minus_half * (phase_at(u, i, j) - phase_at(u, i, j-1)) / grid.hy;
 
-	return x_direction / hx + y_direction / hy;
+	return x_direction / grid.hx + y_direction / grid.hy;
 }
 
 __cuda_callable__
@@ -310,9 +318,9 @@ Real Problem::F(const VectorView& u, Index i, Index j)
         return param.force_term_size;
     else if (param.force_term_type == FTType::Radial)
     {
-        Real mid_x = (domain.x_right - domain.x_left)/2;
-        Real mid_y = (domain.y_right - domain.y_left)/2;
-        Real r = sqrt(pow(i*hx - mid_x, Real(2)) + pow(j*hy - mid_y, Real(2)));
+        Real mid_x = (grid.domain.x_right - grid.domain.x_left)/2;
+        Real mid_y = (grid.domain.y_right - grid.domain.y_left)/2;
+        Real r = sqrt(pow(i*grid.hx - mid_x, Real(2)) + pow(j*grid.hy - mid_y, Real(2)));
         return -2/std::max(r, Real(0.1));
     }
     else if (param.force_term_type == FTType::Zirconium)

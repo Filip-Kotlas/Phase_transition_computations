@@ -13,6 +13,7 @@
 #include "Problem.hpp"
 #include "Parameters.hpp"
 #include "types.hpp"
+#include "Grid.hpp"
 #include "InitialCondition.hpp"
 #include "ResultIO.hpp"
 #include "RunFolder.hpp"
@@ -60,6 +61,7 @@ int main(int argc, char** argv) {
         input_config_path = argv[2];
 
     Parameters parameters = Parameters::load(input_config_path);
+    const Grid grid = parameters.grid();
 
     RunFolder run_folder(result_path);
     if (!run_folder.create())
@@ -74,7 +76,7 @@ int main(int argc, char** argv) {
         // The path in the config is relative to the calculations/ folder of this run.
         const std::filesystem::path init_cond_path = run_folder.calculations() / parameters.init_cond_file_path;
         std::cout << "Setting initial condition from file: " << init_cond_path << std::endl;
-        if (!set_init_cond_from_file(u, init_cond_path, parameters.sizeX, parameters.sizeY, parameters.init_cond_scaling)){
+        if (!set_init_cond_from_file(u, init_cond_path, grid, parameters.init_cond_scaling)){
             std::cerr << "Error: could not set the initial condition from the file " << init_cond_path
                       << " (init_cond_file_path = " << parameters.init_cond_file_path
                       << ", resolved relative to " << run_folder.calculations() << "). Exiting." << std::endl;
@@ -84,7 +86,7 @@ int main(int argc, char** argv) {
     else{
         std::cout << "Setting initial condition from code: " << ICType_to_string(parameters.init_condition) << std::endl;
         InitialCondition init_cond(parameters);
-        set_init_cond_manually(u, init_cond, parameters.sizeX, parameters.sizeY);
+        set_init_cond_manually(u, init_cond, grid);
     }
     std::cout << "Initial condition set." << std::endl;
 
@@ -96,7 +98,7 @@ int main(int argc, char** argv) {
     solver.setTime( parameters.initial_time );
     
     Index step_number = static_cast<Index>(round(solver.getTime() / parameters.timeStep));
-    write_frame(run_folder.calculations(), step_number, u, parameters.sizeX, parameters.sizeY);
+    write_frame(run_folder.calculations(), step_number, u, grid);
 
     while( solver.getTime() < parameters.final_time ) {
         solver.setStopTime( TNL::min( solver.getTime() + parameters.timeStep, parameters.final_time ) );
@@ -117,17 +119,17 @@ int main(int argc, char** argv) {
         {
             // iterate over inner points only
             TNL::Containers::StaticArray< 2, Index > begin = {1, 1};
-            TNL::Containers::StaticArray< 2, Index > end = {parameters.sizeX - 1, parameters.sizeY - 1};
+            TNL::Containers::StaticArray< 2, Index > end = {grid.sizeX - 1, grid.sizeY - 1};
             TNL::Algorithms::parallelFor< Device >(begin, end, rhs, u, fu );
 
             // iterate over boundary points
-            TNL::Algorithms::parallelFor< Device >(0, parameters.sizeX, boundary_xdir, u, fu );
-            TNL::Algorithms::parallelFor< Device >(0, parameters.sizeY, boundary_ydir, u, fu );
+            TNL::Algorithms::parallelFor< Device >(0, grid.sizeX, boundary_xdir, u, fu );
+            TNL::Algorithms::parallelFor< Device >(0, grid.sizeY, boundary_ydir, u, fu );
         };
         auto stepStart = std::chrono::high_resolution_clock::now();
         solver.solve( u, time_stepping );
         step_number = static_cast<Index>(round(solver.getTime() / parameters.timeStep));
-        write_frame(run_folder.calculations(), step_number, u, parameters.sizeX, parameters.sizeY);
+        write_frame(run_folder.calculations(), step_number, u, grid);
         auto stepEnd = std::chrono::high_resolution_clock::now();
 
         int elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(stepEnd - stepStart).count();

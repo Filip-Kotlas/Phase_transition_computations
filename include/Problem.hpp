@@ -7,6 +7,7 @@
 
 #include "constants.hpp"
 #include "Parameters.hpp"
+#include "Grid.hpp"
 #include "types.hpp"
 #include "enums.hpp"
 
@@ -18,21 +19,16 @@ class Problem
     
     Index getDegreesOfFreedom();
 
-    __cuda_callable__
-    Index get_size_x() { return sizeX; };
-    __cuda_callable__
-    Index get_size_y() { return sizeY; };
-
     /*
     * Phase and concentration access
     */
     __cuda_callable__
     Real phase_at(const VectorView& u, Index i, Index j){
-        return u.getElement(j*sizeX + i);
+        return u.getElement(grid.index(i, j));
     };
     __cuda_callable__
     Real conc_at(const VectorView& u, Index i, Index j){
-        return u.getElement(sizeX * sizeY + j*sizeX + i);
+        return u.getElement(grid.points() + grid.index(i, j));
     };
 
     /*
@@ -131,12 +127,7 @@ class Problem
 
     protected:
 
-    //characteristics
-    const Index sizeX;
-    const Index sizeY;
-    Domain domain;
-    Real hx;
-    Real hy;
+    const Grid grid;
 
     Parameters param;
 };

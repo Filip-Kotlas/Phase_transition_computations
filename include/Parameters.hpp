@@ -6,6 +6,7 @@
 #include "types.hpp"
 #include "constants.hpp"
 #include "enums.hpp"
+#include "Grid.hpp"
 
 class Parameters {
 public:
@@ -48,6 +49,9 @@ public:
 
     // --- metody ---
     Parameters() = default;
+
+    // The grid given by sizeX, sizeY and domain.
+    Grid grid() const { return Grid(sizeX, sizeY, domain); }
 
     // load from a JSON file
     static Parameters load(const std::filesystem::path& filename);

@@ -35,9 +35,8 @@ Parameters Parameters::load(const std::filesystem::path& filename) {
     p.domain.y_right = domain.value("y_right", 1.0);
    
     // integration time step
-    Real computed_integration_step = pow(std::min((p.domain.x_right - p.domain.x_left) / (p.sizeX - 1),
-                                                  (p.domain.y_right - p.domain.y_left) / (p.sizeY - 1)),
-                                         2) / 5.0;
+    const Grid grid = p.grid();
+    Real computed_integration_step = pow(std::min(grid.hx, grid.hy), 2) / 5.0;
     if (solver.value("custom_integration_time_step", false)) {
         p.integrationTimeStep = solver.value("integration_time_step", computed_integration_step);
     } else {

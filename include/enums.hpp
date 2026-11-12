@@ -3,13 +3,6 @@
 #include <stdexcept>
 #include "types.hpp"
 
-struct Domain {
-    Real x_left;
-    Real x_right;
-    Real y_left;
-    Real y_right;
-};
-
 enum class MODEL {
     MODEL_1 = 1,
     MODEL_2 = 2,

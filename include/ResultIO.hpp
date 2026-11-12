@@ -9,13 +9,15 @@
 #include <vector>
 
 #include "types.hpp"
+#include "Grid.hpp"
 
 // Writes u as folder/Result-NNNNN.npy, where NNNNN is step. The type of the values is Real.
 // Prints the reason to std::cerr and returns false on failure.
-bool write_frame(const std::filesystem::path& folder, Index step, const VectorView& u, Index sizeX, Index sizeY);
+bool write_frame(const std::filesystem::path& folder, Index step, const VectorView& u, const Grid& grid);
 
-// Reads a frame of a sizeX x sizeY grid. The values may be stored as float or double; they are
-// converted to Real. On success phase[k] and conc[k] hold the point k = j*sizeX + i.
+// Reads a frame of the given grid (its shape has to be (2, grid.sizeY, grid.sizeX)). The values may be
+// stored as float or double; they are converted to Real. On success phase[k] and conc[k] hold the point
+// k = grid.index(i, j).
 // Prints the reason to std::cerr and returns false on failure.
-bool read_frame(const std::filesystem::path& file_path, Index sizeX, Index sizeY,
+bool read_frame(const std::filesystem::path& file_path, const Grid& grid,
                 std::vector<Real>& phase, std::vector<Real>& conc);

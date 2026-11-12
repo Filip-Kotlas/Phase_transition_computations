@@ -27,7 +27,7 @@ bool read_values(std::istream& in, std::vector<Real>& values)
 
 }  // namespace
 
-bool write_frame(const std::filesystem::path& folder, Index step, const VectorView& u, Index sizeX, Index sizeY)
+bool write_frame(const std::filesystem::path& folder, Index step, const VectorView& u, const Grid& grid)
 {
     std::stringstream name;
     name << "Result-" << std::setw(5) << std::setfill('0') << step << ".npy";
@@ -46,7 +46,7 @@ bool write_frame(const std::filesystem::path& folder, Index step, const VectorVi
     host_u = u;
 
     npy::write_header(file, npy::descriptor<Real>(),
-                      { 2, static_cast<std::size_t>(sizeY), static_cast<std::size_t>(sizeX) });
+                      { 2, static_cast<std::size_t>(grid.sizeY), static_cast<std::size_t>(grid.sizeX) });
     file.write(reinterpret_cast<const char*>(host_u.getData()),
                static_cast<std::streamsize>(host_u.getSize()) * static_cast<std::streamsize>(sizeof(Real)));
 
@@ -59,7 +59,7 @@ bool write_frame(const std::filesystem::path& folder, Index step, const VectorVi
     return true;
 }
 
-bool read_frame(const std::filesystem::path& file_path, Index sizeX, Index sizeY,
+bool read_frame(const std::filesystem::path& file_path, const Grid& grid,
                 std::vector<Real>& phase, std::vector<Real>& conc)
 {
     std::ifstream file(file_path, std::ios::in | std::ios::binary);
@@ -75,11 +75,11 @@ bool read_frame(const std::filesystem::path& file_path, Index sizeX, Index sizeY
         std::vector<std::size_t> shape;
         npy::read_header(file, descr, fortran_order, shape);
 
-        const std::vector<std::size_t> expected_shape = { 2, static_cast<std::size_t>(sizeY), static_cast<std::size_t>(sizeX) };
+        const std::vector<std::size_t> expected_shape = { 2, static_cast<std::size_t>(grid.sizeY), static_cast<std::size_t>(grid.sizeX) };
         const bool known_type = descr == npy::descriptor<float>() || descr == npy::descriptor<double>();
         if (!known_type || fortran_order || shape != expected_shape) {
             std::cerr << "The .npy file has to be a C-ordered array of the type " << npy::descriptor<float>()
-                      << " or " << npy::descriptor<double>() << " and the shape (2, " << sizeY << ", " << sizeX << ").\n";
+                      << " or " << npy::descriptor<double>() << " and the shape (2, " << grid.sizeY << ", " << grid.sizeX << ").\n";
             return false;
         }
     }
@@ -88,7 +88,7 @@ bool read_frame(const std::filesystem::path& file_path, Index sizeX, Index sizeY
         return false;
     }
 
-    const std::size_t N = static_cast<std::size_t>(sizeX) * static_cast<std::size_t>(sizeY);
+    const std::size_t N = static_cast<std::size_t>(grid.points());
     phase.resize(N);
     conc.resize(N);
     const bool complete = descr == npy::descriptor<float>()
