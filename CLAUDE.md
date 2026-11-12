@@ -70,14 +70,14 @@ python3 python/plot.py --name MyRun --frame 10 --type phase   # --frame last wor
 
 **Output layout for `results/<FOLDER>/`:**
 - `calculations/Result-NNNNN.npy`: the only output format. Array of shape `(2, sizeY, sizeX)` of `Real` (phase, then concentration; x and y are not stored, they are computed from the config). Written and read by `write_frame` / `read_frame` in `src/ResultIO.cu` (using `include/npy.hpp`), read in Python by `python/dataset.py`. (A text format `x y phase conc` existed until 2026-11-11 and was removed.)
-- `info/setup/`: written by the binary at the start.
+- `info/setup/`: written by the binary at the start, through `RunFolder` (`src/RunFolder.cu`), which holds the C++ side of the folder layout (`calculations/`, `info/setup/`, `parameters.txt`) and writes the run information.
   - `parameters.txt`: the parameters, then the run date (start time), computer (host name, e.g. `gp11`) and GPU (written by the binary at the start), the computation time (written at the end) and the git commit (appended by `make run`).
   - `config.json`: a copy of the config, which the Python plotters read. `Dataset` falls back to `info/config.json` for results computed before the subfolders existed.
   - `parameters.tex`
   - `sources.tar.gz`: only for cluster runs, the exact sources the job compiled (with uncommitted changes and the config).
 - `info/plots/`: frames (`.jpg`) and animations (`.mp4`/`.gif`) from the Python plotters.
 - `info/boundary/`: `interface_num.crv` and `interface_anal.crv` from `write_boundary_files`.
-- The paths of the three subfolders are defined once in `Dataset` (`setup_folder`, `plots_folder`, `boundary_folder`).
+- The paths of the three subfolders are defined once in `Dataset` (`setup_folder`, `plots_folder`, `boundary_folder`); on the C++ side the paths are in `RunFolder`. The Makefile (`PARAM_PATH`) and `tests/regression.sh` also know where `parameters.txt` is.
 
 **Python (`python/plotter.py`):** `Plotter` base class with `BoundaryPlotter2D` (draws the 0.5-level contour, which can be overlaid with the analytic circle or Wulff boundary), `SurfacePlotter` (3D) and `CutPlotter` (1D cut). The boundary computation does not live in the plotters: `python/boundary.py` has the class `Boundary` (numerical curves from contourpy, analytic curves) and `write_boundary_files`, which `basic_plot.py` calls once to write `info/boundary/interface_num.crv` and `interface_anal.crv` for all frames (the files are always rewritten from scratch; `plot.py` never writes them). `python/cli.py` is shared by `basic_plot.py` and `plot.py`: it holds the common arguments, `decide_drawing` (whether to draw concentration plots and the analytic boundary, from `force_term.type` and the `initial_condition` name) and `build_plotters`.
 
