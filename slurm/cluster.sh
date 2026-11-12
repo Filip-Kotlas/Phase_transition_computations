@@ -14,7 +14,7 @@
 #   slurm/cluster.sh bench MyBench [--against COMMIT] [--new COMMIT] [--repeat N] [--long] [--force] [--gpu TYPE]
 #                                                              benchmark: computation times of your
 #                                                              working tree (or --new COMMIT)
-#                                                              against COMMIT (--long: one large
+#                                                              against COMMIT (--long: one demanding
 #                                                              case, about 10 min per run)
 #   slurm/cluster.sh status                                   show your queue
 #   slurm/cluster.sh list                                      all runs on the cluster and their state
@@ -48,9 +48,9 @@
 # (tests/benchmark.sh, python/compare_times.py); `log` shows the result and
 # results/MyBench/report.txt keeps it. Unlike test it also runs when both versions have the same
 # code: that measures the noise of the timings.
-# bench --long runs tests/benchmark_configs_long/*.json instead: one large case (800x800) of about
-# 10 minutes per run on an RTX 2070 SUPER, once with each version (unless --repeat N). It shows
-# whether a speedup holds on a large grid, where the GPU is fully loaded.
+# bench --long runs tests/benchmark_configs_long/*.json instead: one demanding case (400x400 with a
+# thin interface) of about 10 minutes per run on an RTX 2070 SUPER, once with each version (unless
+# --repeat N). It shows whether a speedup holds for a long run.
 # --new COMMIT (test and bench) puts that commit in place of your working tree as the version
 # under test, e.g. `bench Old --against 5e9bccb~1 --new 5e9bccb` for an old change. Your working
 # tree is still uploaded: the job script, the test scripts, the configs and the comparison come
