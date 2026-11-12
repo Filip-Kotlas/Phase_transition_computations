@@ -19,7 +19,9 @@
 #   slurm/cluster.sh status                                   show your queue
 #   slurm/cluster.sh list                                      all runs on the cluster and their state
 #   slurm/cluster.sh log                                       tail the newest slurm-*.out
-#   slurm/cluster.sh gpus                                      GPU types and how many are free now
+#   slurm/cluster.sh gpus [--mem SIZE]                         before submitting: free and usable GPUs
+#                                                              per type, what blocks the free ones,
+#                                                              your jobs, and whether a job starts now
 #   slurm/cluster.sh nodes [--mem SIZE]                        every node: free GPUs, CPUs and RAM,
 #                                                              its running jobs, and whether our
 #                                                              job would fit there now
@@ -115,6 +117,26 @@ mem_to_mb() {
         *T) echo $(( n * 1024 * 1024 )) ;;
         *)  echo "$n" ;;
     esac
+}
+
+# For gpus and nodes: reads [--mem SIZE] and sets need_cpu and mem to what a job of ours asks
+# for (run.sbatch, or --mem SIZE as with submit), and prints it.
+our_job_request() {
+    mem=""
+    while [ $# -gt 0 ]; do
+        case "$1" in
+            --mem)
+                [ $# -ge 2 ] || { echo "--mem needs a size, e.g. --mem 4G" >&2; exit 1; }
+                check_mem "$2"; mem="$2"; shift ;;
+            *) echo "Usage: cluster.sh $cmd [--mem SIZE]" >&2; exit 1 ;;
+        esac
+        shift
+    done
+    need_cpu=$(sed -nE 's/^#SBATCH --cpus-per-task=([0-9]+).*/\1/p' slurm/run.sbatch)
+    need_cpu=${need_cpu:-1}
+    [ -n "$mem" ] || mem=$(sed -nE 's/^#SBATCH --mem=([0-9]+[KMGT]?).*/\1/p' slurm/run.sbatch)
+    echo "Our job: 1 GPU, $need_cpu CPU(s), $mem RAM (change the RAM with --mem SIZE)"
+    echo
 }
 
 cmd="${1:-}"; shift || true
@@ -478,38 +500,90 @@ log)
     rssh "cd '$REMOTE_DIR' && tail -n 40 \"\$(ls -t slurm-*.out | head -1)\""
     ;;
 gpus)
-    # GPU types on the cluster and how many are free right now (from sinfo), plus the pending
-    # jobs of all users that wait for each type (from squeue). The remote script is sent on stdin.
-    "$SSH" "$CLUSTER_HOST" bash -s <<'REMOTE_SCRIPT'
+    # Everything needed to decide how to submit: per GPU type the cards that are free and the ones
+    # a job of ours could really get now (its node also has the CPUs and RAM free), the GPUs that
+    # pending jobs of all users wait for, each free card with what blocks it, your own jobs, and
+    # a verdict. "Our job" is what run.sbatch asks for, or --mem SIZE as with submit.
+    # The remote script is sent on stdin; its arguments are the CPUs and MB of RAM we need.
+    our_job_request "$@"
+    "$SSH" "$CLUSTER_HOST" bash -s -- "$need_cpu" "$(mem_to_mb "$mem")" <<'REMOTE_SCRIPT'
 {
-    # Node lines: "node gpu:TYPE:COUNT(S:0) gpu:TYPE:USED(IDX:..) state"
-    sinfo -N -h -p gp -O "NodeList:40,Gres:80,GresUsed:80,StateLong:40" | sed 's/^/node /'
-    # Pending jobs: "pending gres/gpu:TYPE:1" or "pending gres/gpu:1" (any type)
-    squeue -h -t PENDING -o "%b" | sed 's/^/pending /'
-} | awk '
-$1 == "node" && $3 ~ /^gpu:/ {
-    split($3, g, ":"); type = g[2]; total = g[3] + 0     # "gpu:rtx3060:2(S:0)"   -> 2
-    split($4, u, ":"); used = u[3] + 0                   # "gpu:rtx3060:1(IDX:0)" -> 1
-    nodes[type] = nodes[type] (nodes[type] == "" ? "" : ",") $2
-    tot[type] += total; usd[type] += used
-    # GPUs on a drained/down node cannot get new jobs
-    if ($5 ~ /drain|down|fail|maint|reserv|not_resp|unk/) { unav[type] += total - used; nodes[type] = nodes[type] "(" $5 ")" }
+    # "node NAME STATE CPUS(A/I/O/T) MEMORY_MB ALLOCMEM_MB gpu:TYPE:COUNT(S:0) gpu:TYPE:USED(IDX:..)"
+    sinfo -N -h -p gp -O "NodeList:20,StateLong:20,CPUsState:30,Memory:20,AllocMem:20,Gres:80,GresUsed:80" | sed 's/^/node /'
+    # Every pending array task on its own line (-r): "pending USER gres/gpu:TYPE:N", "gres/gpu:N" or "N/A"
+    squeue -r -h -t PENDING -O "UserName:40,tres-per-node:80" | sed 's/^/pending /'
+    # Our own jobs: "mine ID|NAME|STATE|REASON|START|ELAPSED|NODES"
+    squeue -h -u "$USER" -o "%i|%j|%T|%r|%S|%M|%N" | sed 's/^/mine /'
+} | awk -v need_cpu="$1" -v need_mem="$2" '
+$1 == "node" && $7 ~ /^gpu:/ {
+    n = $2; state = $3
+    split($7, g, ":"); t = g[2]; total = g[3] + 0                # "gpu:rtx3060:2(S:0)"   -> 2
+    split($8, u, ":"); free = total - (u[3] + 0)                 # "gpu:rtx3060:1(IDX:0)" -> 1 used
+    split($4, c, "/"); cfree = c[2]; mfree = $5 - $6
+    tot[t] += total; usd[t] += total - free
+    nodes[t] = nodes[t] (nodes[t] == "" ? "" : " ") n
+    if (state ~ /drain|down|fail|maint|reserv|not_resp|unk|inval/) {    # cannot get new jobs
+        down[t] += free; nodes[t] = nodes[t] "(" state ")"; next
+    }
+    if (free < 1) next
+    fre[t] += free
+    why = ""
+    if (cfree < need_cpu) why = why ", too few CPUs"
+    if (mfree < need_mem) why = why ", too little RAM"
+    line = sprintf("  %-5s %-8s %d card(s)   CPU %2d free   RAM %5.1f GB free   -> ", n, t, free, cfree, mfree / 1024)
+    if (why == "") {
+        line = line "FITS"; usable[t] += free; fits = fits " " n "(" t ")"
+    } else {
+        line = line "no" why
+        if (cfree >= need_cpu && mfree >= 2048) {     # less would not be enough for our jobs
+            line = line sprintf(" (fits with --mem %dG)", int(mfree / 1024)); smaller = 1
+        }
+    }
+    if (state ~ /-$/) line = line ", planned for a waiting job"
+    freelines[++nf] = line
 }
-$1 == "pending" {
-    n = split($2, p, ":")
-    if (n == 3) wait[p[2]]++                             # gres/gpu:TYPE:1
-    else if ($2 ~ /gpu/) wait_any++                      # gres/gpu:1
+$1 == "pending" && $3 ~ /gpu/ {
+    k = split($3, p, ":"); cards = p[k] + 0; if (cards < 1) cards = 1
+    if (k >= 3) wait[p[2]] += cards; else wait_any += cards
+    waiting += cards
+}
+$1 == "mine" {
+    split(substr($0, 6), m, "|")
+    if (m[3] == "PENDING") s = sprintf("PENDING (%s), Slurm estimates the start at %s", m[4], m[5])
+    else                   s = sprintf("%s on %s for %s", m[3], m[7], m[6])
+    mine[++nm] = sprintf("  %-8s %-20s %s", m[1], m[2], s)
 }
 END {
-    printf "%-9s %5s %7s %12s %8s  %s\n", "TYPE", "FREE", "IN USE", "UNAVAILABLE", "WAITING", "NODES"
+    printf "%-9s %5s %7s %5s %5s %7s %8s   %s\n", "TYPE", "CARDS", "IN USE", "DOWN", "FREE", "USABLE", "WAITING", "NODES"
     cmd = "sort"
-    for (t in tot)
-        printf "%-9s %5d %7d %12d %8d  %s\n", t, tot[t] - usd[t] - unav[t], usd[t], unav[t], wait[t], nodes[t] | cmd
+    for (t in tot) {
+        printf "%-9s %5d %7d %5d %5d %7d %8d   %s\n", t, tot[t], usd[t], down[t], fre[t], usable[t], wait[t], nodes[t] | cmd
+        all_usable += usable[t]
+    }
     close(cmd)
-    printf "\nPending jobs of all users that accept any GPU type: %d\n", wait_any
-    print "UNAVAILABLE = idle GPUs on drained or down nodes; WAITING = pending jobs that asked for that type."
-    print "Choose a type with: cluster.cmd submit NAME --gpu TYPE"
-    print "A free GPU is of no use while other jobs hold all the CPUs or RAM of its node: see cluster.cmd nodes."
+    printf "%-9s %5s %7s %5s %5s %7s %8d\n", "any type", "", "", "", "", "", wait_any
+    print "DOWN = idle cards on drained or down nodes. FREE = idle cards on working nodes."
+    print "USABLE = free cards whose node also has the CPUs and RAM our job needs."
+    print "WAITING = GPUs wanted by the pending jobs of all users (array tasks counted one by one)."
+    print ""
+    print "Free cards:"
+    if (nf == 0) print "  none"
+    for (i = 1; i <= nf; i++) print freelines[i]
+    print ""
+    print "Your jobs:"
+    if (nm == 0) print "  none queued or running"
+    for (i = 1; i <= nm; i++) print mine[i]
+    print ""
+    if (all_usable > 0) {
+        print "-> A job submitted now can start at once on:" fits
+        if (waiting > 0) printf "   (%d GPU(s) are wanted by waiting jobs; one with a higher priority may get it first.)\n", waiting
+        print "   Any type: cluster.cmd submit NAME. Only one type: add --gpu TYPE."
+    } else {
+        print "-> No free card is usable now: a job submitted now has to wait."
+        if (smaller) print "   A smaller RAM request would fit somewhere (see above); our jobs have peaked at 1.7 GB."
+        print "   After submitting, cluster.cmd status shows why it waits and Slurm'"'"'s estimate of the start."
+    }
+    print "   Who holds the nodes: cluster.cmd nodes."
 }'
 REMOTE_SCRIPT
     ;;
@@ -518,21 +592,7 @@ nodes)
     # and job name, and whether a job of ours would fit there now. Free RAM is RAM that no job
     # has reserved (Slurm schedules by the reservations, not by what is really in use).
     # "Our job" is what run.sbatch asks for (1 GPU, its CPUs and RAM), or --mem SIZE as with submit.
-    mem=""
-    while [ $# -gt 0 ]; do
-        case "$1" in
-            --mem)
-                [ $# -ge 2 ] || { echo "--mem needs a size, e.g. --mem 4G" >&2; exit 1; }
-                check_mem "$2"; mem="$2"; shift ;;
-            *) echo "Usage: cluster.sh nodes [--mem SIZE]" >&2; exit 1 ;;
-        esac
-        shift
-    done
-    need_cpu=$(sed -nE 's/^#SBATCH --cpus-per-task=([0-9]+).*/\1/p' slurm/run.sbatch)
-    need_cpu=${need_cpu:-1}
-    [ -n "$mem" ] || mem=$(sed -nE 's/^#SBATCH --mem=([0-9]+[KMGT]?).*/\1/p' slurm/run.sbatch)
-    echo "Our job: 1 GPU, $need_cpu CPU(s), $mem RAM"
-    echo
+    our_job_request "$@"
     "$SSH" "$CLUSTER_HOST" bash -s -- "$need_cpu" "$(mem_to_mb "$mem")" <<'REMOTE_SCRIPT'
 {
     # "node NAME STATE CPUS(A/I/O/T) MEMORY_MB ALLOCMEM_MB GRES GRES_USED"
@@ -590,7 +650,7 @@ END {
     print "Free RAM = RAM that no job has reserved; Slurm schedules by the reservations, not by real use."
     print "A state ending in \"-\" (e.g. mixed-) means the node is planned for a pending job with a higher"
     print "priority; a job of ours can still start there if its time limit ends before that job is due."
-    print "Your pending jobs and why they wait: cluster.cmd status. Smaller RAM request: --mem 4G."
+    print "Your pending jobs and why they wait: cluster.cmd status. Other RAM request: --mem SIZE."
 }'
 REMOTE_SCRIPT
     ;;
