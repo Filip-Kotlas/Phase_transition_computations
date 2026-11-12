@@ -10,7 +10,7 @@
 #include <json.hpp>
 #include <string>
 
-#include "Problem.hpp"
+#include "Model.hpp"
 #include "Parameters.hpp"
 #include "types.hpp"
 #include "Grid.hpp"
@@ -69,8 +69,8 @@ int main(int argc, char** argv) {
     run_folder.save_setup(parameters, input_config_path);
     run_folder.write_run_start_info(run_start);
 
-    Problem problem(parameters);
-    Vector u(problem.getDegreesOfFreedom());
+    Model model(parameters);
+    Vector u(model.getDegreesOfFreedom());
 
     if (parameters.init_cond_from_file){
         // The path in the config is relative to the calculations/ folder of this run.
@@ -103,16 +103,16 @@ int main(int argc, char** argv) {
     while( solver.getTime() < parameters.final_time ) {
         solver.setStopTime( TNL::min( solver.getTime() + parameters.timeStep, parameters.final_time ) );
 
-        auto rhs = [ = ] __cuda_callable__( const TNL::Containers::StaticArray< 2, Index >& ind, const VectorView& u, VectorView& fu ) mutable {
-            problem.set_rhs_at(u, fu, ind.x(), ind.y());
+        auto rhs = [ = ] __cuda_callable__( const TNL::Containers::StaticArray< 2, Index >& ind, const VectorView& u, VectorView& fu ) {
+            model.set_rhs_at(u, fu, ind.x(), ind.y());
         };
 
-        auto boundary_xdir = [ = ] __cuda_callable__( const Index ind, VectorView& u, VectorView& fu ) mutable {
-            problem.apply_boundary_condition_xdir(ind , u, fu);
+        auto boundary_xdir = [ = ] __cuda_callable__( const Index ind, VectorView& u, VectorView& fu ) {
+            model.apply_boundary_condition_xdir(ind , u, fu);
         };
 
-        auto boundary_ydir = [ = ] __cuda_callable__( const Index ind, VectorView& u, VectorView& fu ) mutable {
-            problem.apply_boundary_condition_ydir(ind , u, fu);
+        auto boundary_ydir = [ = ] __cuda_callable__( const Index ind, VectorView& u, VectorView& fu ) {
+            model.apply_boundary_condition_ydir(ind , u, fu);
         };
 
         auto time_stepping = [ = ]( const Real& t, const Real& tau, const VectorView& u, VectorView& fu )

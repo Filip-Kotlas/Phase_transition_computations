@@ -3,19 +3,23 @@
 #include "types.hpp"
 #include "constants.hpp"
 #include "Parameters.hpp"
+#include "ModelParams.hpp"
 #include "Grid.hpp"
 #include "enums.hpp"
 
+// The initial condition computed in code (init_condition in the config). Captured by value in the
+// GPU lambda of set_init_cond_manually, so it holds only plain data.
 class InitialCondition {
 public:
 
-    InitialCondition() = default;
-
-    InitialCondition(Parameters param)
-    : param(param), grid(param.grid()) {
-        init_cond_radius = param.init_cond_radius;
-        slope_width = param.init_cond_slope_width;
-    }
+    explicit InitialCondition(const Parameters& parameters)
+    :  init_condition(parameters.init_condition),
+       init_cond_radius(parameters.init_cond_radius),
+       slope_width(parameters.init_cond_slope_width),
+       ksi(parameters.ksi),
+       anisotropy(parameters.model_params().anisotropy),
+       grid(parameters.grid())
+    {}
 
     __cuda_callable__
     Real get_phase(Index ind) const;
@@ -30,19 +34,13 @@ public:
     __cuda_callable__ static
     Real rnd01(uint32_t idx, uint32_t seed);
 
-    __cuda_callable__
-    Real psi(const Real theta) const;
-
-    __cuda_callable__
-    Real der_psi(const Real theta) const;
-
-
 private:
-    Parameters param;
-    Grid grid;
-
+    ICType init_condition;
     Real init_cond_radius;
     Real slope_width;
+    Real ksi;                 // interface width, for HyperbolicTangent
+    Anisotropy anisotropy;    // for WulffShape
+    Grid grid;
 };
 
 // Sets u (of length 2*grid.points()) to the phase and concentration computed by init_cond.

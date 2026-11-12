@@ -3,13 +3,6 @@
 #include <stdexcept>
 #include "types.hpp"
 
-enum class MODEL {
-    MODEL_1 = 1,
-    MODEL_2 = 2,
-    MODEL_3 = 3,
-    MODEL_4 = 4
-};
-
 enum class ICType {
     HyperbolicTangent,
     Circle, // sloped

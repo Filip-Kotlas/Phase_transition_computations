@@ -16,10 +16,10 @@ Real InitialCondition::get_phase(Index ind) const
 
     Real dist_to_center = sqrt(pow(x_central, Real(2)) + pow(y_central, Real(2)));
 
-    switch (param.init_condition)
+    switch (init_condition)
     {
     case ICType::HyperbolicTangent:
-        return Real(1.0)/2 * tanh(-3/param.ksi*(dist_to_center - init_cond_radius)) + Real(1.0)/2; //needs to be changed according to the correct phases
+        return Real(1.0)/2 * tanh(-3/ksi*(dist_to_center - init_cond_radius)) + Real(1.0)/2; //needs to be changed according to the correct phases
         break;
 
     case ICType::Circle:
@@ -187,8 +187,8 @@ Real InitialCondition::get_phase(Index ind) const
         Real y_wulff = 0;
 
         auto f = [&](Real wulff_theta) mutable {
-            x_wulff = init_cond_radius*(psi(wulff_theta)*cos(wulff_theta) - der_psi(wulff_theta)*sin(wulff_theta));
-            y_wulff = init_cond_radius*(psi(wulff_theta)*sin(wulff_theta) + der_psi(wulff_theta)*cos(wulff_theta));
+            x_wulff = init_cond_radius*(anisotropy.psi(wulff_theta)*cos(wulff_theta) - anisotropy.der_psi(wulff_theta)*sin(wulff_theta));
+            y_wulff = init_cond_radius*(anisotropy.psi(wulff_theta)*sin(wulff_theta) + anisotropy.der_psi(wulff_theta)*cos(wulff_theta));
             Real theta_computed = atan2(y_wulff, x_wulff);
             if (wulff_theta > constants::pi/2 && theta_computed < 0)
                 theta_computed += 2*constants::pi;
@@ -281,17 +281,6 @@ Real InitialCondition::rnd01(uint32_t idx, uint32_t seed) {
     return (h & 0x00FFFFFFu) / static_cast<Real>(16777216.0);
 }
 
-__cuda_callable__
-Real InitialCondition::psi(const Real theta) const
-{
-    return 1 + param.A*cos(param.m*(theta - param.theta_0));
-}
-
-__cuda_callable__
-Real InitialCondition::der_psi(const Real theta) const
-{
-    return -param.A*param.m*sin(param.m*(theta - param.theta_0));
-}
 void set_init_cond_manually(Vector& u, const InitialCondition& init_cond, const Grid& grid)
 {
     const Index N = grid.points();

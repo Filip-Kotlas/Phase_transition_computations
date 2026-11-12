@@ -7,6 +7,7 @@
 #include "constants.hpp"
 #include "enums.hpp"
 #include "Grid.hpp"
+#include "ModelParams.hpp"
 
 class Parameters {
 public:
@@ -52,6 +53,9 @@ public:
 
     // The grid given by sizeX, sizeY and domain.
     Grid grid() const { return Grid(sizeX, sizeY, domain); }
+
+    // The parameters the GPU code needs (see ModelParams.hpp).
+    ModelParams model_params() const;
 
     // load from a JSON file
     static Parameters load(const std::filesystem::path& filename);

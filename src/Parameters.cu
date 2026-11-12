@@ -103,6 +103,24 @@ Parameters Parameters::load(const std::filesystem::path& filename) {
     return p;
 }
 
+ModelParams Parameters::model_params() const {
+    ModelParams params;
+    params.alpha = alpha;
+    params.par_a = par_a;
+    params.par_b = par_b;
+    params.par_d = par_d;
+    params.T = T;
+    params.ksi = ksi;
+    params.force_term_type = force_term_type;
+    params.force_term_size = force_term_size;
+    params.anisotropy = Anisotropy{A, m, theta_0};
+    params.bc_phase_x = bc_phase_x;
+    params.bc_phase_y = bc_phase_y;
+    params.bc_conc_x = bc_conc_x;
+    params.bc_conc_y = bc_conc_y;
+    return params;
+}
+
 void Parameters::save_human_readable(const std::filesystem::path& filename) const {
     std::ofstream file(filename);
     if (!file) {

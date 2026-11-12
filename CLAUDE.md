@@ -71,22 +71,21 @@ python3 python/plot.py --name MyRun --frame 10 --type phase   # --frame last wor
 
 ## Architecture
 
-**Data flow:** `config/config.json` → `Parameters::load` → `Problem` + `InitialCondition` → TNL `ODESolver` (adaptive Kutta–Merson) loop in `src/main.cu` → `write_frame` (`src/ResultIO.cu`) → `results/<FOLDER>/calculations/Result-NNNNN.npy` → Python plotters.
+**Data flow:** `config/config.json` → `Parameters::load` → `Model` + `InitialCondition` → TNL `ODESolver` (adaptive Kutta–Merson) loop in `src/main.cu` → `write_frame` (`src/ResultIO.cu`) → `results/<FOLDER>/calculations/Result-NNNNN.npy` → Python plotters.
 
-**State vector:** there is a single TNL `Vector` `u` of length `2*sizeX*sizeY` that lives on the CUDA device. Phase values are in `[0, N)` and concentration values in `[N, 2N)`, with `N = sizeX*sizeY` and linear index `j*sizeX + i`. Use `Problem::phase_at` / `conc_at` to read them.
+**State vector:** there is a single TNL `Vector` `u` of length `2*sizeX*sizeY` that lives on the CUDA device. Phase values are in `[0, N)` and concentration values in `[N, 2N)`, with `N = sizeX*sizeY` and linear index `j*sizeX + i`. Use `Model::phase_at` / `conc_at` to read them.
 
-**Grid (`include/Grid.hpp`):** a plain struct with `sizeX`, `sizeY`, `domain` and the steps `hx`, `hy` (computed once by its constructor), plus `points()` (= N), `index(i, j)` and the coordinates `x(i)`, `y(j)`. It is built from the config by `Parameters::grid()`, held by `Problem` and `InitialCondition` and passed to `write_frame`/`read_frame` and the IC setters. Use it instead of writing the index arithmetic or computing h again.
+**Grid (`include/Grid.hpp`):** a plain struct with `sizeX`, `sizeY`, `domain` and the steps `hx`, `hy` (computed once by its constructor), plus `points()` (= N), `index(i, j)` and the coordinates `x(i)`, `y(j)`. It is built from the config by `Parameters::grid()`, held by `Model` and `InitialCondition` and passed to `write_frame`/`read_frame` and the IC setters. Use it instead of writing the index arithmetic or computing h again.
 
 **Time stepping (`main.cu`):** the RHS lambda is evaluated with `parallelFor` on interior points only. Boundary conditions are separate `parallelFor`s that set `fu = 0` on the boundary and write Dirichlet or Neumann values **directly into `u`**. The outer loop advances the solver one output frame at a time (`timeStep = (final-initial)/frame_num`) and writes one file per frame. Unless `custom_integration_time_step` is set, the integration step defaults to `min(hx,hy)^2/5`.
 
-**GPU constraints:** `Problem` and `InitialCondition` are captured **by value** in device lambdas. Any method called from the RHS, BCs or IC must be `__cuda_callable__`, and their members (including the `Parameters` copy) end up on the device. Lambdas use `--extended-lambda`, and the build uses relocatable device code (`-rdc=true`).
+**GPU constraints:** `Model` and `InitialCondition` are captured **by value** in device lambdas. Any method called from the RHS, BCs or IC must be `__cuda_callable__`, and their members end up on the device, so they hold only plain data: `Grid`, `ModelParams` (`include/ModelParams.hpp`, the parameters the GPU needs, built by `Parameters::model_params()`) and numbers. `Parameters` itself (strings, run settings) stays on the host. `Model` does not change after construction, so its methods are `const`. Lambdas use `--extended-lambda`, and the build uses relocatable device code (`-rdc=true`).
 
-**Model (`src/Problem.cu`):**
-- Phase RHS: `(1/alpha) * (div T0(grad p) + f_0/ksi^2 - (b/ksi) * p^2(p-1)^2 * F)`, where `T0` contains the anisotropy `psi(theta) = 1 + A cos(m(theta - theta_0))`.
+**Model (`include/Model.hpp`, `src/Model.cu`):**
+- Phase RHS: `(1/alpha) * (div T0(grad p) + f_0/ksi^2 - (b/ksi) * p^2(p-1)^2 * F)`, where `T0` contains the anisotropy `psi(theta) = 1 + A cos(m(theta - theta_0))` (`Anisotropy` in `ModelParams.hpp`, shared with the Wulff IC).
 - `F` (the force term) is selected by `force_term.type`. `constant` and `radial` are verification cases with analytic solutions (a shrinking circle or Wulff shape). `zirconium` uses the Gibbs-energy difference `G_m_alpha - G_m_beta` from `include/constants.hpp`.
 - Concentration only evolves when the force term is `zirconium`; otherwise its RHS is 0.
 - Physical constants and thermodynamic functions for Zr–Nb (CALPHAD-style Gibbs energies, diffusivities, mobilities) are in `include/constants.hpp`.
-- The `#define`s at the top of `Problem.cu` (`INIT`, `FORCE`, `C_TEST_X`, …) are legacy. Runtime behaviour is controlled by the JSON config.
 
 **Config validation (`Parameters::load`):** it requires `m >= 2` and the convexity condition `A <= 1/(m^2-1)`. `radius_proportion` is scaled by the shorter side of the domain.
 
@@ -111,5 +110,5 @@ python3 python/plot.py --name MyRun --frame 10 --type phase   # --frame last wor
   2. Add both string conversions in `src/enums.cu`.
   3. Add a `case` in `InitialCondition::get_phase` (and `get_concentration` if needed) in `src/InitialCondition.cu`.
   4. If it has an analytic solution, add its name to `ANALYTIC_INITIAL_CONDITIONS` and handle it in `analytic_polyline` (both in `python/boundary.py`; `decide_drawing` in `python/cli.py` uses the list).
-- **New config parameter:** add a field in `include/Parameters.hpp` (floating-point fields are `Real`, not `double`, so that a `float` build does no double arithmetic on the GPU), then read it in `Parameters::load`. Also add it to `save_human_readable` and `save_for_latex` so runs stay self-documenting.
+- **New config parameter:** add a field in `include/Parameters.hpp` (floating-point fields are `Real`, not `double`, so that a `float` build does no double arithmetic on the GPU), then read it in `Parameters::load`. Also add it to `save_human_readable` and `save_for_latex` so runs stay self-documenting. If the GPU code needs it, add it to `ModelParams` and copy it in `Parameters::model_params()` (or, for an IC, to the members of `InitialCondition`).
 - **Initial condition from file:** with `init_cond_from_file: true`, the path is resolved relative to the run's `calculations/` folder and the file must be a `Result-*.npy` frame of float or double (converted to `Real`; the shape must be `(2, sizeY, sizeX)`). `scaling: true` embeds every second point of it (a grid with half the resolution) into the centre of the domain. The code is `set_init_cond_from_file` in `src/InitialCondition.cu`.
