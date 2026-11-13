@@ -88,7 +88,7 @@ bool read_frame(const std::filesystem::path& file_path, const Grid& grid,
         return false;
     }
 
-    const std::size_t N = static_cast<std::size_t>(grid.points());
+    const std::size_t N = static_cast<std::size_t>(grid.num_points());
     phase.resize(N);
     conc.resize(N);
     const bool complete = descr == npy::descriptor<float>()

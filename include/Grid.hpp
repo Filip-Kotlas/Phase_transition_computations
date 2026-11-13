@@ -3,7 +3,7 @@
 // The uniform grid of sizeX x sizeY points on the rectangle domain, including the boundary points.
 // The point (i, j), 0 <= i < sizeX, 0 <= j < sizeY, lies at (x(i), y(j)) and has the index
 // index(i, j) = j*sizeX + i in each block of the state vector u (phase in [0, N), concentration in
-// [N, 2N), N = points()). Plain data, built once from the config (Parameters::grid()) and copied into
+// [N, 2N), N = num_points()). Plain data, built once from the config (Parameters::grid()) and copied into
 // the GPU lambdas by value. hx and hy are derived from the other fields, so do not change those after
 // the construction.
 
@@ -35,7 +35,7 @@ struct Grid {
 
     // Number of grid points N (the length of one block of u).
     __cuda_callable__
-    Index points() const { return sizeX * sizeY; }
+    Index num_points() const { return sizeX * sizeY; }
 
     // Position of the point (i, j) in a block of u.
     __cuda_callable__

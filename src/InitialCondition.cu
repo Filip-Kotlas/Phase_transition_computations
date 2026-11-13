@@ -1,5 +1,6 @@
 #include "InitialCondition.hpp"
 #include <vector>
+#include <TNL/Algorithms/parallelFor.h>
 #include "ResultIO.hpp"
 
 __cuda_callable__
@@ -283,7 +284,7 @@ Real InitialCondition::rnd01(uint32_t idx, uint32_t seed) {
 
 void set_init_cond_manually(Vector& u, const InitialCondition& init_cond, const Grid& grid)
 {
-    const Index N = grid.points();
+    const Index N = grid.num_points();
 
     u.forElements( 0, N,
         [ = ] __cuda_callable__( Index ind, Real& value )
@@ -300,7 +301,7 @@ void set_init_cond_manually(Vector& u, const InitialCondition& init_cond, const 
 
 bool set_init_cond_from_file(Vector& u, const std::filesystem::path& filename, const Grid& grid, bool scaling)
 {
-    const Index N = grid.points();
+    const Index N = grid.num_points();
 
     // Values from the file, the point (i, j) is on the position k = grid.index(i, j).
     std::vector<Real> file_phase;
@@ -338,4 +339,52 @@ bool set_init_cond_from_file(Vector& u, const std::filesystem::path& filename, c
     u = host_u;
 
     return true;
+}
+
+// Sets the boundary point edge of u from its neighbour (Neumann) or to dirichlet_value (Dirichlet).
+__cuda_callable__ static
+void set_boundary_point(VectorView& u, Index edge, Index neighbour, BCType bc, Real dirichlet_value)
+{
+    if (bc == BCType::Dirichlet)
+        u[edge] = dirichlet_value;
+    else if (bc == BCType::Neumann)
+        u[edge] = u[neighbour];
+}
+
+void set_init_cond_boundary(Vector& u, const Grid& grid, const ModelParams& params)
+{
+    const Index N = grid.num_points();
+    const Real phase_dirichlet = static_cast<Real>(constants::Phase::beta);
+    const Real conc_dirichlet = constants::c_init_beta;
+
+    // Bottom and top edges first, then left and right edges, in the same order as the boundary
+    // conditions in main.cu, so that the corners get the same values as there: when both
+    // directions are Neumann, the corner becomes the value of the diagonal interior neighbour.
+    auto bottom_top = [ = ] __cuda_callable__( Index i, VectorView& u )
+    {
+        const Index bottom = grid.index(i, 0);
+        const Index top = grid.index(i, grid.sizeY - 1);
+        const Index above_bottom = grid.index(i, 1);
+        const Index below_top = grid.index(i, grid.sizeY - 2);
+        set_boundary_point(u, bottom, above_bottom, params.bc_phase_x, phase_dirichlet);
+        set_boundary_point(u, top, below_top, params.bc_phase_x, phase_dirichlet);
+        set_boundary_point(u, N + bottom, N + above_bottom, params.bc_conc_x, conc_dirichlet);
+        set_boundary_point(u, N + top, N + below_top, params.bc_conc_x, conc_dirichlet);
+    };
+
+    auto left_right = [ = ] __cuda_callable__( Index j, VectorView& u )
+    {
+        const Index left = grid.index(0, j);
+        const Index right = grid.index(grid.sizeX - 1, j);
+        const Index right_of_left = grid.index(1, j);
+        const Index left_of_right = grid.index(grid.sizeX - 2, j);
+        set_boundary_point(u, left, right_of_left, params.bc_phase_y, phase_dirichlet);
+        set_boundary_point(u, right, left_of_right, params.bc_phase_y, phase_dirichlet);
+        set_boundary_point(u, N + left, N + right_of_left, params.bc_conc_y, conc_dirichlet);
+        set_boundary_point(u, N + right, N + left_of_right, params.bc_conc_y, conc_dirichlet);
+    };
+
+    VectorView view = u.getView();
+    TNL::Algorithms::parallelFor< Device >(0, grid.sizeX, bottom_top, view);
+    TNL::Algorithms::parallelFor< Device >(0, grid.sizeY, left_right, view);
 }

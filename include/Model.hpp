@@ -33,7 +33,7 @@ class Model
     };
     __cuda_callable__
     Real conc_at(const VectorView& u, Index i, Index j) const {
-        return u.getElement(grid.points() + grid.index(i, j));
+        return u.getElement(grid.num_points() + grid.index(i, j));
     };
 
     /*
@@ -50,17 +50,17 @@ class Model
     * Boundary conditions
     */
     __cuda_callable__
-    void apply_boundary_condition_xdir(Index ind, VectorView u, VectorView fu) const;
+    void apply_boundary_condition_xdir(Index ind, VectorView fu) const;
     __cuda_callable__
-    void apply_boundary_condition_ydir(Index ind, VectorView u, VectorView fu) const;
+    void apply_boundary_condition_ydir(Index ind, VectorView fu) const;
     __cuda_callable__
-    void apply_phase_boundary_condition_xdir(Index ind, VectorView u, VectorView fu) const;
+    void apply_phase_boundary_condition_xdir(Index ind, VectorView fu) const;
     __cuda_callable__
-    void apply_phase_boundary_condition_ydir(Index ind, VectorView u, VectorView fu) const;
+    void apply_phase_boundary_condition_ydir(Index ind, VectorView fu) const;
     __cuda_callable__
-    void apply_concentration_boundary_condition_xdir(Index ind, VectorView u, VectorView fu) const;
+    void apply_concentration_boundary_condition_xdir(Index ind, VectorView fu) const;
     __cuda_callable__
-    void apply_concentration_boundary_condition_ydir(Index ind, VectorView u, VectorView fu) const;
+    void apply_concentration_boundary_condition_ydir(Index ind, VectorView fu) const;
 
     /*
     * Operators

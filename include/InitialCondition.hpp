@@ -43,11 +43,18 @@ private:
     Grid grid;
 };
 
-// Sets u (of length 2*grid.points()) to the phase and concentration computed by init_cond.
+// Sets u (of length 2*grid.num_points()) to the phase and concentration computed by init_cond.
 void set_init_cond_manually(Vector& u, const InitialCondition& init_cond, const Grid& grid);
 
-// Sets u (of length 2*grid.points()) from a frame Result-*.npy of the same grid (see read_frame).
+// Sets u (of length 2*grid.num_points()) from a frame Result-*.npy of the same grid (see read_frame).
 // Without scaling the frame is copied as it is. With scaling every second point of the frame
 // (a grid with half the resolution) is placed into the centre of the domain, the rest is the beta phase.
 // Prints the reason to std::cerr and returns false on failure.
 bool set_init_cond_from_file(Vector& u, const std::filesystem::path& filename, const Grid& grid, bool scaling);
+
+// Makes the boundary points of the initial condition u satisfy the boundary conditions in params:
+// Dirichlet sets the boundary value (phase beta = 0, concentration c_init_beta), Neumann copies the
+// value of the neighbouring point. The time stepping does not write u on the boundary (Model gives
+// Dirichlet points fu = 0 and Neumann points the fu of their neighbour), so the boundary conditions
+// hold during the run only if they hold at the start. Call it after setting the initial condition.
+void set_init_cond_boundary(Vector& u, const Grid& grid, const ModelParams& params);

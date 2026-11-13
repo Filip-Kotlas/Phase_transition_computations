@@ -88,6 +88,8 @@ int main(int argc, char** argv) {
         InitialCondition init_cond(parameters);
         set_init_cond_manually(u, init_cond, grid);
     }
+    // The time stepping keeps the boundary values consistent only if they are consistent at the start.
+    set_init_cond_boundary(u, grid, parameters.model_params());
     std::cout << "Initial condition set." << std::endl;
 
     // Wall time of the time stepping, including writing the frames.
@@ -107,12 +109,12 @@ int main(int argc, char** argv) {
             model.set_rhs_at(u, fu, ind.x(), ind.y());
         };
 
-        auto boundary_xdir = [ = ] __cuda_callable__( const Index ind, VectorView& u, VectorView& fu ) {
-            model.apply_boundary_condition_xdir(ind , u, fu);
+        auto boundary_xdir = [ = ] __cuda_callable__( const Index ind, VectorView& fu ) {
+            model.apply_boundary_condition_xdir(ind, fu);
         };
 
-        auto boundary_ydir = [ = ] __cuda_callable__( const Index ind, VectorView& u, VectorView& fu ) {
-            model.apply_boundary_condition_ydir(ind , u, fu);
+        auto boundary_ydir = [ = ] __cuda_callable__( const Index ind, VectorView& fu ) {
+            model.apply_boundary_condition_ydir(ind, fu);
         };
 
         auto time_stepping = [ = ]( const Real& t, const Real& tau, const VectorView& u, VectorView& fu )
@@ -122,9 +124,9 @@ int main(int argc, char** argv) {
             TNL::Containers::StaticArray< 2, Index > end = {grid.sizeX - 1, grid.sizeY - 1};
             TNL::Algorithms::parallelFor< Device >(begin, end, rhs, u, fu );
 
-            // iterate over boundary points
-            TNL::Algorithms::parallelFor< Device >(0, grid.sizeX, boundary_xdir, u, fu );
-            TNL::Algorithms::parallelFor< Device >(0, grid.sizeY, boundary_ydir, u, fu );
+            // iterate over boundary points (after the interior, Neumann copies the fu of the neighbour)
+            TNL::Algorithms::parallelFor< Device >(0, grid.sizeX, boundary_xdir, fu );
+            TNL::Algorithms::parallelFor< Device >(0, grid.sizeY, boundary_ydir, fu );
         };
         auto stepStart = std::chrono::high_resolution_clock::now();
         solver.solve( u, time_stepping );
