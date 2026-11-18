@@ -28,21 +28,18 @@
         "x_conc": "neumann",
         "y_conc": "neumann"
     },
-    "problem": {
-        "alpha": 1,
-        "a": 1,
-        "b": 3.53553391,
-        "d": 1600000000000000.0,
-        "T": 1000,
-        "ksi": 0.075
-    },
-    "force_term": {
+    "model": {
         "type": "zirconium",
-        "size": 0
-    },
-    "anisotropy": {
-        "A": 0.06,
-        "m": 4,
-        "theta_0": -0.392699
+        "zirconium": {
+            "alpha": 1,
+            "a": 1,
+            "b": 3.53553391,
+            "ksi": 0.075,
+            "A": 0.06,
+            "m": 4,
+            "theta_0": -0.392699,
+            "d": 1600000000000000.0,
+            "T": 1000
+        }
     }
 }

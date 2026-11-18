@@ -8,14 +8,14 @@ from pathlib import Path
 from typing import List, Union
 import argparse
 import matplotlib
-from dataset import Dataset
+from dataset import Dataset, model_type, force_term
 from plotter import Plotter, BoundaryPlotter2D, SurfacePlotter, CutPlotter
 from boundary import ANALYTIC_INITIAL_CONDITIONS
 
 RESULTS_FOLDER = Path("results")
 PLOT_TYPES = ["phase", "conc", "both"]
-# Force terms for which the concentration is not computed (its RHS is zero), so there is nothing to draw.
-FORCE_TERMS_WITHOUT_CONCENTRATION = ("radial", "constant")
+# Models for which the concentration is not computed (its RHS is zero), so there is nothing to draw.
+MODELS_WITHOUT_CONCENTRATION = ("allen_cahn",)
 
 
 def use_headless_backend() -> None:
@@ -69,23 +69,24 @@ def decide_drawing(configuration: dict, plot_type: str) -> DrawingPlan:
     """
     Decides from the requested type and the configuration of the run what is going to be drawn.
 
-    The concentration is drawn only if it was computed (it is not for the radial and constant force
-    terms). The analytic boundary is drawn only for the cases with a known analytic solution.
+    The concentration is drawn only if it was computed (it is not for the allen_cahn model).
+    The analytic boundary is drawn only for the cases with a known analytic solution.
     """
-    force_type = configuration["force_term"]["type"]
+    model = model_type(configuration)
+    force_type, force_size = force_term(configuration)
     initial_condition = configuration["init_cond"]["initial_condition"]
 
     draw_concentration = plot_type in ("conc", "both")
-    if draw_concentration and force_type in FORCE_TERMS_WITHOUT_CONCENTRATION:
+    if draw_concentration and model in MODELS_WITHOUT_CONCENTRATION:
         if plot_type == "conc":
-            print(f"The concentration is not computed for the force term '{force_type}', "
+            print(f"The concentration is not computed for the model '{model}', "
                   "so there is nothing to draw.")
         draw_concentration = False
 
     # The analytic boundary needs both the initial condition and the force term to have an analytic solution
-    # (the force term: radial, or constant with the size 0).
+    # (the force term of the allen_cahn model: radial, or constant with the size 0).
     draw_analytic_boundary = (initial_condition in ANALYTIC_INITIAL_CONDITIONS
-                              and ((force_type == "constant" and configuration["force_term"]["size"] == 0)
+                              and ((force_type == "constant" and force_size == 0)
                                    or force_type == "radial"))
 
     return DrawingPlan(draw_phase=plot_type in ("phase", "both"),

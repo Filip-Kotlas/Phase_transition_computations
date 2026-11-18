@@ -3,7 +3,6 @@
 #include "types.hpp"
 #include "constants.hpp"
 #include "Parameters.hpp"
-#include "ModelParams.hpp"
 #include "Grid.hpp"
 #include "enums.hpp"
 
@@ -12,12 +11,13 @@
 class InitialCondition {
 public:
 
-    explicit InitialCondition(const Parameters& parameters)
+    // ksi and anisotropy: those of the model's phase equation (for HyperbolicTangent and WulffShape).
+    InitialCondition(const Parameters& parameters, Real ksi, const Anisotropy& anisotropy)
     :  init_condition(parameters.init_condition),
        init_cond_radius(parameters.init_cond_radius),
        slope_width(parameters.init_cond_slope_width),
-       ksi(parameters.ksi),
-       anisotropy(parameters.model_params().anisotropy),
+       ksi(ksi),
+       anisotropy(anisotropy),
        grid(parameters.grid())
     {}
 
@@ -57,4 +57,12 @@ bool set_init_cond_from_file(Vector& u, const std::filesystem::path& filename, c
 // value of the neighbouring point. The time stepping does not write u on the boundary (Model gives
 // Dirichlet points fu = 0 and Neumann points the fu of their neighbour), so the boundary conditions
 // hold during the run only if they hold at the start. Call it after setting the initial condition.
-void set_init_cond_boundary(Vector& u, const Grid& grid, const ModelParams& params);
+void set_init_cond_boundary(Vector& u, const Grid& grid, const BoundaryConditions& bound_cond);
+
+// Sets u (of length 2*grid.num_points()) to the initial condition of the run: read from the file
+// init_cond_file_path (relative to calculations_dir, the calculations/ folder of the run) or computed
+// in code (init_condition; ksi and the anisotropy are the model's parameters), and then
+// makes it satisfy the boundary conditions (set_init_cond_boundary). Prints the reason to std::cerr
+// and returns false on failure.
+bool set_initial_condition(Vector& u, const Parameters& parameters, Real ksi, const Anisotropy& anisotropy,
+                           const std::filesystem::path& calculations_dir);

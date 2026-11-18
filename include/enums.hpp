@@ -24,17 +24,10 @@ enum class BCType {
     Neumann
 };
 
+// The prescribed force term of AllenCahnModel (model.allen_cahn.force_term).
 enum class FTType {
     Constant,
-    Zirconium,
     Radial
-};
-
-// The model (the class in main.cu's run<ModelT>) of a run; given by the force term type,
-// see Parameters::model_type().
-enum class ModelType {
-    AllenCahn,  // AllenCahnModel
-    Zirconium   // ZirconiumModel
 };
 
 std::string BCType_to_string(BCType bc_type);

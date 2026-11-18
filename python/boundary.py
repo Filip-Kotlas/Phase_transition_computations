@@ -8,7 +8,7 @@ from typing import List, Tuple
 import math
 import numpy as np
 import contourpy
-from dataset import Dataset
+from dataset import Dataset, force_term, anisotropy
 
 NUMERICAL_FILE = "interface_num.crv"
 ANALYTIC_FILE = "interface_anal.crv"
@@ -116,10 +116,10 @@ def analytic_polyline(configuration: dict, t: float, number_of_segments: int=100
                        domain["y_right"] - domain["y_left"])
     r0 = configuration["init_cond"]["radius_proportion"] * smaller_side
 
-    force_term = configuration["force_term"]
-    if force_term["type"] == "constant" and force_term["size"] == 0:
+    force_type, force_size = force_term(configuration)
+    if force_type == "constant" and force_size == 0:
         r_squared = r0**2 - 2*t
-    elif force_term["type"] == "radial":
+    elif force_type == "radial":
         r_squared = r0**2 + 2*t
     else:
         return np.array([]), np.array([])
@@ -137,8 +137,9 @@ def analytic_polyline(configuration: dict, t: float, number_of_segments: int=100
         boundary_y = r * np.sin(theta) + offset_y
     else:
         # The Wulff shape with the anisotropy psi(theta) = 1 + A cos(m (theta - theta_0)).
-        anisotropy = configuration["anisotropy"]
-        theta_0, m, A = anisotropy["theta_0"], anisotropy["m"], anisotropy["A"]
+        # A model without anisotropy (the solver refuses WulffShape for it) would give the circle.
+        psi_params = anisotropy(configuration) or {"A": 0.0, "m": 2, "theta_0": 0.0}
+        theta_0, m, A = psi_params["theta_0"], psi_params["m"], psi_params["A"]
         psi = 1 + A*np.cos(m*(theta - theta_0))
         der_psi = -m*A*np.sin(m*(theta - theta_0))
         boundary_x = r*(psi*np.cos(theta) - der_psi*np.sin(theta)) + offset_x

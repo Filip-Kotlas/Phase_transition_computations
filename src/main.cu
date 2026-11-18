@@ -9,6 +9,7 @@
 #include <filesystem>
 #include <json.hpp>
 #include <string>
+#include <stdexcept>
 
 #include "AllenCahnModel.hpp"
 #include "ZirconiumModel.hpp"
@@ -52,35 +53,12 @@ void print_progress(Index step_number, const Parameters& parameters, int elapsed
     std::cout << "    Integration steps: " << accepted << " (rejected: " << rejected << ")" << std::endl;
 }
 
-// The computation with the model ModelT (see Model.hpp; main chooses it from the config): the initial
-// condition, the time stepping and the frames written into run_folder. Returns the exit code of the program.
+// The computation: the time stepping of u (the initial condition, set by start) with the model,
+// and the frames written into run_folder. Returns the exit code of the program.
 template< class ModelT >
-int run(const Parameters& parameters, const RunFolder& run_folder)
+int run(const Parameters& parameters, const ModelT& model, Vector& u, const RunFolder& run_folder)
 {
     const Grid grid = parameters.grid();
-
-    ModelT model(parameters);
-    Vector u(model.getDegreesOfFreedom());
-
-    if (parameters.init_cond_from_file){
-        // The path in the config is relative to the calculations/ folder of this run.
-        const std::filesystem::path init_cond_path = run_folder.calculations() / parameters.init_cond_file_path;
-        std::cout << "Setting initial condition from file: " << init_cond_path << std::endl;
-        if (!set_init_cond_from_file(u, init_cond_path, grid, parameters.init_cond_scaling)){
-            std::cerr << "Error: could not set the initial condition from the file " << init_cond_path
-                      << " (init_cond_file_path = " << parameters.init_cond_file_path
-                      << ", resolved relative to " << run_folder.calculations() << "). Exiting." << std::endl;
-            return EXIT_FAILURE;
-        }
-    }
-    else{
-        std::cout << "Setting initial condition from code: " << ICType_to_string(parameters.init_condition) << std::endl;
-        InitialCondition init_cond(parameters);
-        set_init_cond_manually(u, init_cond, grid);
-    }
-    // The time stepping keeps the boundary values consistent only if they are consistent at the start.
-    set_init_cond_boundary(u, grid, parameters.model_params());
-    std::cout << "Initial condition set." << std::endl;
 
     // Wall time of the time stepping, including writing the frames.
     const auto computation_start = std::chrono::steady_clock::now();
@@ -169,6 +147,30 @@ int run(const Parameters& parameters, const RunFolder& run_folder)
     return EXIT_SUCCESS;
 }
 
+// Reads the parameters of the model ModelT from its config section (strictly, so that a wrong config
+// stops before anything is written), creates run_folder and records the setup there, builds the model
+// and the initial condition, and runs the computation.
+template< class ModelT >
+int start(const Parameters& parameters, const RunFolder& run_folder,
+          const std::filesystem::path& input_config_path, std::time_t run_start)
+{
+    const typename ModelT::Params model_params = ModelT::Params::load(parameters.model_config);
+
+    if (!run_folder.create())
+        return EXIT_FAILURE;
+    run_folder.save_setup(parameters, model_params.entries(), input_config_path);
+    run_folder.write_run_start_info(run_start);
+
+    const ModelT model(parameters, model_params);
+    Vector u(model.getDegreesOfFreedom());
+    // ksi and the anisotropy of the model, for the initial conditions HyperbolicTangent and WulffShape.
+    if (!set_initial_condition(u, parameters, model_params.ksi, model_params.anisotropy,
+                               run_folder.calculations()))
+        return EXIT_FAILURE;
+
+    return run(parameters, model, u, run_folder);
+}
+
 int main(int argc, char** argv) {
     const std::time_t run_start = std::time(nullptr);
 
@@ -180,20 +182,15 @@ int main(int argc, char** argv) {
     if (argc >= 3)
         input_config_path = argv[2];
 
-    Parameters parameters = Parameters::load(input_config_path);
+    const Parameters parameters = Parameters::load(input_config_path);
+    const RunFolder run_folder(result_path);
 
-    RunFolder run_folder(result_path);
-    if (!run_folder.create())
-        return EXIT_FAILURE;
-    run_folder.save_setup(parameters, input_config_path);
-    run_folder.write_run_start_info(run_start);
-
-    // Each model is a separate instantiation of run, compiled with its own GPU kernels.
-    switch (parameters.model_type()) {
-        case ModelType::AllenCahn:
-            return run<AllenCahnModel>(parameters, run_folder);
-        case ModelType::Zirconium:
-            return run<ZirconiumModel>(parameters, run_folder);
-    }
-    return EXIT_FAILURE;
+    // The model is chosen by its name in the config (model.type). Each model is a separate
+    // instantiation of start and run, compiled with its own GPU kernels; a new model is added here.
+    if (parameters.model_type == AllenCahnModel::name)
+        return start<AllenCahnModel>(parameters, run_folder, input_config_path, run_start);
+    if (parameters.model_type == ZirconiumModel::name)
+        return start<ZirconiumModel>(parameters, run_folder, input_config_path, run_start);
+    throw std::runtime_error("Unknown model in the config: model.type = \"" + parameters.model_type + "\" (known: "
+                             + AllenCahnModel::name + ", " + ZirconiumModel::name + ").");
 }

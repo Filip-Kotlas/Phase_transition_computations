@@ -60,11 +60,12 @@ bool RunFolder::create() const
     return true;
 }
 
-void RunFolder::save_setup(const Parameters& parameters, const std::filesystem::path& input_config) const
+void RunFolder::save_setup(const Parameters& parameters, const std::vector<ParameterEntry>& model_entries,
+                           const std::filesystem::path& input_config) const
 {
-    parameters.save_human_readable(parameters_file);
+    parameters.save_human_readable(parameters_file, model_entries);
     parameters.save_copy_of_config(input_config, setup_dir / "config.json");
-    parameters.save_for_latex(setup_dir / "parameters.tex");
+    parameters.save_for_latex(setup_dir / "parameters.tex", model_entries);
 }
 
 void RunFolder::write_run_start_info(std::time_t run_start) const

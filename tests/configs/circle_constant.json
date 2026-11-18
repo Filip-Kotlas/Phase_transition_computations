@@ -44,5 +44,19 @@
         "A": 0.0,
         "m": 4,
         "theta_0": 0.0
+    },
+    "model": {
+        "type": "allen_cahn",
+        "allen_cahn": {
+            "alpha": 1,
+            "a": 1,
+            "b": 1,
+            "ksi": 0.05,
+            "A": 0.0,
+            "m": 4,
+            "theta_0": 0.0,
+            "force_term": "constant",
+            "force_size": 1.0
+        }
     }
 }

@@ -1,4 +1,5 @@
 #include "Parameters.hpp"
+#include "ConfigSection.hpp"
 #include <fstream>
 #include <iomanip>
 #include <sstream>
@@ -56,83 +57,48 @@ Parameters Parameters::load(const std::filesystem::path& filename) {
 
     // boundary conditions
     auto boundary_conditions = config.at("bound_cond");
-    p.bc_phase_x = string_to_BCType(boundary_conditions.value("x_phase", "neumann"));
-    p.bc_phase_y = string_to_BCType(boundary_conditions.value("y_phase", "neumann"));
-    p.bc_conc_x  = string_to_BCType(boundary_conditions.value("x_conc", "neumann"));
-    p.bc_conc_y  = string_to_BCType(boundary_conditions.value("y_conc", "neumann"));
-    if ( (p.bc_phase_x != BCType::Neumann) && (p.bc_phase_x != BCType::Dirichlet) )
-        throw std::runtime_error("Unknown boundary condition for phase field in x direction: " + BCType_to_string(p.bc_phase_x));
-    if ( (p.bc_phase_y != BCType::Neumann) && (p.bc_phase_y != BCType::Dirichlet) )
-        throw std::runtime_error("Unknown boundary condition for phase field in y direction: " + BCType_to_string(p.bc_phase_y));
-    if ( (p.bc_conc_x != BCType::Neumann) && (p.bc_conc_x != BCType::Dirichlet) )
-        throw std::runtime_error("Unknown boundary condition for concentration in x direction: " + BCType_to_string(p.bc_conc_x));
-    if ( (p.bc_conc_y != BCType::Neumann) && (p.bc_conc_y != BCType::Dirichlet) )
-        throw std::runtime_error("Unknown boundary condition for concentration in y direction: " + BCType_to_string(p.bc_conc_y));
+    p.bound_cond.phase_x = string_to_BCType(boundary_conditions.value("x_phase", "neumann"));
+    p.bound_cond.phase_y = string_to_BCType(boundary_conditions.value("y_phase", "neumann"));
+    p.bound_cond.conc_x  = string_to_BCType(boundary_conditions.value("x_conc", "neumann"));
+    p.bound_cond.conc_y  = string_to_BCType(boundary_conditions.value("y_conc", "neumann"));
+    if ( (p.bound_cond.phase_x != BCType::Neumann) && (p.bound_cond.phase_x != BCType::Dirichlet) )
+        throw std::runtime_error("Unknown boundary condition for phase field in x direction: " + BCType_to_string(p.bound_cond.phase_x));
+    if ( (p.bound_cond.phase_y != BCType::Neumann) && (p.bound_cond.phase_y != BCType::Dirichlet) )
+        throw std::runtime_error("Unknown boundary condition for phase field in y direction: " + BCType_to_string(p.bound_cond.phase_y));
+    if ( (p.bound_cond.conc_x != BCType::Neumann) && (p.bound_cond.conc_x != BCType::Dirichlet) )
+        throw std::runtime_error("Unknown boundary condition for concentration in x direction: " + BCType_to_string(p.bound_cond.conc_x));
+    if ( (p.bound_cond.conc_y != BCType::Neumann) && (p.bound_cond.conc_y != BCType::Dirichlet) )
+        throw std::runtime_error("Unknown boundary condition for concentration in y direction: " + BCType_to_string(p.bound_cond.conc_y));
 
-    // problem parameters
-    auto problem = config.at("problem");
-    p.alpha = problem.value("alpha", 1.0);
-    p.beta  = problem.value("beta", 1.0);
-    p.par_a = problem.value("a", 1.0);
-    p.par_b = problem.value("b", 0.1);
-    p.par_d = problem.value("d", 5e15);
-    p.T = problem.value("T", 1200.0);
-    p.ksi   = problem.value("ksi", 0.01);
+    // The old layout had the model's parameters in the top-level sections problem, force_term and anisotropy.
+    if (!config.contains("model") && (config.contains("problem") || config.contains("force_term")))
+        throw std::runtime_error("The config " + filename.string() + " has the old layout (the sections problem,"
+                                 " force_term, anisotropy); convert it with python3 python/migrate_config.py "
+                                 + filename.string());
 
-    // force term parameters
-    auto force_term = config.at("force_term");
-    p.force_term_type = string_to_FTType(force_term.value("type", "zirconium"));
-    p.force_term_size = force_term.value("size", 0.0);
-    if (p.force_term_type != FTType::Zirconium && p.force_term_type != FTType::Constant && p.force_term_type != FTType::Radial) {
-        throw std::runtime_error("Unknown force term type in config: " + FTType_to_string(p.force_term_type));
+    // the model: only its type and its section are taken here, the model reads the section itself
+    // (ModelT::Params::load). The section "model" may also hold the sections of other models.
+    if (!config.contains("model"))
+        throw std::runtime_error("The config is missing the section model.");
+    ConfigSection model(config.at("model"), "model");
+    p.model_type = model.get<std::string>("type");
+    if (!model.contains(p.model_type))
+        throw std::runtime_error("The config is missing model." + p.model_type
+                                 + ", the section with the parameters of the model " + p.model_type + ".");
+    p.model_config = config.at("model").at(p.model_type);
+
+    // Anything else at the top level is not read, e.g. a parameter that belongs into model.<type>.
+    for (const auto& item : config.items()) {
+        if (item.key() != "solver" && item.key() != "init_cond" && item.key() != "bound_cond" && item.key() != "model")
+            std::cerr << "Warning: the config section " << item.key() << " is not used (the physical parameters"
+                         " of the model belong into model." << p.model_type << ")." << std::endl;
     }
 
-    // anisotropy parameters
-    auto anisotropy = config.at("anisotropy");
-    p.A = anisotropy.value("A", 0.3);
-    // m has to be an integer, otherwise psi is not 2*pi-periodic. value() would silently truncate 2.5 to 2.
-    if (anisotropy.contains("m") && !anisotropy.at("m").is_number_integer())
-        throw std::runtime_error("The anisotropy parameter m has to be an integer (e.g. 4, not 4.0 or 4.5).");
-    p.m = anisotropy.value("m", 2);
-    p.theta_0 = anisotropy.value("theta_0", 0.0);
-    if (p.m < 2)
-        throw std::runtime_error("The anisotropy parameter m has to be at least 2.");
-    if (p.A > 1.0/(p.m*p.m - 1))
-        throw std::runtime_error("Parameters A and m do not fulfill the convexity condition.");
-    
     return p;
 }
 
-ModelParams Parameters::model_params() const {
-    ModelParams params;
-    params.alpha = alpha;
-    params.par_a = par_a;
-    params.par_b = par_b;
-    params.par_d = par_d;
-    params.T = T;
-    params.ksi = ksi;
-    params.force_term_type = force_term_type;
-    params.force_term_size = force_term_size;
-    params.anisotropy = Anisotropy{A, m, theta_0};
-    params.bc_phase_x = bc_phase_x;
-    params.bc_phase_y = bc_phase_y;
-    params.bc_conc_x = bc_conc_x;
-    params.bc_conc_y = bc_conc_y;
-    return params;
-}
-
-ModelType Parameters::model_type() const {
-    switch (force_term_type) {
-        case FTType::Constant:
-        case FTType::Radial:
-            return ModelType::AllenCahn;
-        case FTType::Zirconium:
-            return ModelType::Zirconium;
-    }
-    throw std::runtime_error("No model for the force term type " + FTType_to_string(force_term_type));
-}
-
-void Parameters::save_human_readable(const std::filesystem::path& filename) const {
+void Parameters::save_human_readable(const std::filesystem::path& filename,
+                                     const std::vector<ParameterEntry>& model_entries) const {
     std::ofstream file(filename);
     if (!file) {
         throw std::runtime_error("Unable to open the file " + filename.string());
@@ -158,28 +124,18 @@ void Parameters::save_human_readable(const std::filesystem::path& filename) cons
     file << std::left << std::setw(max_label_length) << "Initial condition radius:"   << std::right << std::setw(max_value_length) << init_cond_radius << std::endl;
     file << std::left << std::setw(max_label_length) << "Initial condition slope width:"   << std::right << std::setw(max_value_length) << init_cond_slope_width << std::endl;
     file << std::endl;
-    file << std::left << std::setw(max_label_length) << "Boundary condition phase x:"   << std::right << std::setw(max_value_length) << BCType_to_string(bc_phase_x) << std::endl;
-    file << std::left << std::setw(max_label_length) << "Boundary condition phase y:"   << std::right << std::setw(max_value_length) << BCType_to_string(bc_phase_y) << std::endl;
-    file << std::left << std::setw(max_label_length) << "Boundary condition conc x:"    << std::right << std::setw(max_value_length) << BCType_to_string(bc_conc_x) << std::endl;
-    file << std::left << std::setw(max_label_length) << "Boundary condition conc y:"    << std::right << std::setw(max_value_length) << BCType_to_string(bc_conc_y) << std::endl;
+    file << std::left << std::setw(max_label_length) << "Boundary condition phase x:"   << std::right << std::setw(max_value_length) << BCType_to_string(bound_cond.phase_x) << std::endl;
+    file << std::left << std::setw(max_label_length) << "Boundary condition phase y:"   << std::right << std::setw(max_value_length) << BCType_to_string(bound_cond.phase_y) << std::endl;
+    file << std::left << std::setw(max_label_length) << "Boundary condition conc x:"    << std::right << std::setw(max_value_length) << BCType_to_string(bound_cond.conc_x) << std::endl;
+    file << std::left << std::setw(max_label_length) << "Boundary condition conc y:"    << std::right << std::setw(max_value_length) << BCType_to_string(bound_cond.conc_y) << std::endl;
     file << std::endl;
-    file << std::left << std::setw(max_label_length) << "Force term type:"   << std::right << std::setw(max_value_length) << FTType_to_string(force_term_type) << std::endl;
-    if (force_term_type == FTType::Constant || force_term_type == FTType::Radial)
-        file << std::left << std::setw(max_label_length) << "Force term size:"   << std::right << std::setw(max_value_length) << force_term_size << std::endl;
-    file << std::endl;
-    file << std::left << std::setw(max_label_length) << "Alpha:" << std::right << std::setw(max_value_length) << alpha << std::endl;
-    file << std::left << std::setw(max_label_length) << "Beta:"  << std::right << std::setw(max_value_length) << beta << std::endl;
-    file << std::left << std::setw(max_label_length) << "a:" << std::right << std::setw(max_value_length) << par_a << std::endl;
-    file << std::left << std::setw(max_label_length) << "b:" << std::right << std::setw(max_value_length) << par_b << std::endl;
-    file << std::left << std::setw(max_label_length) << "d:" << std::right << std::setw(max_value_length) << par_d << std::endl;
-    file << std::left << std::setw(max_label_length) << "T:" << std::right << std::setw(max_value_length) << T << std::endl;
-    file << std::left << std::setw(max_label_length) << "Ksi:"   << std::right << std::setw(max_value_length) << ksi << std::endl;
-    file << std::left << std::setw(max_label_length) << "A:"   << std::right << std::setw(max_value_length) << A << std::endl;
-    file << std::left << std::setw(max_label_length) << "m:"   << std::right << std::setw(max_value_length) << m << std::endl;
-    file << std::left << std::setw(max_label_length) << "theta_0:"   << std::right << std::setw(max_value_length) << theta_0 << std::endl;
+    file << std::left << std::setw(max_label_length) << "Model:"   << std::right << std::setw(max_value_length) << model_type << std::endl;
+    for (const ParameterEntry& entry : model_entries)
+        file << std::left << std::setw(max_label_length) << entry.label + ":" << std::right << std::setw(max_value_length) << entry.value << std::endl;
 }
 
-void Parameters::save_for_latex(const std::filesystem::path& filename) const {
+void Parameters::save_for_latex(const std::filesystem::path& filename,
+                                const std::vector<ParameterEntry>& model_entries) const {
     std::ofstream file(filename);
     if (!file) {
         throw std::runtime_error("Unable to open the file " + filename.string());
@@ -210,40 +166,33 @@ void Parameters::save_for_latex(const std::filesystem::path& filename) const {
 
     file << "\\textbf{Boundary conditions:}" << std::endl << std::endl;
     file << "\\begin{tabular}{ll}" << std::endl;
-    if (bc_phase_x == BCType::Dirichlet && bc_phase_y == BCType::Dirichlet &&
-        bc_conc_x == BCType::Dirichlet && bc_conc_y == BCType::Dirichlet) {
+    if (bound_cond.phase_x == BCType::Dirichlet && bound_cond.phase_y == BCType::Dirichlet &&
+        bound_cond.conc_x == BCType::Dirichlet && bound_cond.conc_y == BCType::Dirichlet) {
         file << "everywhere & Dirichlet \\\\" << std::endl << std::endl;
     }
-    else if (bc_phase_x == BCType::Neumann && bc_phase_y == BCType::Neumann &&
-             bc_conc_x == BCType::Neumann && bc_conc_y == BCType::Neumann) {
+    else if (bound_cond.phase_x == BCType::Neumann && bound_cond.phase_y == BCType::Neumann &&
+             bound_cond.conc_x == BCType::Neumann && bound_cond.conc_y == BCType::Neumann) {
         file << "everywhere & Neumann \\\\" << std::endl << std::endl;
     }
     else {            
-        file << "phase field in the \\(x\\) direction & " << BCType_to_string(bc_phase_x) << " \\\\" << std::endl;
-        file << "phase field in the \\(y\\) direction & " << BCType_to_string(bc_phase_y) << " \\\\" << std::endl;
-        file << "concentration in the \\(x\\) direction & " << BCType_to_string(bc_conc_x) << " \\\\" << std::endl;
-        file << "concentration in the \\(y\\) direction & " << BCType_to_string(bc_conc_y) << " \\\\" << std::endl;
+        file << "phase field in the \\(x\\) direction & " << BCType_to_string(bound_cond.phase_x) << " \\\\" << std::endl;
+        file << "phase field in the \\(y\\) direction & " << BCType_to_string(bound_cond.phase_y) << " \\\\" << std::endl;
+        file << "concentration in the \\(x\\) direction & " << BCType_to_string(bound_cond.conc_x) << " \\\\" << std::endl;
+        file << "concentration in the \\(y\\) direction & " << BCType_to_string(bound_cond.conc_y) << " \\\\" << std::endl;
     }
     file << "\\end{tabular}" << std::endl << std::endl;
 
-    file << "\\textbf{Model parameters:}" << std::endl << std::endl;
+    std::string latex_model_type;  // "allen_cahn" -> "allen\_cahn", a bare _ is an error outside math in LaTeX
+    for (const char ch : model_type) {
+        if (ch == '_')
+            latex_model_type += '\\';
+        latex_model_type += ch;
+    }
+    file << "\\textbf{Model parameters (" << latex_model_type << "):}" << std::endl << std::endl;
     file << "\\begin{tabular}{ll}" << std::endl;
-    file << "\\(\\alpha\\) & " << alpha << " \\\\" << std::endl;
-    file << "\\(\\beta\\) & " << beta << " \\\\" << std::endl;
-    file << "\\(a\\) & " << par_a << " \\\\" << std::endl;
-    file << "\\(b\\) & " << par_b << " \\\\" << std::endl;
-    file << "\\(d\\) & " << par_d << " \\\\" << std::endl;
-    file << "\\(T\\) & " << T << " \\\\" << std::endl;
-    file << "\\(\\xi\\) & " << ksi << " \\\\" << std::endl;
-    file << "\\end{tabular}" << std::endl << std::endl;
-
-    file << "\\textbf{Anisotropy parameters:}" << std::endl << std::endl;
-    file << "\\begin{tabular}{ll}" << std::endl;
-    file << "\\(A\\) & " << A << " \\\\" << std::endl;
-    file << "\\(m\\) & " << m << " \\\\" << std::endl;
-    file << "\\(\\theta_0\\) & " << theta_0 << " \\\\" << std::endl;
+    for (const ParameterEntry& entry : model_entries)
+        file << entry.latex << " & " << entry.value << " \\\\" << std::endl;
     file << "\\end{tabular}" << std::endl;
-
 }
 
 void Parameters::save_copy_of_config(const std::filesystem::path& original_path,

@@ -1,5 +1,6 @@
 #include "InitialCondition.hpp"
 #include <vector>
+#include <iostream>
 #include <TNL/Algorithms/parallelFor.h>
 #include "ResultIO.hpp"
 
@@ -351,7 +352,7 @@ void set_boundary_point(VectorView& u, Index edge, Index neighbour, BCType bc, R
         u[edge] = u[neighbour];
 }
 
-void set_init_cond_boundary(Vector& u, const Grid& grid, const ModelParams& params)
+void set_init_cond_boundary(Vector& u, const Grid& grid, const BoundaryConditions& bound_cond)
 {
     const Index N = grid.num_points();
     const Real phase_dirichlet = static_cast<Real>(constants::Phase::beta);
@@ -366,10 +367,10 @@ void set_init_cond_boundary(Vector& u, const Grid& grid, const ModelParams& para
         const Index top = grid.index(i, grid.sizeY - 1);
         const Index above_bottom = grid.index(i, 1);
         const Index below_top = grid.index(i, grid.sizeY - 2);
-        set_boundary_point(u, bottom, above_bottom, params.bc_phase_x, phase_dirichlet);
-        set_boundary_point(u, top, below_top, params.bc_phase_x, phase_dirichlet);
-        set_boundary_point(u, N + bottom, N + above_bottom, params.bc_conc_x, conc_dirichlet);
-        set_boundary_point(u, N + top, N + below_top, params.bc_conc_x, conc_dirichlet);
+        set_boundary_point(u, bottom, above_bottom, bound_cond.phase_x, phase_dirichlet);
+        set_boundary_point(u, top, below_top, bound_cond.phase_x, phase_dirichlet);
+        set_boundary_point(u, N + bottom, N + above_bottom, bound_cond.conc_x, conc_dirichlet);
+        set_boundary_point(u, N + top, N + below_top, bound_cond.conc_x, conc_dirichlet);
     };
 
     auto left_right = [ = ] __cuda_callable__( Index j, VectorView& u )
@@ -378,13 +379,40 @@ void set_init_cond_boundary(Vector& u, const Grid& grid, const ModelParams& para
         const Index right = grid.index(grid.sizeX - 1, j);
         const Index right_of_left = grid.index(1, j);
         const Index left_of_right = grid.index(grid.sizeX - 2, j);
-        set_boundary_point(u, left, right_of_left, params.bc_phase_y, phase_dirichlet);
-        set_boundary_point(u, right, left_of_right, params.bc_phase_y, phase_dirichlet);
-        set_boundary_point(u, N + left, N + right_of_left, params.bc_conc_y, conc_dirichlet);
-        set_boundary_point(u, N + right, N + left_of_right, params.bc_conc_y, conc_dirichlet);
+        set_boundary_point(u, left, right_of_left, bound_cond.phase_y, phase_dirichlet);
+        set_boundary_point(u, right, left_of_right, bound_cond.phase_y, phase_dirichlet);
+        set_boundary_point(u, N + left, N + right_of_left, bound_cond.conc_y, conc_dirichlet);
+        set_boundary_point(u, N + right, N + left_of_right, bound_cond.conc_y, conc_dirichlet);
     };
 
     VectorView view = u.getView();
     TNL::Algorithms::parallelFor< Device >(0, grid.sizeX, bottom_top, view);
     TNL::Algorithms::parallelFor< Device >(0, grid.sizeY, left_right, view);
+}
+
+bool set_initial_condition(Vector& u, const Parameters& parameters, Real ksi, const Anisotropy& anisotropy,
+                           const std::filesystem::path& calculations_dir)
+{
+    const Grid grid = parameters.grid();
+
+    if (parameters.init_cond_from_file){
+        // The path in the config is relative to the calculations/ folder of this run.
+        const std::filesystem::path init_cond_path = calculations_dir / parameters.init_cond_file_path;
+        std::cout << "Setting initial condition from file: " << init_cond_path << std::endl;
+        if (!set_init_cond_from_file(u, init_cond_path, grid, parameters.init_cond_scaling)){
+            std::cerr << "Error: could not set the initial condition from the file " << init_cond_path
+                      << " (init_cond_file_path = " << parameters.init_cond_file_path
+                      << ", resolved relative to " << calculations_dir << "). Exiting." << std::endl;
+            return false;
+        }
+    }
+    else{
+        std::cout << "Setting initial condition from code: " << ICType_to_string(parameters.init_condition) << std::endl;
+        InitialCondition init_cond(parameters, ksi, anisotropy);
+        set_init_cond_manually(u, init_cond, grid);
+    }
+    // The time stepping keeps the boundary values consistent only if they are consistent at the start.
+    set_init_cond_boundary(u, grid, parameters.bound_cond);
+    std::cout << "Initial condition set." << std::endl;
+    return true;
 }

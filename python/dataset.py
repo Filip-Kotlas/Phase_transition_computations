@@ -1,8 +1,43 @@
 """Loading of the computed results, separated from the plotting."""
 from pathlib import Path
-from typing import List, Tuple
+from typing import List, Optional, Tuple
 import json
 import numpy as np
+
+
+def model_type(configuration: dict) -> str:
+    """The model of the run, "allen_cahn" or "zirconium" (model.type in the config).
+
+    Configs from before the section "model" (with the physical parameters in the top-level sections
+    "problem", "force_term" and "anisotropy", see python/migrate_config.py) are understood too:
+    there the model follows from force_term.type.
+    """
+    if "model" in configuration:
+        return configuration["model"]["type"]
+    return "zirconium" if configuration["force_term"]["type"] == "zirconium" else "allen_cahn"
+
+
+def force_term(configuration: dict) -> Tuple[str, float]:
+    """The prescribed force term of the allen_cahn model as (type, size), e.g. ("constant", 0.0);
+    the size is 0 for "radial", which has none. ("", 0.0) for the other models. Old configs too."""
+    if model_type(configuration) != "allen_cahn":
+        return "", 0.0
+    if "model" in configuration:
+        section = configuration["model"]["allen_cahn"]
+        return section["force_term"], section.get("force_size", 0.0)
+    old = configuration["force_term"]
+    return old["type"], old.get("size", 0.0)
+
+
+def anisotropy(configuration: dict) -> Optional[dict]:
+    """The anisotropy {"A", "m", "theta_0"} of the model (the keys A, m, theta_0 of model.<type>),
+    None if the model has none. Old configs too (the top-level section "anisotropy")."""
+    if "model" in configuration:
+        section = configuration["model"][model_type(configuration)]
+        if "A" not in section:
+            return None
+        return {key: section[key] for key in ("A", "m", "theta_0")}
+    return configuration.get("anisotropy")
 
 
 class Dataset():

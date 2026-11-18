@@ -86,8 +86,6 @@ std::string FTType_to_string(FTType ft_type) {
     switch (ft_type) {
         case FTType::Constant:
             return "constant";
-        case FTType::Zirconium:
-            return "zirconium";
         case FTType::Radial:
             return "radial";
         default:
@@ -98,8 +96,6 @@ std::string FTType_to_string(FTType ft_type) {
 FTType string_to_FTType(const std::string& str) {
     if (str == "constant") {
         return FTType::Constant;
-    } else if (str == "zirconium") {
-        return FTType::Zirconium;
     } else if (str == "radial") {
         return FTType::Radial;
     } else {

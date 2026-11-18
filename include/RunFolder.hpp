@@ -8,6 +8,7 @@
 #include <ctime>
 #include <filesystem>
 #include <string>
+#include <vector>
 
 #include "Parameters.hpp"
 
@@ -23,9 +24,11 @@ public:
     // The folder with the frames Result-NNNNN.npy; init_cond_file_path is relative to it too.
     const std::filesystem::path& calculations() const { return calculations_dir; }
 
-    // Writes parameters.txt, a copy of the config (config.json) and parameters.tex into info/setup/.
+    // Writes parameters.txt, a copy of the config (config.json) and parameters.tex into info/setup/;
+    // model_entries are the parameters of the model (ModelT::Params::entries()).
     // Throws std::runtime_error when a file cannot be opened (from the Parameters::save_* methods).
-    void save_setup(const Parameters& parameters, const std::filesystem::path& input_config) const;
+    void save_setup(const Parameters& parameters, const std::vector<ParameterEntry>& model_entries,
+                    const std::filesystem::path& input_config) const;
 
     // Appends the run date (run_start), the computer and the GPU to parameters.txt. Called at the
     // start, so that a run that crashes or is killed still records them. Only warns on failure.
