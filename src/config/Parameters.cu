@@ -63,7 +63,10 @@ Parameters Parameters::load(const std::filesystem::path& filename) {
     Real computed_integration_step = pow(std::min(grid.hx, grid.hy), 2) / 5.0;
     const bool custom_integration_step = solver.get<bool>("custom_integration_time_step");
     const Real integration_time_step = solver.get<Real>("integration_time_step");
+    p.adaptivity = solver.get<Real>("adaptivity");
     solver.check_all_read();
+    if (!(p.adaptivity >= 0))
+        throw std::runtime_error("solver.adaptivity has to be 0 (no adaptivity) or positive.");
     if (custom_integration_step) {
         if (!(integration_time_step > 0))
             throw std::runtime_error("solver.integration_time_step has to be positive.");
@@ -145,6 +148,7 @@ void Parameters::save_human_readable(const std::filesystem::path& filename,
     file << std::left << std::setw(max_label_length) << "SizeY:"  << std::right << std::setw(max_value_length) << sizeY << std::endl;
     file << std::left << std::setw(max_label_length) << "Time step:" << std::right << std::setw(max_value_length) << timeStep << std::endl;
     file << std::left << std::setw(max_label_length) << "Integration time step:" << std::right << std::setw(max_value_length) << integrationTimeStep << std::endl;
+    file << std::left << std::setw(max_label_length) << "Adaptivity:" << std::right << std::setw(max_value_length) << adaptivity << std::endl;
     file << std::endl;
     file << std::left << std::setw(max_label_length) << "Initial condition type:"   << std::right << std::setw(max_value_length) << ICType_to_string(init_condition) << std::endl;
     file << std::left << std::setw(max_label_length) << "Initial condition radius:"   << std::right << std::setw(max_value_length) << init_cond_radius << std::endl;
@@ -181,6 +185,7 @@ void Parameters::save_for_latex(const std::filesystem::path& filename,
     file << "\\(t_{0}\\) & " << initial_time << " \\\\" << std::endl;
     file << "\\(t_{max}\\) & " << final_time << " \\\\" << std::endl;
     file << "\\(\\tau\\) & " << integrationTimeStep << " \\\\" << std::endl;
+    file << "adaptivity & " << adaptivity << " \\\\" << std::endl;
     file << "\\end{tabular}" << std::endl << std::endl;
 
     file << "\\textbf{Initial condition:}" << std::endl << std::endl;

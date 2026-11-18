@@ -12,8 +12,8 @@ The old force term "zirconium" gives
 
 and "constant" or "radial" gives the model allen_cahn, with "force_term" and, for "constant",
 "force_size" instead of "d" and "T". The other sections (solver, init_cond, bound_cond) stay as
-they are, except that solver.output_format (removed 2026-11-11) is dropped: the solver reads every
-section strictly and rejects keys it does not know. Missing old values of the model get the defaults
+they are, except that solver.output_format (removed 2026-11-11) is dropped, which the solver would
+otherwise warn about as an unused key. Missing old values of the model get the defaults
 the old solver used. beta was never used by the solver and is dropped, as are d and T for the
 allen_cahn model, which does not use them. Files already in the current layout are left alone.
 """

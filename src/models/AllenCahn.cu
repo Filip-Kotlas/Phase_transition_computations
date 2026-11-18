@@ -27,7 +27,8 @@ AllenCahn::Params AllenCahn::Params::load(const nlohmann::json& section)
         throw std::runtime_error("The config value model.allen_cahn.force_term has to be \"constant\" or \"radial\", it is \""
                                  + force_term + "\".");
     params.force_term = string_to_FTType(force_term);
-    // The size only means something for the constant force term; check_all_read rejects it otherwise.
+    // The size only means something for the constant force term; otherwise it is not read, and
+    // check_all_read warns that it is not used.
     params.force_size = (params.force_term == FTType::Constant) ? config.get<Real>("force_size") : Real(0);
     config.check_all_read();
     return params;

@@ -172,6 +172,7 @@ int run(const Parameters& parameters, const ModelT& model, Vector& u, const RunF
 
     ODESolver solver;
     solver.setTau( parameters.integrationTimeStep );
+    solver.setAdaptivity( parameters.adaptivity );
     solver.setTime( parameters.initial_time );
 
     // Frame numbers are absolute (time / timeStep), so a run continued from a file with a later

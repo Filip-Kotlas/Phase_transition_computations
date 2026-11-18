@@ -66,7 +66,11 @@ struct Parameters {
     int sizeY;
     int frame_num;
     Real timeStep;
-    Real integrationTimeStep;
+    Real integrationTimeStep;  // the initial step; Kutta-Merson adapts it (unless adaptivity is 0)
+    // Tolerance of the adaptive Kutta-Merson step (TNL's setAdaptivity): a step is accepted when
+    // tau * max|error estimate| < adaptivity, smaller is more accurate. 0 means no adaptivity, every
+    // step has the length integrationTimeStep. TNL's default is 1e-5.
+    Real adaptivity;
     // initial condition parameters
     ICType init_condition;
     bool init_cond_from_file;
