@@ -21,8 +21,9 @@
 
 // Prints one line about the progress after step_number frames of this run have been computed
 // (counted from initial_time, so 1..frame_num, not the absolute frame number in the file name):
-// the share of frames done, the estimated remaining time and the time the last frame took (elapsed, in ms).
-void print_progress(Index step_number, const Parameters& parameters, int elapsed)
+// the share of frames done, the estimated remaining time, the time the last frame took (elapsed, in ms)
+// and the integration steps it took (accepted, and attempts rejected by the adaptivity).
+void print_progress(Index step_number, const Parameters& parameters, int elapsed, long long accepted, long long rejected)
 {
     double remaining_time = elapsed / 1000.0 * (parameters.frame_num - step_number);
 
@@ -45,7 +46,9 @@ void print_progress(Index step_number, const Parameters& parameters, int elapsed
               << elapsed_hours << "h "
               << std::setw(2) << elapsed_minutes << "m "
               << std::setw(2) << elapsed_seconds << "s "
-              << std::setw(3) << elapsed_milisec << "ms" << std::endl;
+              << std::setw(3) << elapsed_milisec << "ms";
+    // After "Elapsed time", so the patterns of `cluster.sh status` still match the line.
+    std::cout << "    Integration steps: " << accepted << " (rejected: " << rejected << ")" << std::endl;
 }
 
 int main(int argc, char** argv) {
@@ -106,8 +109,14 @@ int main(int argc, char** argv) {
         model.apply_boundary_condition_ydir(ind, fu);
     };
 
-    auto time_stepping = [ = ]( const Real& t, const Real& tau, const VectorView& u, VectorView& fu )
+    // Number of RHS evaluations. TNL calls time_stepping on the host once per stage of every attempted
+    // step, including the attempts the adaptivity rejects, which it does not count itself.
+    long long rhs_evaluations = 0;
+
+    auto time_stepping = [ =, &rhs_evaluations ]( const Real& t, const Real& tau, const VectorView& u, VectorView& fu )
     {
+        ++rhs_evaluations;
+
         // iterate over inner points only
         TNL::Containers::StaticArray< 2, Index > begin = {1, 1};
         TNL::Containers::StaticArray< 2, Index > end = {grid.sizeX - 1, grid.sizeY - 1};
@@ -127,6 +136,8 @@ int main(int argc, char** argv) {
     const Index first_frame = static_cast<Index>(round(parameters.initial_time / parameters.timeStep));
     write_frame(run_folder.calculations(), first_frame, u, grid);
 
+    long long accepted_steps = 0;  // integration steps accepted over the whole run
+
     // The loop counts frames instead of comparing the solver time with final_time, so it always ends
     // after frame_num frames, whatever the rounding of the time (a float/double mix once made it run forever).
     for (Index i = 1; i <= parameters.frame_num; ++i) {
@@ -140,15 +151,31 @@ int main(int argc, char** argv) {
         solver.setStopTime( stop_time );
 
         auto stepStart = std::chrono::high_resolution_clock::now();
+        const long long rhs_evaluations_before = rhs_evaluations;
         solver.solve( u, time_stepping );
         write_frame(run_folder.calculations(), first_frame + i, u, grid);
         auto stepEnd = std::chrono::high_resolution_clock::now();
 
+        // solve() resets the iteration counter, so getIterations() is the steps accepted in this frame.
+        // Every attempt (accepted or rejected) evaluates the RHS once per stage of the method.
+        const long long frame_accepted = solver.getIterations();
+        const long long frame_attempts = (rhs_evaluations - rhs_evaluations_before) / Method::getStages();
+        accepted_steps += frame_accepted;
+
         int elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(stepEnd - stepStart).count();
-        print_progress(i, parameters, elapsed);
+        print_progress(i, parameters, elapsed, frame_accepted, frame_attempts - frame_accepted);
     }
 
     const double computation_seconds = std::chrono::duration<double>(std::chrono::steady_clock::now() - computation_start).count();
+
+    if (rhs_evaluations % Method::getStages() != 0)
+        std::cerr << "Warning: " << rhs_evaluations << " RHS evaluations is not a multiple of the "
+                  << Method::getStages() << " stages of the method, so the number of rejected steps is wrong." << std::endl;
+    const long long rejected_steps = rhs_evaluations / Method::getStages() - accepted_steps;
+    std::cout << "Integration steps: " << accepted_steps << " (rejected: " << rejected_steps << ")" << std::endl;
+    // Before the computation time: that line marks a finished run (cluster.sh), so everything else is written by then.
+    run_folder.append_integration_steps(accepted_steps, rejected_steps);
+
     std::cout << "Computation time: " << format_computation_time(computation_seconds) << std::endl;
     run_folder.append_computation_time(computation_seconds);
 }

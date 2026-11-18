@@ -31,6 +31,11 @@ public:
     // start, so that a run that crashes or is killed still records them. Only warns on failure.
     void write_run_start_info(std::time_t run_start) const;
 
+    // Appends "Integration steps: N (rejected: M)" to parameters.txt: the steps of the adaptive
+    // Kutta-Merson method accepted over the whole run, and the attempts it threw away because the error
+    // estimate was too large. Called before append_computation_time. Only warns on failure.
+    void append_integration_steps(long long accepted, long long rejected) const;
+
     // Appends "Computation time: ..." to parameters.txt ("make run" appends the git commit after it).
     // Only warns on failure.
     void append_computation_time(double seconds) const;

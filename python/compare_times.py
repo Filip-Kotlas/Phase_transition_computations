@@ -18,6 +18,16 @@ writing, without start-up, config and initial condition). Versions from before i
 (commit 98e885c) do not write it; for a case where a run lacks it, the wall time of the whole
 solver process is used for both versions instead, marked with "*".
 
+The steps columns show the integration steps of the adaptive Kutta-Merson method ("Integration
+steps" in parameters.txt): accepted ones, rejected attempts as "+M". A speedup can come from cheaper
+steps or from fewer steps (e.g. when reordered arithmetic changes the error estimate), so the last
+column is the speedup per accepted step:
+
+    per-step speedup = (median time of base / steps of base) / (median time of new / steps of new).
+
+Versions up to commit 2f0ab0f do not count the steps ("-"). The steps of the runs of one
+version should be the same; if the repetitions differ, a note says so.
+
 The last line is the geometric mean of the speedups (cluster.sh list shows it).
 Exit code: 0 when every case has at least one successful run of both versions, 1 otherwise,
 2 for wrong arguments.
@@ -25,7 +35,7 @@ Exit code: 0 when every case has at least one successful run of both versions, 1
 from dataclasses import dataclass, field
 from pathlib import Path
 from statistics import median
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
 import argparse
 import csv
 import math
@@ -88,6 +98,28 @@ def setup_line(folder: Path, key: str) -> Optional[str]:
     return match.group(1).strip() if match else None
 
 
+def run_folder(bench: Path, version: str, case: str, repetition: int) -> Path:
+    """Where tests/benchmark.sh puts a run: the first repetition complete, the others under repeats/."""
+    if repetition == 1:
+        return bench / version / case
+    return bench / "repeats" / version / f"{case}-{repetition}"
+
+
+Steps = Tuple[int, int]   # (accepted, rejected)
+
+
+def read_steps(folder: Path) -> Optional[Steps]:
+    """'Integration steps: 12345 (rejected: 67)' from parameters.txt, None when the run did not record it."""
+    value = setup_line(folder, "Integration steps")
+    match = re.fullmatch(r"(\d+) \(rejected: (\d+)\)", value) if value else None
+    return (int(match.group(1)), int(match.group(2))) if match else None
+
+
+def steps_cell(steps: Optional[Steps]) -> str:
+    """'12345 (+67)': accepted (+rejected)."""
+    return "-" if steps is None else f"{steps[0]} (+{steps[1]})"
+
+
 def time_cell(times: List[float]) -> str:
     """'29.3 (29.1-29.6)': median (fastest-slowest)."""
     if not times:
@@ -123,7 +155,8 @@ def main() -> int:
     print()
 
     width = max(len("case"), *(len(case.name) + 1 for case in cases))   # + 1 for the marker *
-    print(f"{'case':<{width}}  {'base [s]':<20}  {'new [s]':<20}  speedup")
+    print(f"{'case':<{width}}  {'base [s]':<20}  {'new [s]':<20}  {'speedup':<9}  "
+          f"{'steps base':<16}  {'steps new':<16}  per-step speedup")
     speedups: List[float] = []
     incomplete: List[str] = []
     notes: List[str] = []
@@ -138,7 +171,21 @@ def main() -> int:
         else:
             incomplete.append(case.name)
             result = "-"
-        print(f"{case.name + marker:<{width}}  {time_cell(base):<20}  {time_cell(new):<20}  {result}")
+
+        # Steps of the first successful run of each version (they should not differ between repetitions).
+        steps: Dict[str, Optional[Steps]] = {}
+        for v in VERSIONS:
+            counts = [read_steps(run_folder(args.folder, v, case.name, run.repetition)) for run in case.successful(v)]
+            steps[v] = counts[0] if counts else None
+            if len(set(counts)) > 1:
+                notes.append(f"{case.name}: the {v} runs took different numbers of steps: "
+                             + ", ".join(steps_cell(c) for c in counts))
+        per_step = "-"
+        if base and new and steps["base"] and steps["new"]:
+            per_step = f"{(median(base) / steps['base'][0]) / (median(new) / steps['new'][0]):.2f}x"
+
+        print(f"{case.name + marker:<{width}}  {time_cell(base):<20}  {time_cell(new):<20}  {result:<9}  "
+              f"{steps_cell(steps['base']):<16}  {steps_cell(steps['new']):<16}  {per_step}")
         for v in VERSIONS:
             if case.failed(v):
                 notes.append(f"{case.name}: {case.failed(v)} of {len(case.runs[v])} {v} run(s) failed; see solver.log "
@@ -147,6 +194,7 @@ def main() -> int:
     print()
     print("Times: median of the runs, fastest-slowest in brackets. speedup = base / new (above 1: new is faster);")
     print("~ = within the noise (the ranges overlap).")
+    print("steps = accepted integration steps (+rejected attempts); per-step speedup = speedup of the time per accepted step.")
     if any(case.uses_wall_time() for case in cases):
         print("* = wall time of the whole solver process: a run of this case did not record its computation time.")
     for note in notes:
