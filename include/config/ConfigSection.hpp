@@ -1,9 +1,10 @@
 #pragma once
 
-// Strict reading of one section of the config (a JSON object), used for the section of the model,
-// model.<type>: every key has to be present (there are no defaults), its value
-// has to have the right type, and check_all_read() rejects the keys nobody read, which catches typos
-// ("ksl" instead of "ksi") and parameters that belong to another model. Host code only.
+// Strict reading of one section of the config (a JSON object), used for every section the solver reads
+// (solver, solver.domain, init_cond, bound_cond and the model's model.<type>): every key has to be
+// present (there are no defaults), its value has to have the right type, and check_all_read() rejects
+// the keys nobody read, which catches typos ("ksl" instead of "ksi") and parameters that belong
+// elsewhere (e.g. to another model). Host code only.
 
 #include <set>
 #include <stdexcept>
@@ -50,7 +51,7 @@ public:
         for (const auto& item : data.items()) {
             if (read_keys.count(item.key()) == 0)
                 throw std::runtime_error("The config has the unknown entry " + path(item.key())
-                                         + " (a typo, or a parameter this model does not use?).");
+                                         + " (a typo, or a parameter that does not belong into this section?).");
         }
     }
 

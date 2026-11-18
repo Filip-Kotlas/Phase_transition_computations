@@ -19,48 +19,80 @@ Parameters Parameters::load(const std::filesystem::path& filename) {
     file >> config;
     Parameters p;
 
+    // The old layout had the model's parameters in the top-level sections problem, force_term and anisotropy.
+    // Checked first, so such a config gets this hint and not an error about one of its keys.
+    if (!config.contains("model") && (config.contains("problem") || config.contains("force_term")))
+        throw std::runtime_error("The config " + filename.string() + " has the old layout (the sections problem,"
+                                 " force_term, anisotropy); convert it with python3 python/migrate_config.py "
+                                 + filename.string());
+
+    // The sections solver, init_cond and bound_cond are read strictly, like the model's section
+    // (ConfigSection): every key is required, so a typo is an error instead of a silent default.
+    for (const char* section : { "solver", "init_cond", "bound_cond" }) {
+        if (!config.contains(section))
+            throw std::runtime_error(std::string("The config is missing the section ") + section + ".");
+    }
+
     // solver parameters
-    auto solver = config.at("solver");
-    p.initial_time  = solver.value("initial_time", 0.0);
-    p.final_time    = solver.value("final_time", 0.3);
-    p.sizeX         = solver.value("sizeX", 200);
-    p.sizeY         = solver.value("sizeY", 200);
-    p.frame_num     = solver.value("frame_num", 100);
+    ConfigSection solver(config.at("solver"), "solver");
+    p.initial_time  = solver.get<Real>("initial_time");
+    p.final_time    = solver.get<Real>("final_time");
+    p.sizeX         = solver.get<int>("sizeX");
+    p.sizeY         = solver.get<int>("sizeY");
+    p.frame_num     = solver.get<int>("frame_num");
+    if (p.sizeX < 3 || p.sizeY < 3)
+        throw std::runtime_error("The grid needs at least 3 points in each direction (solver.sizeX, solver.sizeY).");
+    if (p.frame_num < 1)
+        throw std::runtime_error("solver.frame_num has to be at least 1.");
+    if (!(p.final_time > p.initial_time))
+        throw std::runtime_error("solver.final_time has to be larger than solver.initial_time.");
     p.timeStep      = (p.final_time - p.initial_time) / p.frame_num;
 
     // domain
-    auto domain = solver.at("domain");
-    p.domain.x_left  = domain.value("x_left", 0.0);
-    p.domain.x_right = domain.value("x_right", 1.0);
-    p.domain.y_left  = domain.value("y_left", 0.0);
-    p.domain.y_right = domain.value("y_right", 1.0);
-   
-    // integration time step
+    ConfigSection domain(solver.get<json>("domain"), "solver.domain");
+    p.domain.x_left  = domain.get<Real>("x_left");
+    p.domain.x_right = domain.get<Real>("x_right");
+    p.domain.y_left  = domain.get<Real>("y_left");
+    p.domain.y_right = domain.get<Real>("y_right");
+    domain.check_all_read();
+    if (!(p.domain.x_right > p.domain.x_left) || !(p.domain.y_right > p.domain.y_left))
+        throw std::runtime_error("The domain has to have x_right > x_left and y_right > y_left (solver.domain).");
+
+    // integration time step (integration_time_step is required even when it is not used, like every key)
     const Grid grid = p.grid();
     Real computed_integration_step = pow(std::min(grid.hx, grid.hy), 2) / 5.0;
-    if (solver.value("custom_integration_time_step", false)) {
-        p.integrationTimeStep = solver.value("integration_time_step", computed_integration_step);
+    const bool custom_integration_step = solver.get<bool>("custom_integration_time_step");
+    const Real integration_time_step = solver.get<Real>("integration_time_step");
+    solver.check_all_read();
+    if (custom_integration_step) {
+        if (!(integration_time_step > 0))
+            throw std::runtime_error("solver.integration_time_step has to be positive.");
+        p.integrationTimeStep = integration_time_step;
     } else {
         p.integrationTimeStep = computed_integration_step;
     }
 
     // initial condition parameters
-    auto initial_condition = config.at("init_cond");
-    p.init_cond_from_file = initial_condition.value("init_cond_from_file", false);
-    p.init_cond_file_path = initial_condition.value("init_cond_file_path", "");
-    p.init_condition = string_to_ICType(initial_condition.value("initial_condition", "constant_circle"));
+    ConfigSection initial_condition(config.at("init_cond"), "init_cond");
+    p.init_cond_from_file = initial_condition.get<bool>("init_cond_from_file");
+    p.init_cond_file_path = initial_condition.get<std::string>("init_cond_file_path");
+    p.init_condition = string_to_ICType(initial_condition.get<std::string>("initial_condition"));
     Real smaller_side = std::min(p.domain.x_right - p.domain.x_left,
                                  p.domain.y_right - p.domain.y_left);
-    p.init_cond_radius = smaller_side * initial_condition.value("radius_proportion", 0.5);
-    p.init_cond_slope_width = initial_condition.value("slope_width", 0.05);
-    p.init_cond_scaling = initial_condition.value("scaling", false);
+    // Read as double and multiplied in double, then rounded to Real once (as before), so the radius
+    // does not change in the last bit.
+    p.init_cond_radius = smaller_side * initial_condition.get<double>("radius_proportion");
+    p.init_cond_slope_width = initial_condition.get<Real>("slope_width");
+    p.init_cond_scaling = initial_condition.get<bool>("scaling");
+    initial_condition.check_all_read();
 
     // boundary conditions
-    auto boundary_conditions = config.at("bound_cond");
-    p.bound_cond.phase_x = string_to_BCType(boundary_conditions.value("x_phase", "neumann"));
-    p.bound_cond.phase_y = string_to_BCType(boundary_conditions.value("y_phase", "neumann"));
-    p.bound_cond.conc_x  = string_to_BCType(boundary_conditions.value("x_conc", "neumann"));
-    p.bound_cond.conc_y  = string_to_BCType(boundary_conditions.value("y_conc", "neumann"));
+    ConfigSection boundary_conditions(config.at("bound_cond"), "bound_cond");
+    p.bound_cond.phase_x = string_to_BCType(boundary_conditions.get<std::string>("x_phase"));
+    p.bound_cond.phase_y = string_to_BCType(boundary_conditions.get<std::string>("y_phase"));
+    p.bound_cond.conc_x  = string_to_BCType(boundary_conditions.get<std::string>("x_conc"));
+    p.bound_cond.conc_y  = string_to_BCType(boundary_conditions.get<std::string>("y_conc"));
+    boundary_conditions.check_all_read();
     if ( (p.bound_cond.phase_x != BCType::Neumann) && (p.bound_cond.phase_x != BCType::Dirichlet) )
         throw std::runtime_error("Unknown boundary condition for phase field in x direction: " + BCType_to_string(p.bound_cond.phase_x));
     if ( (p.bound_cond.phase_y != BCType::Neumann) && (p.bound_cond.phase_y != BCType::Dirichlet) )
@@ -69,12 +101,6 @@ Parameters Parameters::load(const std::filesystem::path& filename) {
         throw std::runtime_error("Unknown boundary condition for concentration in x direction: " + BCType_to_string(p.bound_cond.conc_x));
     if ( (p.bound_cond.conc_y != BCType::Neumann) && (p.bound_cond.conc_y != BCType::Dirichlet) )
         throw std::runtime_error("Unknown boundary condition for concentration in y direction: " + BCType_to_string(p.bound_cond.conc_y));
-
-    // The old layout had the model's parameters in the top-level sections problem, force_term and anisotropy.
-    if (!config.contains("model") && (config.contains("problem") || config.contains("force_term")))
-        throw std::runtime_error("The config " + filename.string() + " has the old layout (the sections problem,"
-                                 " force_term, anisotropy); convert it with python3 python/migrate_config.py "
-                                 + filename.string());
 
     // the model: only its type and its section are taken here, the model reads the section itself
     // (ModelT::Params::load). The section "model" may also hold the sections of other models.
@@ -203,7 +229,7 @@ void Parameters::save_copy_of_config(const std::filesystem::path& original_path,
     }
     std::ofstream dst(copy_path, std::ios::binary);
     if (!dst) {
-        throw std::runtime_error("Unable to open original config: " + copy_path.string());
+        throw std::runtime_error("Unable to write the copy of the config: " + copy_path.string());
     }
     dst << src.rdbuf();
 }

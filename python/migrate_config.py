@@ -12,9 +12,10 @@ The old force term "zirconium" gives
 
 and "constant" or "radial" gives the model allen_cahn, with "force_term" and, for "constant",
 "force_size" instead of "d" and "T". The other sections (solver, init_cond, bound_cond) stay as
-they are. Missing old values get the defaults the old solver used. beta was never used by the
-solver and is dropped, as are d and T for the allen_cahn model, which does not use them. Files
-already in the current layout are left alone.
+they are, except that solver.output_format (removed 2026-11-11) is dropped: the solver reads every
+section strictly and rejects keys it does not know. Missing old values of the model get the defaults
+the old solver used. beta was never used by the solver and is dropped, as are d and T for the
+allen_cahn model, which does not use them. Files already in the current layout are left alone.
 """
 import json
 import sys
@@ -58,6 +59,8 @@ def migrate(config: dict) -> dict:
     for key, value in config.items():
         if key in OLD_MODEL_SECTIONS:
             result.setdefault("model", model)
+        elif key == "solver":
+            result[key] = {k: v for k, v in value.items() if k != "output_format"}
         else:
             result[key] = value
     result.setdefault("model", model)

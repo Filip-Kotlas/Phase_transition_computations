@@ -57,7 +57,9 @@ Index count_non_finite(const Vector& u, Index begin, Index end)
 {
     const auto view = u.getConstView();
     auto non_finite = [ = ] __cuda_callable__( Index k ) -> Index {
-        return isfinite(view[k]) ? 0 : 1;
+        // std::isfinite works in device code with nvcc (checked on the cluster) and, unlike the bare
+        // CUDA isfinite, is also known to the host-only IntelliSense parser.
+        return std::isfinite(view[k]) ? 0 : 1;
     };
     return TNL::Algorithms::reduce< Device >(begin, end, non_finite, TNL::Plus{});
 }
@@ -270,39 +272,65 @@ int start(const Parameters& parameters, const RunFolder& run_folder,
 
     if (!run_folder.create())
         return EXIT_FAILURE;
-    run_folder.save_setup(parameters, model_params.entries(), input_config_path);
-    run_folder.write_run_start_info(run_start);
 
-    const ModelT model(parameters, model_params);
-    Vector u(model.getDegreesOfFreedom());
-    // ksi and the anisotropy of the model, for the initial conditions HyperbolicTangent and WulffShape.
-    if (!set_initial_condition(u, parameters, model_params.ksi, model_params.anisotropy,
-                               run_folder.calculations()))
-        return EXIT_FAILURE;
+    // From here on the run folder belongs to this run, so an unexpected exception (a file that cannot be
+    // written, a CUDA error, TNL's "time step must be positive" after an overflow, ...) is recorded in it
+    // like the failures run detects itself. Before, an exception only means a wrong config: main reports it.
+    bool computing = false;  // the time loop has started, so frames are written
+    try {
+        run_folder.save_setup(parameters, model_params.entries(), input_config_path);
+        run_folder.write_run_start_info(run_start);
 
-    return run(parameters, model, u, run_folder);
+        const ModelT model(parameters, model_params);
+        Vector u(model.getDegreesOfFreedom());
+        // ksi and the anisotropy of the model, for the initial conditions HyperbolicTangent and WulffShape.
+        if (!set_initial_condition(u, parameters, model_params.ksi, model_params.anisotropy,
+                                   run_folder.calculations()))
+            return EXIT_FAILURE;
+
+        computing = true;
+        return run(parameters, model, u, run_folder);
+    }
+    catch (const std::exception& e) {
+        record_failure(run_folder, std::string("unexpected error: ") + e.what());
+        // Once the time loop runs, the frames written so far are plotted, as after NaN or a stuck solver.
+        return computing ? EXIT_RUN_FAILED : EXIT_FAILURE;
+    }
 }
 
 int main(int argc, char** argv) {
     const std::time_t run_start = std::time(nullptr);
 
-    // usage: Phase-field [result_folder [config_file]]
-    std::filesystem::path result_path = "Results";
-    if (argc >= 2)
-        result_path = argv[1];
-    std::filesystem::path input_config_path = "config/config.json";
-    if (argc >= 3)
-        input_config_path = argv[2];
+    // An uncaught exception would end the program with std::terminate (abort, exit code 134); instead its
+    // message is printed and the program exits with EXIT_FAILURE. These are mostly config errors, found
+    // before the run folder is touched; later exceptions are also recorded in the run folder by start.
+    try {
+        // usage: Phase-field [result_folder [config_file]]
+        std::filesystem::path result_path = "Results";
+        if (argc >= 2)
+            result_path = argv[1];
+        std::filesystem::path input_config_path = "config/config.json";
+        if (argc >= 3)
+            input_config_path = argv[2];
 
-    const Parameters parameters = Parameters::load(input_config_path);
-    const RunFolder run_folder(result_path);
+        const Parameters parameters = Parameters::load(input_config_path);
+        const RunFolder run_folder(result_path);
 
-    // The model is chosen by its name in the config (model.type). Each model is a separate
-    // instantiation of start and run, compiled with its own GPU kernels; a new model is added here.
-    if (parameters.model_type == AllenCahn::name)
-        return start<AllenCahn>(parameters, run_folder, input_config_path, run_start);
-    if (parameters.model_type == ZrNbChoud2013::name)
-        return start<ZrNbChoud2013>(parameters, run_folder, input_config_path, run_start);
-    throw std::runtime_error("Unknown model in the config: model.type = \"" + parameters.model_type + "\" (known: "
-                             + AllenCahn::name + ", " + ZrNbChoud2013::name + ").");
+        // The model is chosen by its name in the config (model.type). Each model is a separate
+        // instantiation of start and run, compiled with its own GPU kernels; a new model is added here.
+        if (parameters.model_type == AllenCahn::name)
+            return start<AllenCahn>(parameters, run_folder, input_config_path, run_start);
+        if (parameters.model_type == ZrNbChoud2013::name)
+            return start<ZrNbChoud2013>(parameters, run_folder, input_config_path, run_start);
+        throw std::runtime_error("Unknown model in the config: model.type = \"" + parameters.model_type + "\" (known: "
+                                 + AllenCahn::name + ", " + ZrNbChoud2013::name + ").");
+    }
+    catch (const std::exception& e) {
+        std::cerr << "Error: " << e.what() << std::endl;
+        return EXIT_FAILURE;
+    }
+    catch (...) {
+        std::cerr << "Error: unknown exception." << std::endl;
+        return EXIT_FAILURE;
+    }
 }
