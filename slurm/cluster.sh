@@ -57,7 +57,9 @@
 # from it, so they also work for commits from before they existed (the commits still have to
 # accept `Phase-field RESULT_FOLDER CONFIG` and read today's configs).
 # list shows each run in results/ and jobs/ with its state: queued, running (with progress),
-# finished (computation time; warns when the animations are missing) or stopped (no job any
+# finished (computation time; warns when the animations are missing), failed (the solver stopped
+# because of NaN or inf, got stuck or could not write a frame, and wrote the reason into
+# parameters.txt) or stopped (no job any
 # more and not finished: crashed, cancelled or time limit; it names the log to look at).
 # A run counts as finished only when the solver wrote "Computation time" into parameters.txt
 # (all frames written is not enough: the solver can hang after the last one). Runs from
@@ -367,6 +369,11 @@ squeue -u "$USER" -h -t RUNNING -o '%i %j' | while read -r id name; do
         echo "job $id: computation finished, now plotting"
         continue
     fi
+    failure=$(sed -n 's/^Run failed: *//p' "results/$name/info/setup/parameters.txt" 2>/dev/null)
+    if [ -n "$failure" ]; then
+        echo "job $id: computation FAILED ($failure), now plotting the frames"
+        continue
+    fi
     line=$(grep 'Steps completed' "slurm-$id.out" 2>/dev/null | tail -n 1)
     if [ -z "$line" ]; then
         echo "job $id: no progress yet (compiling or starting)"
@@ -397,6 +404,9 @@ progress() {
     local line pct rem
     if [ -n "$2" ] && grep -q '^Computation time:' "$2" 2>/dev/null; then
         echo "computed, now plotting"; return
+    fi
+    if [ -n "$2" ] && grep -q '^Run failed:' "$2" 2>/dev/null; then
+        echo "FAILED ($(sed -n 's/^Run failed: *//p' "$2")), now plotting"; return
     fi
     line=$(grep 'Steps completed' "slurm-$1.out" 2>/dev/null | tail -n 1)
     if [ -z "$line" ]; then echo "compiling or starting"; return; fi
@@ -434,11 +444,12 @@ for name in $names; do
     frames="-"
     [ -n "$last$total" ] && frames="${last:-0}/${total:-?}"
 
-    date="-"; comp_time=""; d=""
+    date="-"; comp_time=""; failure=""; d=""
     if [ -n "$params" ]; then
         d=$(sed -n 's/^Run date: *//p' "$params" | cut -c1-16)
         [ -n "$d" ] && date=$d
         comp_time=$(sed -n 's/^Computation time: *//p' "$params" | sed 's/ *(.*//')
+        failure=$(sed -n 's/^Run failed: *//p' "$params")
     fi
     # Since the binary records the run date, it also records the computation time when it ends,
     # so only that line means "finished". Older runs have neither; for them all frames have to do.
@@ -476,6 +487,10 @@ for name in $names; do
                 # A job that failed before it moved its upload to the results left this behind.
                 log=$(find_log "$name")
                 state=leftover; details="upload in jobs/ without a job${log:+ (it failed at the start, see $log)}; run clean"
+            elif [ -n "$failure" ]; then
+                # The solver stopped itself: the solution broke down (the frames up to then are plotted)
+                # or a frame could not be written.
+                state=failed; details=$failure
             elif [ "$complete" = 1 ]; then
                 state=finished; details=${comp_time:+"computed in $comp_time"}
                 # Animations are .mp4, or .gif without ffmpeg; old results have them directly in info/.

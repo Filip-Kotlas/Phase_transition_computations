@@ -8,8 +8,12 @@
 #include <vector>
 #include <filesystem>
 #include "external/json.hpp"
+#include <limits>
+#include <sstream>
 #include <string>
 #include <stdexcept>
+
+#include <TNL/Algorithms/reduce.h>
 
 #include "models/AllenCahn.hpp"
 #include "models/ZrNbChoud2013.hpp"
@@ -20,6 +24,60 @@
 #include "io/ResultIO.hpp"
 #include "io/RunFolder.hpp"
 #include "config/enums.hpp"
+
+// Exit code of a run that started computing but stopped because the solution broke down (NaN or inf
+// in a frame, or the solver stuck, see SolverStuck). The frames up to then are written (with NaN/inf in
+// a frame, including the broken one), so `make run` still plots them
+// (the Makefile checks for this value); any other failure, including a frame that cannot be
+// written, exits with EXIT_FAILURE.
+constexpr int EXIT_RUN_FAILED = 2;
+
+// The solver counts as stuck after this many attempts in a row at the same time. With a NaN in the
+// error estimate, Kutta-Merson neither accepts the step nor shrinks it (all comparisons with NaN are
+// false) and retries it forever; with a collapsed step the time stops advancing. A healthy run rejects
+// a step only rarely (1-3 times in thousands of steps), and each rejection shrinks the step at least
+// by 0.8, so 100 rejections in a row would mean a step 0.8^100 ~ 2e-10 times smaller.
+constexpr int max_attempts_at_same_time = 100;
+
+// Thrown from time_stepping when the solver is stuck (it is the only way out of TNL's loop); caught in run.
+struct SolverStuck : std::runtime_error {
+    using std::runtime_error::runtime_error;
+};
+
+// Reports why the computation stops early: prints the reason and records it in parameters.txt
+// ("Run failed: <reason>"), so the run does not look finished (no "Computation time" follows).
+void record_failure(const RunFolder& run_folder, const std::string& reason)
+{
+    std::cerr << "Error: " << reason << ". Stopping the computation." << std::endl;
+    run_folder.append_failure(reason);
+}
+
+// Number of values of u with indices in [begin, end) that are NaN or infinite (counted on the GPU).
+Index count_non_finite(const Vector& u, Index begin, Index end)
+{
+    const auto view = u.getConstView();
+    auto non_finite = [ = ] __cuda_callable__( Index k ) -> Index {
+        return isfinite(view[k]) ? 0 : 1;
+    };
+    return TNL::Algorithms::reduce< Device >(begin, end, non_finite, TNL::Plus{});
+}
+
+// Checks that frame number `frame` (just written, at time t) contains no NaN or inf. If it does,
+// prints the reason, records it in parameters.txt ("Run failed: ...") and returns false.
+bool check_frame_finite(const Vector& u, const Grid& grid, Index frame, Real t, const RunFolder& run_folder)
+{
+    const Index N = grid.num_points();
+    const Index bad_phase = count_non_finite(u, 0, N);
+    const Index bad_conc = count_non_finite(u, N, 2 * N);
+    if (bad_phase == 0 && bad_conc == 0)
+        return true;
+
+    std::ostringstream reason;
+    reason << "NaN or inf in frame " << frame << " (t = " << t << "): "
+           << bad_phase << " phase and " << bad_conc << " concentration values";
+    record_failure(run_folder, reason.str());
+    return false;
+}
 
 // Prints one line about the progress after step_number frames of this run have been computed
 // (counted from initial_time, so 1..frame_num, not the absolute frame number in the file name):
@@ -79,8 +137,25 @@ int run(const Parameters& parameters, const ModelT& model, Vector& u, const RunF
     // step, including the attempts the adaptivity rejects, which it does not count itself.
     long long rhs_evaluations = 0;
 
-    auto time_stepping = [ =, &rhs_evaluations ]( const Real& t, const Real& tau, const VectorView& u, VectorView& fu )
+    // Time of the previous attempted step (NaN: none yet) and the number of attempts in a row at it.
+    Real last_attempt_time = std::numeric_limits<Real>::quiet_NaN();
+    int attempts_at_same_time = 0;
+
+    auto time_stepping = [ =, &rhs_evaluations, &last_attempt_time, &attempts_at_same_time ]
+                         ( const Real& t, const Real& tau, const VectorView& u, VectorView& fu )
     {
+        // The first stage of every attempt is evaluated at the solver time itself (time + 0 * tau),
+        // so a repeated t there means a repeated attempt (rejected, or a step too small to move the time).
+        if (rhs_evaluations % Method::getStages() == 0) {
+            attempts_at_same_time = (t == last_attempt_time) ? attempts_at_same_time + 1 : 1;
+            last_attempt_time = t;
+            if (attempts_at_same_time > max_attempts_at_same_time) {
+                std::ostringstream reason;
+                reason << "the solver is stuck: " << max_attempts_at_same_time
+                       << " attempts in a row at t = " << t << " (tau = " << tau << ")";
+                throw SolverStuck(reason.str());
+            }
+        }
         ++rhs_evaluations;
 
         // iterate over inner points only
@@ -100,7 +175,24 @@ int run(const Parameters& parameters, const ModelT& model, Vector& u, const RunF
     // Frame numbers are absolute (time / timeStep), so a run continued from a file with a later
     // initial_time carries on with the numbering of the previous run.
     const Index first_frame = static_cast<Index>(round(parameters.initial_time / parameters.timeStep));
-    write_frame(run_folder.calculations(), first_frame, u, grid);
+
+    // Writes frame number `frame` (at time t). If that fails (full disk, quota, missing folder;
+    // write_frame prints the details), records the failure and returns false: the run then stops
+    // instead of going on without its frames.
+    auto write_frame_or_fail = [ & ]( Index frame, Real t ) {
+        if (write_frame(run_folder.calculations(), frame, u, grid))
+            return true;
+        std::ostringstream reason;
+        reason << "unable to write frame " << frame << " (t = " << t << ")";
+        record_failure(run_folder, reason.str());
+        return false;
+    };
+
+    if (!write_frame_or_fail(first_frame, parameters.initial_time))
+        return EXIT_FAILURE;
+    // The initial condition too: a NaN in it (e.g. from a file) would otherwise only show up later.
+    if (!check_frame_finite(u, grid, first_frame, parameters.initial_time, run_folder))
+        return EXIT_RUN_FAILED;
 
     long long accepted_steps = 0;  // integration steps accepted over the whole run
 
@@ -118,8 +210,23 @@ int run(const Parameters& parameters, const ModelT& model, Vector& u, const RunF
 
         auto stepStart = std::chrono::high_resolution_clock::now();
         const long long rhs_evaluations_before = rhs_evaluations;
-        solver.solve( u, time_stepping );
-        write_frame(run_folder.calculations(), first_frame + i, u, grid);
+        try {
+            solver.solve( u, time_stepping );
+        }
+        catch (const SolverStuck& stuck) {
+            // u is the last accepted state (TNL changes u only when it accepts a step, and the exception
+            // comes before any stage is computed), somewhere between the previous frame and this one.
+            const Index N = grid.num_points();
+            std::ostringstream reason;
+            reason << stuck.what() << "; NaN or inf values: " << count_non_finite(u, 0, N) << " phase, "
+                   << count_non_finite(u, N, 2 * N) << " concentration";
+            if (write_state(run_folder.stuck_state(), u, grid))
+                reason << "; state saved in " << run_folder.stuck_state().string();
+            record_failure(run_folder, reason.str());
+            return EXIT_RUN_FAILED;  // the frames up to the previous one are plotted
+        }
+        if (!write_frame_or_fail(first_frame + i, solver.getTime()))
+            return EXIT_FAILURE;
         auto stepEnd = std::chrono::high_resolution_clock::now();
 
         // solve() resets the iteration counter, so getIterations() is the steps accepted in this frame.
@@ -130,6 +237,11 @@ int run(const Parameters& parameters, const ModelT& model, Vector& u, const RunF
 
         int elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(stepEnd - stepStart).count();
         print_progress(i, parameters, elapsed, frame_accepted, frame_attempts - frame_accepted);
+
+        // The broken frame stays on disk, so it shows where the solution broke down. "Computation time"
+        // is not written, so cluster.sh does not count the run as finished.
+        if (!check_frame_finite(u, grid, first_frame + i, solver.getTime(), run_folder))
+            return EXIT_RUN_FAILED;
     }
 
     const double computation_seconds = std::chrono::duration<double>(std::chrono::steady_clock::now() - computation_start).count();

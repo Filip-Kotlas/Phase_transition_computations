@@ -44,7 +44,8 @@ std::string host_name()
 RunFolder::RunFolder(const std::filesystem::path& root)
 :  calculations_dir(root / "calculations"),
    setup_dir(root / "info" / "setup"),
-   parameters_file(setup_dir / "parameters.txt")
+   parameters_file(setup_dir / "parameters.txt"),
+   stuck_state_file(root / "info" / "stuck_state.npy")
 {}
 
 bool RunFolder::create() const
@@ -96,6 +97,15 @@ void RunFolder::append_computation_time(double seconds) const
     file.close();
     if (!file)
         std::cerr << "Warning: unable to write the computation time to " << parameters_file << std::endl;
+}
+
+void RunFolder::append_failure(const std::string& reason) const
+{
+    std::ofstream file(parameters_file, std::ios::app);
+    file << "Run failed: " << reason << '\n';
+    file.close();
+    if (!file)
+        std::cerr << "Warning: unable to write the reason of the failure to " << parameters_file << std::endl;
 }
 
 std::string format_computation_time(double seconds)

@@ -31,12 +31,15 @@ bool write_frame(const std::filesystem::path& folder, Index step, const VectorVi
 {
     std::stringstream name;
     name << "Result-" << std::setw(5) << std::setfill('0') << step << ".npy";
-    const std::filesystem::path file_path = folder / name.str();
+    return write_state(folder / name.str(), u, grid);
+}
 
+bool write_state(const std::filesystem::path& file_path, const VectorView& u, const Grid& grid)
+{
     std::ofstream file(file_path, std::ios::out | std::ios::trunc | std::ios::binary);
     if (!file)
     {
-        std::cerr << "Unable to open the file " << name.str() << std::endl;
+        std::cerr << "Unable to open the file " << file_path.string() << std::endl;
         return false;
     }
 
@@ -53,7 +56,7 @@ bool write_frame(const std::filesystem::path& folder, Index step, const VectorVi
     file.close();
     if (!file)
     {
-        std::cerr << "Error while writing the file " << name.str() << std::endl;
+        std::cerr << "Error while writing the file " << file_path.string() << std::endl;
         return false;
     }
     return true;

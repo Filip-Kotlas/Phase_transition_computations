@@ -24,6 +24,10 @@ public:
     // The folder with the frames Result-NNNNN.npy; init_cond_file_path is relative to it too.
     const std::filesystem::path& calculations() const { return calculations_dir; }
 
+    // info/stuck_state.npy: the state u (frame format) at the moment the solver got stuck, when a run
+    // stops that way. Kept out of calculations/, where it would be taken for a frame.
+    const std::filesystem::path& stuck_state() const { return stuck_state_file; }
+
     // Writes parameters.txt, a copy of the config (config.json) and parameters.tex into info/setup/;
     // model_entries are the parameters of the model (ModelT::Params::entries()).
     // Throws std::runtime_error when a file cannot be opened (from the Parameters::save_* methods).
@@ -43,10 +47,15 @@ public:
     // Only warns on failure.
     void append_computation_time(double seconds) const;
 
+    // Appends "Run failed: <reason>" to parameters.txt when the computation stops early (instead of
+    // the integration steps and the computation time). Only warns on failure.
+    void append_failure(const std::string& reason) const;
+
 private:
     std::filesystem::path calculations_dir;  // results/<FOLDER>/calculations
     std::filesystem::path setup_dir;         // results/<FOLDER>/info/setup
     std::filesystem::path parameters_file;   // results/<FOLDER>/info/setup/parameters.txt
+    std::filesystem::path stuck_state_file;  // results/<FOLDER>/info/stuck_state.npy
 };
 
 // Wall time in the form "0h 01m 23s (83.4 s)", as written to parameters.txt.

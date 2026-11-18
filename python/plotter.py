@@ -9,6 +9,13 @@ from dataset import Dataset
 from boundary import Boundary, join_curves
 
 
+def finite_max(value: np.ndarray) -> float:
+    """Largest value, skipping NaN and inf (the last frame of a run that stopped because the solution
+    broke down contains them); 0 if no value is finite."""
+    finite = value[np.isfinite(value)]
+    return finite.max() if finite.size else 0.0
+
+
 class Plotter():
     """Parent class of specialized plotters."""
     def __init__(self, dataset: Dataset,
@@ -281,7 +288,7 @@ class CutPlotter(Plotter):
 
         self.fig, self.ax = plt.subplots()
 
-        self.ax.set_ylim(0, max(0.1, value.max()*1.2))
+        self.ax.set_ylim(0, max(0.1, finite_max(value)*1.2))
         self.ax.set_xlim(self.variable_lines[0], self.variable_lines[-1])
         self.ax.set_box_aspect(1/(self.variable_lines[-1] - self.variable_lines[0]))
         self.ax.set_xlabel(rf"${self.axis}$ (${fixed_name} = {self.cut_position:.4g}$)")
@@ -299,7 +306,7 @@ class CutPlotter(Plotter):
     def update(self, frame: int):
         _, _, value = self._load_data(frame)
         #self.ax.set_ylim(min(0, value.min()*1.5), math.floor(value.max()*1.2 / 0.01)*0.01)
-        self.ax.set_ylim(0, max(0.11, value.max()*1.1))
+        self.ax.set_ylim(0, max(0.11, finite_max(value)*1.1))
 
         self.set_time_title(frame, self.title)
 
