@@ -10,7 +10,8 @@
 #include <json.hpp>
 #include <string>
 
-#include "Model.hpp"
+#include "AllenCahnModel.hpp"
+#include "ZirconiumModel.hpp"
 #include "Parameters.hpp"
 #include "types.hpp"
 #include "Grid.hpp"
@@ -51,27 +52,14 @@ void print_progress(Index step_number, const Parameters& parameters, int elapsed
     std::cout << "    Integration steps: " << accepted << " (rejected: " << rejected << ")" << std::endl;
 }
 
-int main(int argc, char** argv) {
-    const std::time_t run_start = std::time(nullptr);
-
-    // usage: Phase-field [result_folder [config_file]]
-    std::filesystem::path result_path = "Results";
-    if (argc >= 2)
-        result_path = argv[1];
-    std::filesystem::path input_config_path = "config/config.json";
-    if (argc >= 3)
-        input_config_path = argv[2];
-
-    Parameters parameters = Parameters::load(input_config_path);
+// The computation with the model ModelT (see Model.hpp; main chooses it from the config): the initial
+// condition, the time stepping and the frames written into run_folder. Returns the exit code of the program.
+template< class ModelT >
+int run(const Parameters& parameters, const RunFolder& run_folder)
+{
     const Grid grid = parameters.grid();
 
-    RunFolder run_folder(result_path);
-    if (!run_folder.create())
-        return EXIT_FAILURE;
-    run_folder.save_setup(parameters, input_config_path);
-    run_folder.write_run_start_info(run_start);
-
-    Model model(parameters);
+    ModelT model(parameters);
     Vector u(model.getDegreesOfFreedom());
 
     if (parameters.init_cond_from_file){
@@ -178,4 +166,34 @@ int main(int argc, char** argv) {
 
     std::cout << "Computation time: " << format_computation_time(computation_seconds) << std::endl;
     run_folder.append_computation_time(computation_seconds);
+    return EXIT_SUCCESS;
+}
+
+int main(int argc, char** argv) {
+    const std::time_t run_start = std::time(nullptr);
+
+    // usage: Phase-field [result_folder [config_file]]
+    std::filesystem::path result_path = "Results";
+    if (argc >= 2)
+        result_path = argv[1];
+    std::filesystem::path input_config_path = "config/config.json";
+    if (argc >= 3)
+        input_config_path = argv[2];
+
+    Parameters parameters = Parameters::load(input_config_path);
+
+    RunFolder run_folder(result_path);
+    if (!run_folder.create())
+        return EXIT_FAILURE;
+    run_folder.save_setup(parameters, input_config_path);
+    run_folder.write_run_start_info(run_start);
+
+    // Each model is a separate instantiation of run, compiled with its own GPU kernels.
+    switch (parameters.model_type()) {
+        case ModelType::AllenCahn:
+            return run<AllenCahnModel>(parameters, run_folder);
+        case ModelType::Zirconium:
+            return run<ZirconiumModel>(parameters, run_folder);
+    }
+    return EXIT_FAILURE;
 }

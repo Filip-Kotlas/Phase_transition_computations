@@ -30,6 +30,13 @@ enum class FTType {
     Radial
 };
 
+// The model (the class in main.cu's run<ModelT>) of a run; given by the force term type,
+// see Parameters::model_type().
+enum class ModelType {
+    AllenCahn,  // AllenCahnModel
+    Zirconium   // ZirconiumModel
+};
+
 std::string BCType_to_string(BCType bc_type);
 BCType string_to_BCType(const std::string& str);
 

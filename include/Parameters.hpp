@@ -57,6 +57,9 @@ public:
     // The parameters the GPU code needs (see ModelParams.hpp).
     ModelParams model_params() const;
 
+    // The model the run solves, given by force_term_type.
+    ModelType model_type() const;
+
     // load from a JSON file
     static Parameters load(const std::filesystem::path& filename);
 

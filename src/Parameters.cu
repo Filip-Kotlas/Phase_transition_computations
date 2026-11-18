@@ -121,6 +121,17 @@ ModelParams Parameters::model_params() const {
     return params;
 }
 
+ModelType Parameters::model_type() const {
+    switch (force_term_type) {
+        case FTType::Constant:
+        case FTType::Radial:
+            return ModelType::AllenCahn;
+        case FTType::Zirconium:
+            return ModelType::Zirconium;
+    }
+    throw std::runtime_error("No model for the force term type " + FTType_to_string(force_term_type));
+}
+
 void Parameters::save_human_readable(const std::filesystem::path& filename) const {
     std::ofstream file(filename);
     if (!file) {
