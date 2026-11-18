@@ -7,7 +7,7 @@
 // the GPU lambdas by value. hx and hy are derived from the other fields, so do not change those after
 // the construction.
 
-#include "types.hpp"
+#include "core/types.hpp"
 
 struct Domain {
     Real x_left;

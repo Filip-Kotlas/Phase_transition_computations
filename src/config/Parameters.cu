@@ -1,5 +1,5 @@
-#include "Parameters.hpp"
-#include "ConfigSection.hpp"
+#include "config/Parameters.hpp"
+#include "config/ConfigSection.hpp"
 #include <fstream>
 #include <iomanip>
 #include <sstream>

@@ -4,11 +4,11 @@
 #include <string>
 #include <vector>
 #include <sstream>
-#include <json.hpp>
+#include "external/json.hpp"
 #include <filesystem>
-#include "types.hpp"
-#include "enums.hpp"
-#include "Grid.hpp"
+#include "core/types.hpp"
+#include "config/enums.hpp"
+#include "core/Grid.hpp"
 
 // Plain data that the GPU code needs (the models, InitialCondition): numbers and enums only, so that
 // copying them to the GPU by value is well defined. Parameters itself, which also holds strings and

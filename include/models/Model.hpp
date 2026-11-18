@@ -22,10 +22,10 @@
 // Everything else (the equations and their physical parameters, from the model's own config section)
 // is in the child classes; the anisotropic Allen-Cahn operator for the phase is a copy in each of them.
 
-#include "Parameters.hpp"
-#include "Grid.hpp"
-#include "types.hpp"
-#include "enums.hpp"
+#include "config/Parameters.hpp"
+#include "core/Grid.hpp"
+#include "core/types.hpp"
+#include "config/enums.hpp"
 
 class Model
 {

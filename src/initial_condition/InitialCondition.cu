@@ -1,8 +1,8 @@
-#include "InitialCondition.hpp"
+#include "initial_condition/InitialCondition.hpp"
 #include <vector>
 #include <iostream>
 #include <TNL/Algorithms/parallelFor.h>
-#include "ResultIO.hpp"
+#include "io/ResultIO.hpp"
 
 __cuda_callable__
 Real InitialCondition::get_phase(Index ind) const

@@ -1,8 +1,8 @@
 #include <cmath>
 #include <algorithm>
 
-#include "AllenCahnModel.hpp"
-#include "ConfigSection.hpp"
+#include "models/AllenCahnModel.hpp"
+#include "config/ConfigSection.hpp"
 
 AllenCahnModel::Params AllenCahnModel::Params::load(const nlohmann::json& section)
 {

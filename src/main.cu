@@ -7,19 +7,19 @@
 #include <ctime>
 #include <vector>
 #include <filesystem>
-#include <json.hpp>
+#include "external/json.hpp"
 #include <string>
 #include <stdexcept>
 
-#include "AllenCahnModel.hpp"
-#include "ZirconiumModel.hpp"
-#include "Parameters.hpp"
-#include "types.hpp"
-#include "Grid.hpp"
-#include "InitialCondition.hpp"
-#include "ResultIO.hpp"
-#include "RunFolder.hpp"
-#include "enums.hpp"
+#include "models/AllenCahnModel.hpp"
+#include "models/ZirconiumModel.hpp"
+#include "config/Parameters.hpp"
+#include "core/types.hpp"
+#include "core/Grid.hpp"
+#include "initial_condition/InitialCondition.hpp"
+#include "io/ResultIO.hpp"
+#include "io/RunFolder.hpp"
+#include "config/enums.hpp"
 
 // Prints one line about the progress after step_number frames of this run have been computed
 // (counted from initial_time, so 1..frame_num, not the absolute frame number in the file name):

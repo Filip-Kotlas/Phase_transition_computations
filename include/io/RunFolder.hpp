@@ -10,7 +10,7 @@
 #include <string>
 #include <vector>
 
-#include "Parameters.hpp"
+#include "config/Parameters.hpp"
 
 class RunFolder {
 public:

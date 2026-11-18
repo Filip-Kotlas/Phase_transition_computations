@@ -1,4 +1,4 @@
-#include "Model.hpp"
+#include "models/Model.hpp"
 
 Model::Model(const Parameters& parameters)
 :  grid(parameters.grid()),

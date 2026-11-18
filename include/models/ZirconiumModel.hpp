@@ -10,9 +10,9 @@
 //                    "theta_0": -0.392699, "d": 1.6e15, "T": 1000 }
 
 #include <vector>
-#include <json.hpp>
+#include "external/json.hpp"
 
-#include "Model.hpp"
+#include "models/Model.hpp"
 
 class ZirconiumModel : public Model
 {

@@ -1,10 +1,10 @@
 #pragma once
 #include <filesystem>
-#include "types.hpp"
-#include "constants.hpp"
-#include "Parameters.hpp"
-#include "Grid.hpp"
-#include "enums.hpp"
+#include "core/types.hpp"
+#include "models/constants.hpp"
+#include "config/Parameters.hpp"
+#include "core/Grid.hpp"
+#include "config/enums.hpp"
 
 // The initial condition computed in code (init_condition in the config). Captured by value in the
 // GPU lambda of set_init_cond_manually, so it holds only plain data.

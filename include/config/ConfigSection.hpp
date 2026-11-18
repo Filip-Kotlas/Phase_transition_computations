@@ -9,7 +9,7 @@
 #include <stdexcept>
 #include <string>
 #include <type_traits>
-#include <json.hpp>
+#include "external/json.hpp"
 
 class ConfigSection {
 public:

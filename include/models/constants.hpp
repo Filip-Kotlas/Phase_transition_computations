@@ -1,6 +1,6 @@
 #pragma once
 #include <cmath>
-#include "types.hpp"
+#include "core/types.hpp"
 
 namespace constants {
     // M_PI is not standard C++ (glibc provides it, other headers may not); same literal as glibc's M_PI.

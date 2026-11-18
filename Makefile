@@ -38,7 +38,9 @@ SUPPRESS_WARNINGS := -Xcudafe --diag_suppress=20012 -Xcudafe --diag_suppress=177
                      -Xcudafe --diag_suppress=186 -Xcudafe --diag_suppress=297 \
                      -Xcompiler -w
 
-SRC := $(wildcard $(SRC_DIR)/*.cpp) $(wildcard $(SRC_DIR)/*.cu) $(wildcard $(SRC_DIR)/*.c)
+# All sources, also in the subfolders of src/ (config/, models/, ...). The objects keep the same
+# subfolders in the build folder, e.g. build/sm_75/models/Model.o.
+SRC := $(sort $(shell find $(SRC_DIR) -name '*.cpp' -o -name '*.cu' -o -name '*.c'))
 OBJ := $(patsubst $(SRC_DIR)/%,$(BUILD_DIR)/%,$(SRC:.cpp=.o))
 OBJ := $(OBJ:.cu=.o)
 OBJ := $(OBJ:.c=.o)
@@ -52,15 +54,15 @@ DEPFLAGS = -MMD -MP -MF $(@:.o=.d)
 
 # compilation rules
 $(BUILD_DIR)/%.o: $(SRC_DIR)/%.cpp
-	@mkdir -p $(BUILD_DIR)
+	@mkdir -p $(@D)
 	$(COMPILER) $(COMPILER_FLAGS) $(SUPPRESS_WARNINGS) $(DEPFLAGS) -c $< -o $@
 
 $(BUILD_DIR)/%.o: $(SRC_DIR)/%.cu
-	@mkdir -p $(BUILD_DIR)
+	@mkdir -p $(@D)
 	$(COMPILER) $(COMPILER_FLAGS) $(SUPPRESS_WARNINGS) $(DEPFLAGS) -c $< -o $@
 
 $(BUILD_DIR)/%.o: $(SRC_DIR)/%.c
-	@mkdir -p $(BUILD_DIR)
+	@mkdir -p $(@D)
 	$(COMPILER) $(COMPILER_FLAGS) $(SUPPRESS_WARNINGS) $(DEPFLAGS) -x c -c $< -o $@
 
 # linking

@@ -1,8 +1,8 @@
 #include <cmath>
 
-#include "ZirconiumModel.hpp"
-#include "constants.hpp"
-#include "ConfigSection.hpp"
+#include "models/ZirconiumModel.hpp"
+#include "models/constants.hpp"
+#include "config/ConfigSection.hpp"
 
 ZirconiumModel::Params ZirconiumModel::Params::load(const nlohmann::json& section)
 {

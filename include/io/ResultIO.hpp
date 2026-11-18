@@ -8,8 +8,8 @@
 #include <filesystem>
 #include <vector>
 
-#include "types.hpp"
-#include "Grid.hpp"
+#include "core/types.hpp"
+#include "core/Grid.hpp"
 
 // Writes u as folder/Result-NNNNN.npy, where NNNNN is step. The type of the values is Real.
 // Prints the reason to std::cerr and returns false on failure.

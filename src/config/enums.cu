@@ -1,4 +1,4 @@
-#include "enums.hpp"
+#include "config/enums.hpp"
 
 std::string BCType_to_string(BCType bc_type) {
     switch (bc_type) {

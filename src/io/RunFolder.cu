@@ -1,4 +1,4 @@
-#include "RunFolder.hpp"
+#include "io/RunFolder.hpp"
 
 #include <cmath>
 #include <exception>

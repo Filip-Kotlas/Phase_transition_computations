@@ -1,4 +1,4 @@
-#include "ResultIO.hpp"
+#include "io/ResultIO.hpp"
 
 #include <algorithm>
 #include <fstream>
@@ -8,7 +8,7 @@
 #include <stdexcept>
 #include <string>
 
-#include "npy.hpp"
+#include "external/npy.hpp"
 
 namespace {
 

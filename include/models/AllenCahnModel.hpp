@@ -10,9 +10,9 @@
 //                     "force_term": "constant", "force_size": 1.0 }   (or "radial", without force_size)
 
 #include <vector>
-#include <json.hpp>
+#include "external/json.hpp"
 
-#include "Model.hpp"
+#include "models/Model.hpp"
 
 class AllenCahnModel : public Model
 {
