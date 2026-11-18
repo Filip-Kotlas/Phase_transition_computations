@@ -19,13 +19,12 @@
 #include "RunFolder.hpp"
 #include "enums.hpp"
 
-// Prints one line about the progress after the frame step_number has been written:
+// Prints one line about the progress after step_number frames of this run have been computed
+// (counted from initial_time, so 1..frame_num, not the absolute frame number in the file name):
 // the share of frames done, the estimated remaining time and the time the last frame took (elapsed, in ms).
 void print_progress(Index step_number, const Parameters& parameters, int elapsed)
 {
-    double remaining_time = elapsed / 1000.0 * (parameters.frame_num * parameters.final_time
-                                             / (parameters.final_time - parameters.initial_time)
-                                             - step_number);
+    double remaining_time = elapsed / 1000.0 * (parameters.frame_num - step_number);
 
     int remain_hours = static_cast<int>(remaining_time) / 3600;
     int remain_minutes = (static_cast<int>(remaining_time) % 3600) / 60;
@@ -95,47 +94,58 @@ int main(int argc, char** argv) {
     // Wall time of the time stepping, including writing the frames.
     const auto computation_start = std::chrono::steady_clock::now();
 
+    auto rhs = [ = ] __cuda_callable__( const TNL::Containers::StaticArray< 2, Index >& ind, const VectorView& u, VectorView& fu ) {
+        model.set_rhs_at(u, fu, ind.x(), ind.y());
+    };
+
+    auto boundary_xdir = [ = ] __cuda_callable__( const Index ind, VectorView& fu ) {
+        model.apply_boundary_condition_xdir(ind, fu);
+    };
+
+    auto boundary_ydir = [ = ] __cuda_callable__( const Index ind, VectorView& fu ) {
+        model.apply_boundary_condition_ydir(ind, fu);
+    };
+
+    auto time_stepping = [ = ]( const Real& t, const Real& tau, const VectorView& u, VectorView& fu )
+    {
+        // iterate over inner points only
+        TNL::Containers::StaticArray< 2, Index > begin = {1, 1};
+        TNL::Containers::StaticArray< 2, Index > end = {grid.sizeX - 1, grid.sizeY - 1};
+        TNL::Algorithms::parallelFor< Device >(begin, end, rhs, u, fu );
+
+        // iterate over boundary points (after the interior, Neumann copies the fu of the neighbour)
+        TNL::Algorithms::parallelFor< Device >(0, grid.sizeX, boundary_xdir, fu );
+        TNL::Algorithms::parallelFor< Device >(0, grid.sizeY, boundary_ydir, fu );
+    };
+
     ODESolver solver;
     solver.setTau( parameters.integrationTimeStep );
     solver.setTime( parameters.initial_time );
-    
-    Index step_number = static_cast<Index>(round(solver.getTime() / parameters.timeStep));
-    write_frame(run_folder.calculations(), step_number, u, grid);
 
-    while( solver.getTime() < parameters.final_time ) {
-        solver.setStopTime( TNL::min( solver.getTime() + parameters.timeStep, parameters.final_time ) );
+    // Frame numbers are absolute (time / timeStep), so a run continued from a file with a later
+    // initial_time carries on with the numbering of the previous run.
+    const Index first_frame = static_cast<Index>(round(parameters.initial_time / parameters.timeStep));
+    write_frame(run_folder.calculations(), first_frame, u, grid);
 
-        auto rhs = [ = ] __cuda_callable__( const TNL::Containers::StaticArray< 2, Index >& ind, const VectorView& u, VectorView& fu ) {
-            model.set_rhs_at(u, fu, ind.x(), ind.y());
-        };
+    // The loop counts frames instead of comparing the solver time with final_time, so it always ends
+    // after frame_num frames, whatever the rounding of the time (a float/double mix once made it run forever).
+    for (Index i = 1; i <= parameters.frame_num; ++i) {
+        // Computed from i (in double), not by adding timeStep to the previous stop time, so the rounding
+        // errors do not add up; the last frame stops exactly at final_time.
+        const Real stop_time = (i == parameters.frame_num)
+            ? parameters.final_time
+            : static_cast<Real>(static_cast<double>(parameters.initial_time)
+                                + (static_cast<double>(parameters.final_time) - static_cast<double>(parameters.initial_time))
+                                  * i / parameters.frame_num);
+        solver.setStopTime( stop_time );
 
-        auto boundary_xdir = [ = ] __cuda_callable__( const Index ind, VectorView& fu ) {
-            model.apply_boundary_condition_xdir(ind, fu);
-        };
-
-        auto boundary_ydir = [ = ] __cuda_callable__( const Index ind, VectorView& fu ) {
-            model.apply_boundary_condition_ydir(ind, fu);
-        };
-
-        auto time_stepping = [ = ]( const Real& t, const Real& tau, const VectorView& u, VectorView& fu )
-        {
-            // iterate over inner points only
-            TNL::Containers::StaticArray< 2, Index > begin = {1, 1};
-            TNL::Containers::StaticArray< 2, Index > end = {grid.sizeX - 1, grid.sizeY - 1};
-            TNL::Algorithms::parallelFor< Device >(begin, end, rhs, u, fu );
-
-            // iterate over boundary points (after the interior, Neumann copies the fu of the neighbour)
-            TNL::Algorithms::parallelFor< Device >(0, grid.sizeX, boundary_xdir, fu );
-            TNL::Algorithms::parallelFor< Device >(0, grid.sizeY, boundary_ydir, fu );
-        };
         auto stepStart = std::chrono::high_resolution_clock::now();
         solver.solve( u, time_stepping );
-        step_number = static_cast<Index>(round(solver.getTime() / parameters.timeStep));
-        write_frame(run_folder.calculations(), step_number, u, grid);
+        write_frame(run_folder.calculations(), first_frame + i, u, grid);
         auto stepEnd = std::chrono::high_resolution_clock::now();
 
         int elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(stepEnd - stepStart).count();
-        print_progress(step_number, parameters, elapsed);
+        print_progress(i, parameters, elapsed);
     }
 
     const double computation_seconds = std::chrono::duration<double>(std::chrono::steady_clock::now() - computation_start).count();
