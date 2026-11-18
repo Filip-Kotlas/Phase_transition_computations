@@ -7,8 +7,8 @@ model.<type>, in place:
 
 The old force term "zirconium" gives
 
-    "model": {"type": "zirconium",
-              "zirconium": {"alpha", "a", "b", "ksi", "A", "m", "theta_0", "d", "T"}}
+    "model": {"type": "Zr-Nb_Choud2013",
+              "Zr-Nb_Choud2013": {"alpha", "a", "b", "ksi", "A", "m", "theta_0", "d", "T"}}
 
 and "constant" or "radial" gives the model allen_cahn, with "force_term" and, for "constant",
 "force_size" instead of "d" and "T". The other sections (solver, init_cond, bound_cond) stay as
@@ -41,7 +41,7 @@ def migrate(config: dict) -> dict:
 
     force_type = force_term.get("type", "zirconium")
     if force_type == "zirconium":
-        model_type = "zirconium"
+        model_type = "Zr-Nb_Choud2013"
         model_section["d"] = old(problem, "d")
         model_section["T"] = old(problem, "T")
     elif force_type in ("constant", "radial"):

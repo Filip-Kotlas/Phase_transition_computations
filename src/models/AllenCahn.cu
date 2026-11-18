@@ -1,10 +1,10 @@
 #include <cmath>
 #include <algorithm>
 
-#include "models/AllenCahnModel.hpp"
+#include "models/AllenCahn.hpp"
 #include "config/ConfigSection.hpp"
 
-AllenCahnModel::Params AllenCahnModel::Params::load(const nlohmann::json& section)
+AllenCahn::Params AllenCahn::Params::load(const nlohmann::json& section)
 {
     ConfigSection config(section, std::string("model.") + name);
     Params params;
@@ -33,7 +33,7 @@ AllenCahnModel::Params AllenCahnModel::Params::load(const nlohmann::json& sectio
     return params;
 }
 
-std::vector<ParameterEntry> AllenCahnModel::Params::entries() const
+std::vector<ParameterEntry> AllenCahn::Params::entries() const
 {
     std::vector<ParameterEntry> result;
     result.push_back({"Alpha", "\\(\\alpha\\)", ParameterEntry::to_text(alpha)});
@@ -50,7 +50,7 @@ std::vector<ParameterEntry> AllenCahnModel::Params::entries() const
 }
 
 __cuda_callable__
-void AllenCahnModel::set_rhs_at(const VectorView& u, VectorView& fu, Index i, Index j) const
+void AllenCahn::set_rhs_at(const VectorView& u, VectorView& fu, Index i, Index j) const
 {
     const Index offset = grid.num_points();
     fu[grid.index(i, j)] = get_rhs_phase_at(u, i, j, F(i, j));
@@ -58,7 +58,7 @@ void AllenCahnModel::set_rhs_at(const VectorView& u, VectorView& fu, Index i, In
 }
 
 __cuda_callable__
-Real AllenCahnModel::F(Index i, Index j) const
+Real AllenCahn::F(Index i, Index j) const
 {
     if (own.force_term == FTType::Constant)
         return own.force_size;
@@ -74,32 +74,32 @@ Real AllenCahnModel::F(Index i, Index j) const
 }
 
 __cuda_callable__
-Real AllenCahnModel::get_rhs_phase_at(const VectorView& u, Index i, Index j, Real F) const
+Real AllenCahn::get_rhs_phase_at(const VectorView& u, Index i, Index j, Real F) const
 {
     return Real(1.0)/own.alpha * (div_T0(u, i, j) + f_0(u, i , j) / own.ksi / own.ksi - own.par_b/own.ksi*grade_4_polynom(u, i, j)*F);
 }
 
 __cuda_callable__
-Real AllenCahnModel::grad_p_1_forward(const VectorView& u, Index i, Index j) const
+Real AllenCahn::grad_p_1_forward(const VectorView& u, Index i, Index j) const
 {
     return (phase_at(u, i+1, j) - phase_at(u, i, j))/grid.hx;
 }
 
 __cuda_callable__
-Real AllenCahnModel::grad_p_2_forward(const VectorView& u, Index i, Index j) const
+Real AllenCahn::grad_p_2_forward(const VectorView& u, Index i, Index j) const
 {
    return (phase_at(u, i, j+1) - phase_at(u, i, j))/grid.hy;
 }
 
 __cuda_callable__
-Real AllenCahnModel::div_T0(const VectorView& u, Index i, Index j) const
+Real AllenCahn::div_T0(const VectorView& u, Index i, Index j) const
 {
     return (T0_1(grad_p_1_forward(u, i, j), grad_p_2_forward(u, i, j)) - T0_1(grad_p_1_forward(u, i-1, j), grad_p_2_forward(u, i-1, j)))/grid.hx
            + (T0_2(grad_p_1_forward(u, i, j), grad_p_2_forward(u, i, j)) - T0_2(grad_p_1_forward(u, i, j-1), grad_p_2_forward(u, i, j-1)))/grid.hy;
 }
 
 __cuda_callable__
-Real AllenCahnModel::T0_1(const Real grad_p_1, const Real grad_p_2) const
+Real AllenCahn::T0_1(const Real grad_p_1, const Real grad_p_2) const
 {
     Real theta = atan2(-grad_p_2, -grad_p_1);
     const Anisotropy& a = own.anisotropy;
@@ -107,7 +107,7 @@ Real AllenCahnModel::T0_1(const Real grad_p_1, const Real grad_p_2) const
 }
 
 __cuda_callable__
-Real AllenCahnModel::T0_2(const Real grad_p_1, const Real grad_p_2) const
+Real AllenCahn::T0_2(const Real grad_p_1, const Real grad_p_2) const
 {
     Real theta = atan2(-grad_p_2, -grad_p_1);
     const Anisotropy& a = own.anisotropy;
@@ -115,13 +115,13 @@ Real AllenCahnModel::T0_2(const Real grad_p_1, const Real grad_p_2) const
 }
 
 __cuda_callable__
-Real AllenCahnModel::f_0(const VectorView& u, Index i, Index j) const
+Real AllenCahn::f_0(const VectorView& u, Index i, Index j) const
 {
    return own.par_a*phase_at(u, i, j)*(1 - phase_at(u, i, j))*(phase_at(u, i, j) - Real(1.0)/Real(2.0));
 }
 
 __cuda_callable__
-Real AllenCahnModel::grade_4_polynom(const VectorView& u, Index i, Index j) const
+Real AllenCahn::grade_4_polynom(const VectorView& u, Index i, Index j) const
 {
    return pow(phase_at(u, i, j), Real(2)) * pow(phase_at(u, i, j) - Real(1.0), Real(2));
 }

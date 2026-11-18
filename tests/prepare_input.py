@@ -75,7 +75,7 @@ def smooth_circle(solver: dict) -> tuple:
 
 def random_fields(solver: dict) -> tuple:
     """Independent uniform random values: the phase in [0, 1], the concentration between the
-    equilibrium concentrations of the two phases (the zirconium model needs 0 < c < 1)."""
+    equilibrium concentrations of the two phases (the Zr-Nb_Choud2013 model needs 0 < c < 1)."""
     shape = (solver["sizeY"], solver["sizeX"])
     rng = np.random.default_rng(seed=2026)
     phase = rng.uniform(0.0, 1.0, shape)

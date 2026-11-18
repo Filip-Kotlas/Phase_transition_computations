@@ -13,7 +13,7 @@
 
 class ConfigSection {
 public:
-    // data is the JSON object at the path name in the config (e.g. "model.zirconium"); the name
+    // data is the JSON object at the path name in the config (e.g. "model.allen_cahn"); the name
     // is used in the error messages.
     ConfigSection(const nlohmann::json& data, std::string name)
     :  data(data), name(std::move(name))

@@ -15,7 +15,7 @@
 // the settings of the run, stays on the host.
 
 // The anisotropy psi(theta) = 1 + A cos(m (theta - theta_0)) of the interface energy (a member of the
-// Params of AllenCahnModel and ZirconiumModel, also used by the initial condition WulffShape).
+// Params of AllenCahn and ZrNbChoud2013, also used by the initial condition WulffShape).
 struct Anisotropy {
     Real A;
     int m;
@@ -76,7 +76,7 @@ struct Parameters {
     bool init_cond_scaling;
     // boundary conditions (plain data, copied to the GPU)
     BoundaryConditions bound_cond;
-    // the model (the config section "model"): its name (model.type, e.g. "zirconium") chooses the
+    // the model (the config section "model"): its name (model.type, e.g. "allen_cahn") chooses the
     // model class in main.cu, its section model.<type> holds the physical parameters of that model
     std::string model_type;
     nlohmann::json model_config;

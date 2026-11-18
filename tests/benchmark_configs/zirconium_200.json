@@ -29,8 +29,8 @@
         "y_conc": "neumann"
     },
     "model": {
-        "type": "zirconium",
-        "zirconium": {
+        "type": "Zr-Nb_Choud2013",
+        "Zr-Nb_Choud2013": {
             "alpha": 1,
             "a": 1,
             "b": 3.53553391,

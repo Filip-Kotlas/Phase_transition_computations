@@ -1,7 +1,7 @@
 #pragma once
 
 // The base class of the discretised models: what all of them share. Every model is a child class
-// (AllenCahnModel.hpp, ZirconiumModel.hpp) that provides
+// (AllenCahn.hpp, ZrNbChoud2013.hpp) that provides
 //     static constexpr const char* name;   (model.type in the config, and its section model.<name>)
 //     struct Params;                       (its physical parameters, plain data, with
 //         static Params load(const nlohmann::json& section);   (reads model.<name>, see ConfigSection.hpp)

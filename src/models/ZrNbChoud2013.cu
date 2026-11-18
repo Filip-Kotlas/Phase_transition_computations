@@ -1,10 +1,10 @@
 #include <cmath>
 
-#include "models/ZirconiumModel.hpp"
+#include "models/ZrNbChoud2013.hpp"
 #include "models/constants.hpp"
 #include "config/ConfigSection.hpp"
 
-ZirconiumModel::Params ZirconiumModel::Params::load(const nlohmann::json& section)
+ZrNbChoud2013::Params ZrNbChoud2013::Params::load(const nlohmann::json& section)
 {
     ConfigSection config(section, std::string("model.") + name);
     Params params;
@@ -28,7 +28,7 @@ ZirconiumModel::Params ZirconiumModel::Params::load(const nlohmann::json& sectio
     return params;
 }
 
-std::vector<ParameterEntry> ZirconiumModel::Params::entries() const
+std::vector<ParameterEntry> ZrNbChoud2013::Params::entries() const
 {
     std::vector<ParameterEntry> result;
     result.push_back({"Alpha", "\\(\\alpha\\)", ParameterEntry::to_text(alpha)});
@@ -44,7 +44,7 @@ std::vector<ParameterEntry> ZirconiumModel::Params::entries() const
 }
 
 __cuda_callable__
-void ZirconiumModel::set_rhs_at(const VectorView& u, VectorView& fu, Index i, Index j) const
+void ZrNbChoud2013::set_rhs_at(const VectorView& u, VectorView& fu, Index i, Index j) const
 {
     const Index offset = grid.num_points();
     fu[grid.index(i, j)] = get_rhs_phase_at(u, i, j, F(u, i, j));
@@ -52,19 +52,19 @@ void ZirconiumModel::set_rhs_at(const VectorView& u, VectorView& fu, Index i, In
 }
 
 __cuda_callable__
-Real ZirconiumModel::get_rhs_concentration_at(const VectorView& u, Index i, Index j) const
+Real ZrNbChoud2013::get_rhs_concentration_at(const VectorView& u, Index i, Index j) const
 {
     return div_D_grad_concentration(u, i, j) + div_D_grad_phase(u, i, j);
 }
 
 __cuda_callable__
-Real ZirconiumModel::F(const VectorView& u, Index i, Index j) const
+Real ZrNbChoud2013::F(const VectorView& u, Index i, Index j) const
 {
     return constants::G_m_alpha(conc_at(u, i, j), own.T) - constants::G_m_beta(conc_at(u, i, j), own.T);
 }
 
 __cuda_callable__
-Real ZirconiumModel::div_D_grad_concentration(const VectorView& u, Index i, Index j) const
+Real ZrNbChoud2013::div_D_grad_concentration(const VectorView& u, Index i, Index j) const
 {
 	Real coeff_plus_half = (get_conc_diff_coef(u, i + 1, j) + get_conc_diff_coef(u, i, j)) / 2;
 	Real coeff_minus_half = (get_conc_diff_coef(u, i, j) + get_conc_diff_coef(u, i - 1, j)) / 2;
@@ -80,7 +80,7 @@ Real ZirconiumModel::div_D_grad_concentration(const VectorView& u, Index i, Inde
 }
 
 __cuda_callable__
-Real ZirconiumModel::div_D_grad_phase(const VectorView& u, Index i, Index j) const
+Real ZrNbChoud2013::div_D_grad_phase(const VectorView& u, Index i, Index j) const
 {
 	Real coeff_plus_half = (get_phas_diff_coef(u, i + 1, j) + get_phas_diff_coef(u, i, j)) / 2;
 	Real coeff_minus_half = (get_phas_diff_coef(u, i, j) + get_phas_diff_coef(u, i - 1, j)) / 2;
@@ -96,7 +96,7 @@ Real ZirconiumModel::div_D_grad_phase(const VectorView& u, Index i, Index j) con
 }
 
 __cuda_callable__
-Real ZirconiumModel::get_conc_diff_coef(const VectorView& u, Index i, Index j) const
+Real ZrNbChoud2013::get_conc_diff_coef(const VectorView& u, Index i, Index j) const
 {
     return own.par_b*own.d/Real(30.0)
             * conc_at(u, i, j)
@@ -107,7 +107,7 @@ Real ZirconiumModel::get_conc_diff_coef(const VectorView& u, Index i, Index j) c
 }
 
 __cuda_callable__
-Real ZirconiumModel::get_phas_diff_coef(const VectorView& u, Index i, Index j) const
+Real ZrNbChoud2013::get_phas_diff_coef(const VectorView& u, Index i, Index j) const
 {
    return own.par_b*own.d/Real(30.0)
           * conc_at(u, i, j)
@@ -118,19 +118,19 @@ Real ZirconiumModel::get_phas_diff_coef(const VectorView& u, Index i, Index j) c
 }
 
 __cuda_callable__
-Real ZirconiumModel::polynom_p(const VectorView& u, Index i, Index j) const
+Real ZrNbChoud2013::polynom_p(const VectorView& u, Index i, Index j) const
 {
    return 6*pow(phase_at(u, i, j), Real(5)) - 15*pow(phase_at(u, i, j), Real(4)) + 10*pow(phase_at(u, i, j), Real(3));
 }
 
 __cuda_callable__
-Real ZirconiumModel::der_polynom_p(const VectorView& u, Index i, Index j) const
+Real ZrNbChoud2013::der_polynom_p(const VectorView& u, Index i, Index j) const
 {
    return 30*(pow(phase_at(u, i, j), Real(4)) - 2*pow(phase_at(u, i, j), Real(3)) + pow(phase_at(u, i, j), Real(2)));
 }
 
 __cuda_callable__
-Real ZirconiumModel::sec_deriv_of_g_w_resp_to_c(const VectorView& u, Index i, Index j) const
+Real ZrNbChoud2013::sec_deriv_of_g_w_resp_to_c(const VectorView& u, Index i, Index j) const
 {
    Real c = conc_at(u, i, j);
    Real d2_G_alpha_wrt_c = constants::R * own.T / (c*(1-c))
@@ -142,7 +142,7 @@ Real ZirconiumModel::sec_deriv_of_g_w_resp_to_c(const VectorView& u, Index i, In
 }
 
 __cuda_callable__
-Real ZirconiumModel::deriv_of_g_w_resp_to_c_and_p(const VectorView& u, Index i, Index j) const
+Real ZrNbChoud2013::deriv_of_g_w_resp_to_c_and_p(const VectorView& u, Index i, Index j) const
 {
    Real c = conc_at(u, i, j);
    Real d_G_alpha_wrt_c = constants::G_Nb_alpha_0(own.T)
@@ -159,32 +159,32 @@ Real ZirconiumModel::deriv_of_g_w_resp_to_c_and_p(const VectorView& u, Index i, 
 }
 
 __cuda_callable__
-Real ZirconiumModel::get_rhs_phase_at(const VectorView& u, Index i, Index j, Real F) const
+Real ZrNbChoud2013::get_rhs_phase_at(const VectorView& u, Index i, Index j, Real F) const
 {
     return Real(1.0)/own.alpha * (div_T0(u, i, j) + f_0(u, i , j) / own.ksi / own.ksi - own.par_b/own.ksi*grade_4_polynom(u, i, j)*F);
 }
 
 __cuda_callable__
-Real ZirconiumModel::grad_p_1_forward(const VectorView& u, Index i, Index j) const
+Real ZrNbChoud2013::grad_p_1_forward(const VectorView& u, Index i, Index j) const
 {
     return (phase_at(u, i+1, j) - phase_at(u, i, j))/grid.hx;
 }
 
 __cuda_callable__
-Real ZirconiumModel::grad_p_2_forward(const VectorView& u, Index i, Index j) const
+Real ZrNbChoud2013::grad_p_2_forward(const VectorView& u, Index i, Index j) const
 {
    return (phase_at(u, i, j+1) - phase_at(u, i, j))/grid.hy;
 }
 
 __cuda_callable__
-Real ZirconiumModel::div_T0(const VectorView& u, Index i, Index j) const
+Real ZrNbChoud2013::div_T0(const VectorView& u, Index i, Index j) const
 {
     return (T0_1(grad_p_1_forward(u, i, j), grad_p_2_forward(u, i, j)) - T0_1(grad_p_1_forward(u, i-1, j), grad_p_2_forward(u, i-1, j)))/grid.hx
            + (T0_2(grad_p_1_forward(u, i, j), grad_p_2_forward(u, i, j)) - T0_2(grad_p_1_forward(u, i, j-1), grad_p_2_forward(u, i, j-1)))/grid.hy;
 }
 
 __cuda_callable__
-Real ZirconiumModel::T0_1(const Real grad_p_1, const Real grad_p_2) const
+Real ZrNbChoud2013::T0_1(const Real grad_p_1, const Real grad_p_2) const
 {
     Real theta = atan2(-grad_p_2, -grad_p_1);
     const Anisotropy& a = own.anisotropy;
@@ -192,7 +192,7 @@ Real ZirconiumModel::T0_1(const Real grad_p_1, const Real grad_p_2) const
 }
 
 __cuda_callable__
-Real ZirconiumModel::T0_2(const Real grad_p_1, const Real grad_p_2) const
+Real ZrNbChoud2013::T0_2(const Real grad_p_1, const Real grad_p_2) const
 {
     Real theta = atan2(-grad_p_2, -grad_p_1);
     const Anisotropy& a = own.anisotropy;
@@ -200,13 +200,13 @@ Real ZirconiumModel::T0_2(const Real grad_p_1, const Real grad_p_2) const
 }
 
 __cuda_callable__
-Real ZirconiumModel::f_0(const VectorView& u, Index i, Index j) const
+Real ZrNbChoud2013::f_0(const VectorView& u, Index i, Index j) const
 {
    return own.par_a*phase_at(u, i, j)*(1 - phase_at(u, i, j))*(phase_at(u, i, j) - Real(1.0)/Real(2.0));
 }
 
 __cuda_callable__
-Real ZirconiumModel::grade_4_polynom(const VectorView& u, Index i, Index j) const
+Real ZrNbChoud2013::grade_4_polynom(const VectorView& u, Index i, Index j) const
 {
    return pow(phase_at(u, i, j), Real(2)) * pow(phase_at(u, i, j) - Real(1.0), Real(2));
 }

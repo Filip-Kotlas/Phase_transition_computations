@@ -24,7 +24,7 @@ enum class BCType {
     Neumann
 };
 
-// The prescribed force term of AllenCahnModel (model.allen_cahn.force_term).
+// The prescribed force term of AllenCahn (model.allen_cahn.force_term).
 enum class FTType {
     Constant,
     Radial

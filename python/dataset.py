@@ -6,7 +6,7 @@ import numpy as np
 
 
 def model_type(configuration: dict) -> str:
-    """The model of the run, "allen_cahn" or "zirconium" (model.type in the config).
+    """The model of the run, "allen_cahn" or "Zr-Nb_Choud2013" (model.type in the config).
 
     Configs from before the section "model" (with the physical parameters in the top-level sections
     "problem", "force_term" and "anisotropy", see python/migrate_config.py) are understood too:
@@ -14,7 +14,7 @@ def model_type(configuration: dict) -> str:
     """
     if "model" in configuration:
         return configuration["model"]["type"]
-    return "zirconium" if configuration["force_term"]["type"] == "zirconium" else "allen_cahn"
+    return "Zr-Nb_Choud2013" if configuration["force_term"]["type"] == "zirconium" else "allen_cahn"
 
 
 def force_term(configuration: dict) -> Tuple[str, float]:

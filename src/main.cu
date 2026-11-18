@@ -11,8 +11,8 @@
 #include <string>
 #include <stdexcept>
 
-#include "models/AllenCahnModel.hpp"
-#include "models/ZirconiumModel.hpp"
+#include "models/AllenCahn.hpp"
+#include "models/ZrNbChoud2013.hpp"
 #include "config/Parameters.hpp"
 #include "core/types.hpp"
 #include "core/Grid.hpp"
@@ -187,10 +187,10 @@ int main(int argc, char** argv) {
 
     // The model is chosen by its name in the config (model.type). Each model is a separate
     // instantiation of start and run, compiled with its own GPU kernels; a new model is added here.
-    if (parameters.model_type == AllenCahnModel::name)
-        return start<AllenCahnModel>(parameters, run_folder, input_config_path, run_start);
-    if (parameters.model_type == ZirconiumModel::name)
-        return start<ZirconiumModel>(parameters, run_folder, input_config_path, run_start);
+    if (parameters.model_type == AllenCahn::name)
+        return start<AllenCahn>(parameters, run_folder, input_config_path, run_start);
+    if (parameters.model_type == ZrNbChoud2013::name)
+        return start<ZrNbChoud2013>(parameters, run_folder, input_config_path, run_start);
     throw std::runtime_error("Unknown model in the config: model.type = \"" + parameters.model_type + "\" (known: "
-                             + AllenCahnModel::name + ", " + ZirconiumModel::name + ").");
+                             + AllenCahn::name + ", " + ZrNbChoud2013::name + ").");
 }

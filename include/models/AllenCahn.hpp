@@ -14,7 +14,7 @@
 
 #include "models/Model.hpp"
 
-class AllenCahnModel : public Model
+class AllenCahn : public Model
 {
    public:
 
@@ -39,7 +39,7 @@ class AllenCahnModel : public Model
         std::vector<ParameterEntry> entries() const;
     };
 
-    AllenCahnModel(const Parameters& parameters, const Params& own) : Model(parameters), own(own) {}
+    AllenCahn(const Parameters& parameters, const Params& own) : Model(parameters), own(own) {}
 
     __cuda_callable__
     void set_rhs_at(const VectorView& u, VectorView& fu, Index i, Index j) const;
