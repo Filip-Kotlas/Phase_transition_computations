@@ -6,38 +6,26 @@ import numpy as np
 
 
 def model_type(configuration: dict) -> str:
-    """The model of the run, "allen_cahn" or "Zr-Nb_Choud2013" (model.type in the config).
-
-    Configs from before the section "model" (with the physical parameters in the top-level sections
-    "problem", "force_term" and "anisotropy", see python/migrate_config.py) are understood too:
-    there the model follows from force_term.type.
-    """
-    if "model" in configuration:
-        return configuration["model"]["type"]
-    return "Zr-Nb_Choud2013" if configuration["force_term"]["type"] == "zirconium" else "allen_cahn"
+    """The model of the run, "allen_cahn" or "Zr-Nb_Choud2013" (model.type in the config)."""
+    return configuration["model"]["type"]
 
 
 def force_term(configuration: dict) -> Tuple[str, float]:
     """The prescribed force term of the allen_cahn model as (type, size), e.g. ("constant", 0.0);
-    the size is 0 for "radial", which has none. ("", 0.0) for the other models. Old configs too."""
+    the size is 0 for "radial", which has none. ("", 0.0) for the other models."""
     if model_type(configuration) != "allen_cahn":
         return "", 0.0
-    if "model" in configuration:
-        section = configuration["model"]["allen_cahn"]
-        return section["force_term"], section.get("force_size", 0.0)
-    old = configuration["force_term"]
-    return old["type"], old.get("size", 0.0)
+    section = configuration["model"]["allen_cahn"]
+    return section["force_term"], section.get("force_size", 0.0)
 
 
 def anisotropy(configuration: dict) -> Optional[dict]:
     """The anisotropy {"A", "m", "theta_0"} of the model (the keys A, m, theta_0 of model.<type>),
-    None if the model has none. Old configs too (the top-level section "anisotropy")."""
-    if "model" in configuration:
-        section = configuration["model"][model_type(configuration)]
-        if "A" not in section:
-            return None
-        return {key: section[key] for key in ("A", "m", "theta_0")}
-    return configuration.get("anisotropy")
+    None if the model has none."""
+    section = configuration["model"][model_type(configuration)]
+    if "A" not in section:
+        return None
+    return {key: section[key] for key in ("A", "m", "theta_0")}
 
 
 class Dataset():
@@ -75,6 +63,9 @@ class Dataset():
             config_path = old_config_path
         with config_path.open("r", encoding="utf-8") as file:
             self.configuration = json.load(file)
+        if "model" not in self.configuration:
+            raise ValueError(f"{config_path} has the old config layout (no section 'model'); "
+                             f"convert it with python3 python/migrate_config.py {config_path}")
 
         self.time_step = self._calculate_time_step()
 
@@ -123,11 +114,7 @@ class Dataset():
             value: Values of the data selected by data_drawn (flat array).
             The arrays are read-only, because they are shared through the cache.
         """
-        if data_drawn == "phase":
-            column = 2
-        elif data_drawn == "concentration":
-            column = 3
-        else:
+        if data_drawn not in ("phase", "concentration"):
             raise ValueError("Wrong value for data_drawn given.")
 
         x, y, phase, concentration = self._get_frame_data(frame)

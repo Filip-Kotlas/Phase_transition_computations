@@ -26,8 +26,6 @@ The runs have to cover the same domain, have the same initial and final time, th
 frames and the same model, and both have to be finished with all their frames. Any other difference
 in the settings the solver uses (physical parameters, boundary or initial conditions, ...) only gives
 a warning; parts of the configs the solver does not use are not compared (see used_settings).
-Only the current config layout (with the section "model") is supported; results with the old layout
-can be converted by python3 python/migrate_config.py (it changes their config file in place).
 The concentration is not measured for models that do not compute it (allen_cahn).
 
 Lines of the report that are not data rows start with "#", so the file written by --output can be
@@ -163,9 +161,6 @@ def open_run(path: Path, label: str) -> Dataset:
         dataset = Dataset(path)
     except (FileNotFoundError, ValueError) as error:
         raise RunError(f"the {label} {path}: {error}")
-    if "model" not in dataset.configuration:
-        raise RunError(f"the {label} {path} has the old config layout (no section 'model'), which is not supported; "
-                       "python3 python/migrate_config.py can convert its config file (in place)")
     # A run that recorded its start but not its end crashed, was killed, failed or is still running.
     setup = read_setup(path)
     if setup.has_run_date and setup.computation_seconds is None:

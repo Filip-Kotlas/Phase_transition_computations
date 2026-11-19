@@ -567,8 +567,7 @@ test_progress() {
         run)
             # a = this run, b = number of runs, c = start of this run, d = case, e = version.
             echo "job $1: $kind, run $a/$b ($d, $e version), running for $(duration $(( $(date +%s) - c )))" ;;
-        # Tests submitted before regression.sh wrote the progress file, or the job is still
-        # unpacking the sources.
+        # The job is still unpacking the sources.
         *)       echo "job $1: $kind running (see slurm-$1.out)" ;;
     esac
 }
@@ -633,11 +632,11 @@ progress() {
     esac
 }
 
-# Newest log of a run: new jobs print "Run NAME, job ...", older ones only make's command line.
+# Newest log of a run: the job prints "Run NAME, job ..." at its start.
 find_log() {
     local logs=(slurm-*.out)
     [ ${#logs[@]} -gt 0 ] || return 0
-    grep -l -E -e "^Run $1, job " -e "\./results/$1 " "${logs[@]}" 2>/dev/null | tail -n 1
+    grep -l -e "^Run $1, job " "${logs[@]}" 2>/dev/null | tail -n 1
 }
 
 printf '%-22s %-9s %-9s %-16s %6s  %s\n' RUN STATE FRAMES "RUN DATE" SIZE DETAILS
@@ -646,10 +645,9 @@ for name in $names; do
     r="results/$name"
     read -r jstate jid node <<< "$(printf '%s\n' "$active" | awk -v n="$name" '$1 == n { print $2, $3, $4; exit }')"
 
-    # Results from before the info/ subfolders have parameters.txt and config.json directly in info/.
     params=""; cfg=""
-    for f in "$r/info/setup/parameters.txt" "$r/info/parameters.txt"; do [ -f "$f" ] && { params=$f; break; }; done
-    for f in "$r/info/setup/config.json" "$r/info/config.json"; do [ -f "$f" ] && { cfg=$f; break; }; done
+    [ -f "$r/info/setup/parameters.txt" ] && params="$r/info/setup/parameters.txt"
+    [ -f "$r/info/setup/config.json" ] && cfg="$r/info/setup/config.json"
 
     # Frames: the highest Result-NNNNN written so far / frame_num from the config.
     last=$(ls "$r/calculations" 2>/dev/null | sed -nE 's/^Result-([0-9]+)\..*/\1/p' | sort -n | tail -n 1)
@@ -666,19 +664,12 @@ for name in $names; do
         comp_time=$(sed -n 's/^Computation time: *//p' "$params" | sed 's/ *(.*//')
         failure=$(sed -n 's/^Run failed: *//p' "$params")
     fi
-    # Since the binary records the run date, it also records the computation time when it ends,
-    # so only that line means "finished". Older runs have neither; for them all frames have to do.
-    complete=0
-    if [ -n "$comp_time" ]; then
-        complete=1
-    elif [ -z "$d" ] && [ -n "$last" ] && [ "$last" = "$total" ]; then
-        complete=1
-    fi
+    # The binary writes the computation time when it ends, so only that line means "finished".
     size="-"
     [ -d "$r" ] && size=$(du -sh "$r" | cut -f1)
     # A regression test or benchmark (cluster.sh test or bench) keeps the baseline next to the
     # sources; it has no frames of its own (they are in new/ and base/), and report.txt is
-    # written at its end. mode.txt tells the two apart (tests from before it are regression tests).
+    # written at its end. mode.txt tells the two apart.
     is_test=0; kind="regression test"
     [ -f "$r/info/setup/baseline.tar.gz" ] && is_test=1
     [ "$(cat "$r/info/setup/mode.txt" 2>/dev/null)" = bench ] && kind=benchmark
@@ -706,9 +697,9 @@ for name in $names; do
                 # The solver stopped itself: the solution broke down (the frames up to then are plotted)
                 # or a frame could not be written.
                 state=failed; details=$failure
-            elif [ "$complete" = 1 ]; then
+            elif [ -n "$comp_time" ]; then
                 state=finished; details=${comp_time:+"computed in $comp_time"}
-                # Animations are .mp4, or .gif without ffmpeg; old results have them directly in info/.
+                # Animations are .mp4, or .gif without ffmpeg.
                 if [ -z "$(find "$r/info" \( -name '*.mp4' -o -name '*.gif' \) -print -quit 2>/dev/null)" ]; then
                     details="${details:+$details; }no animations (plotting failed?)"
                 fi
