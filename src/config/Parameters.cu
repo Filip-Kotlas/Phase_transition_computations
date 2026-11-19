@@ -1,5 +1,6 @@
 #include "config/Parameters.hpp"
 #include "config/ConfigSection.hpp"
+#include "core/warnings.hpp"
 #include <fstream>
 #include <iomanip>
 #include <sstream>
@@ -119,8 +120,8 @@ Parameters Parameters::load(const std::filesystem::path& filename) {
     // Anything else at the top level is not read, e.g. a parameter that belongs into model.<type>.
     for (const auto& item : config.items()) {
         if (item.key() != "solver" && item.key() != "init_cond" && item.key() != "bound_cond" && item.key() != "model")
-            std::cerr << "Warning: the config section " << item.key() << " is not used (the physical parameters"
-                         " of the model belong into model." << p.model_type << ")." << std::endl;
+            warn("the config section " + item.key() + " is not used (the physical parameters"
+                 " of the model belong into model." + p.model_type + ").");
     }
 
     return p;

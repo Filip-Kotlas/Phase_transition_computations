@@ -38,6 +38,10 @@ public:
     // start, so that a run that crashes or is killed still records them. Only warns on failure.
     void write_run_start_info(std::time_t run_start) const;
 
+    // Appends one line "Warning: <message>" per message to parameters.txt (the warnings of warn(),
+    // see core/warnings.hpp). Does nothing for no messages. Only warns (on std::cerr) on failure.
+    void append_warnings(const std::vector<std::string>& messages) const;
+
     // Appends "Integration steps: N (rejected: M)" to parameters.txt: the steps of the adaptive
     // Kutta-Merson method accepted over the whole run, and the attempts it threw away because the error
     // estimate was too large. Called before append_computation_time. Only warns on failure.

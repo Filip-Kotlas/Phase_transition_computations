@@ -20,6 +20,7 @@
 #include "config/Parameters.hpp"
 #include "core/types.hpp"
 #include "core/Grid.hpp"
+#include "core/warnings.hpp"
 #include "initial_condition/InitialCondition.hpp"
 #include "io/ResultIO.hpp"
 #include "io/RunFolder.hpp"
@@ -249,9 +250,12 @@ int run(const Parameters& parameters, const ModelT& model, Vector& u, const RunF
 
     const double computation_seconds = std::chrono::duration<double>(std::chrono::steady_clock::now() - computation_start).count();
 
-    if (rhs_evaluations % Method::getStages() != 0)
-        std::cerr << "Warning: " << rhs_evaluations << " RHS evaluations is not a multiple of the "
-                  << Method::getStages() << " stages of the method, so the number of rejected steps is wrong." << std::endl;
+    if (rhs_evaluations % Method::getStages() != 0) {
+        const std::string message = std::to_string(rhs_evaluations) + " RHS evaluations is not a multiple of the "
+            + std::to_string(Method::getStages()) + " stages of the method, so the number of rejected steps is wrong.";
+        warn(message);
+        run_folder.append_warnings({ message });
+    }
     const long long rejected_steps = rhs_evaluations / Method::getStages() - accepted_steps;
     std::cout << "Integration steps: " << accepted_steps << " (rejected: " << rejected_steps << ")" << std::endl;
     // Before the computation time: that line marks a finished run (cluster.sh), so everything else is written by then.
@@ -281,6 +285,8 @@ int start(const Parameters& parameters, const RunFolder& run_folder,
     try {
         run_folder.save_setup(parameters, model_params.entries(), input_config_path);
         run_folder.write_run_start_info(run_start);
+        // The warnings so far, mostly about the config (read before the run folder existed).
+        run_folder.append_warnings(warnings());
 
         const ModelT model(parameters, model_params);
         Vector u(model.getDegreesOfFreedom());

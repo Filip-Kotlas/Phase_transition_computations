@@ -8,12 +8,12 @@
 // an error there would make every commit refuse the configs of later commits, so `cluster.sh test`
 // and `bench` against an older commit would fail whenever a key is added. Host code only.
 
-#include <iostream>
 #include <set>
 #include <stdexcept>
 #include <string>
 #include <type_traits>
 #include "external/json.hpp"
+#include "core/warnings.hpp"
 
 class ConfigSection {
 public:
@@ -48,14 +48,14 @@ public:
         }
     }
 
-    // Warns (on std::cerr) about every key of the section that get() did not read. Call it after
-    // reading the section.
+    // Warns (warn(): on std::cerr and in parameters.txt) about every key of the section that get()
+    // did not read. Call it after reading the section.
     void check_all_read() const
     {
         for (const auto& item : data.items()) {
             if (read_keys.count(item.key()) == 0)
-                std::cerr << "Warning: the config entry " << path(item.key()) << " is not used (a stray key,"
-                             " a parameter of another model, or a key of a newer version of the solver?)." << std::endl;
+                warn("the config entry " + path(item.key()) + " is not used (a stray key,"
+                     " a parameter of another model, or a key of a newer version of the solver?).");
         }
     }
 

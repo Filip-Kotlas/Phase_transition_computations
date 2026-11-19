@@ -81,6 +81,18 @@ void RunFolder::write_run_start_info(std::time_t run_start) const
         std::cerr << "Warning: unable to write the run date, computer and GPU to " << parameters_file << std::endl;
 }
 
+void RunFolder::append_warnings(const std::vector<std::string>& messages) const
+{
+    if (messages.empty())
+        return;
+    std::ofstream file(parameters_file, std::ios::app);
+    for (const std::string& message : messages)
+        file << "Warning: " << message << '\n';
+    file.close();
+    if (!file)
+        std::cerr << "Warning: unable to write the warnings to " << parameters_file << std::endl;
+}
+
 void RunFolder::append_integration_steps(long long accepted, long long rejected) const
 {
     std::ofstream file(parameters_file, std::ios::app);
