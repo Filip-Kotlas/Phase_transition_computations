@@ -1,12 +1,20 @@
 #!/bin/bash
 # Run from your own computer (Git Bash / WSL / Linux), from anywhere in the repo.
 #
-#   slurm/cluster.sh submit MyRun [--delete-calcs] [--force] [--gpu TYPE] [--mem SIZE]
+#   slurm/cluster.sh submit MyRun [--config FILE] [--delete-calcs] [--force] [--gpu TYPE] [--mem SIZE]
 #                                                              upload code, sbatch the job
-#                                                              (--gpu rtx5080: only that card type;
+#                                                              (--config: run FILE instead of
+#                                                              config/config.json;
+#                                                              --gpu rtx5080: only that card type;
 #                                                              --mem 4G: host RAM instead of the
 #                                                              default in run.sbatch; also for
 #                                                              test and bench)
+#   slurm/cluster.sh submit-many [FOLDER|FILE...] [--prefix P] [--dry-run] [--delete-calcs] [--force] [--gpu TYPE] [--mem SIZE]
+#                                                              one submit per config: every *.json
+#                                                              in FOLDER (default
+#                                                              comp_configurations/) or the FILEs;
+#                                                              run name = P + file name without
+#                                                              .json (--dry-run: only the checks)
 #   slurm/cluster.sh test MyTest [--against COMMIT] [--new COMMIT] [--force] [--gpu TYPE]
 #                                                              regression test: your working tree
 #                                                              (or --new COMMIT) against COMMIT
@@ -34,6 +42,13 @@
 # config/config.json) as jobs/MyRun/sources.tar.gz, and the job compiles and runs that copy
 # on the node's local disk. A later submit therefore never changes the code of a queued job.
 # The job keeps the archive as results/MyRun/info/setup/sources.tar.gz and deletes jobs/MyRun.
+# submit --config FILE puts FILE into the archive as config/config.json instead of your
+# config/config.json, which stays untouched (a relative FILE is relative to the folder you
+# started the script from). submit-many does that for every config it is given, each as its own
+# run and job, so status, list, log, cancel and fetch see ordinary runs. It checks everything
+# first (the files are JSON, the names are valid, distinct and free on the cluster, the GPU type
+# exists) and submits nothing if a check fails; --force deletes the taken names first, as with
+# submit. Under PowerShell *.json is not expanded, so give a folder rather than a pattern.
 # submit refuses a name that is already used on the cluster (finished or still queued);
 # --force deletes the old results and upload of that name first. It does NOT stop a job
 # that is still running under that name, so check `status` first.
@@ -93,6 +108,8 @@ SSH=ssh
 # Git Bash can wait for the terminal's input forever and the script hangs.
 rssh() { "$SSH" "$CLUSTER_HOST" "$@" </dev/null; }
 
+# Config files on the command line are relative to the folder the script was started from.
+start_dir="$(pwd)"
 cd "$(git rev-parse --show-toplevel)"
 
 # Run names end up in paths and in `rm -rf`, so allow only safe characters.
@@ -119,6 +136,101 @@ mem_to_mb() {
         *T) echo $(( n * 1024 * 1024 )) ;;
         *)  echo "$n" ;;
     esac
+}
+
+# A path from the command line as this bash can open it: backslashes (PowerShell) become
+# slashes, and a relative path is taken relative to the folder the script was started from.
+local_path() {
+    local p="${1//\\//}"
+    case "$p" in
+        /*|[A-Za-z]:/*) printf '%s\n' "$p" ;;
+        *)              printf '%s\n' "$start_dir/$p" ;;
+    esac
+}
+
+# A config file to upload must exist and be valid JSON. The solver checks the rest, but only on
+# the node; a broken file is cheaper to catch here. The file goes to Python on stdin, so the
+# Windows Python needs no path conversion. Without Python the JSON check is skipped.
+check_config_file() {
+    [ -f "$1" ] || { echo "Config file $1 does not exist." >&2; exit 1; }
+    command -v python3 >/dev/null 2>&1 || return 0
+    local err
+    if ! err=$(python3 -c 'import json, sys; json.load(sys.stdin)' < "$1" 2>&1); then
+        echo "Config file $1 is not valid JSON: $(printf '%s\n' "$err" | tail -n 1)" >&2
+        exit 1
+    fi
+}
+
+# --gpu TYPE: checks that the card type exists on the cluster and sets gres for sbatch
+# (--gres=gpu:TYPE:1 overrides the "any GPU" line in run.sbatch). Empty TYPE: any GPU.
+set_gres() {
+    gres=()
+    [ -n "$1" ] || return 0
+    case "$1" in
+        *[!A-Za-z0-9_]*) echo "Invalid GPU type '$1'." >&2; exit 1 ;;
+    esac
+    local types
+    types=$(rssh "sinfo -h -o %G" | tr ',' '\n' | sed -nE 's/^gpu:([^:]+):.*/\1/p' | sort -u)
+    if ! printf '%s\n' "$types" | grep -qx "$1"; then
+        echo "GPU type '$1' does not exist on $CLUSTER_HOST. Available types:" $types >&2
+        exit 1
+    fi
+    gres=(--gres="gpu:$1:1")
+}
+
+# The sources of a run as a tar.gz on stdout: tracked + untracked-but-not-ignored files (with
+# config/config.json); results/ and build/ are gitignored. Files deleted locally but still in
+# the index would break tar, so they are filtered out. With a config file as the argument, that
+# file goes into the archive as config/config.json instead (from a staging folder, so the local
+# config/config.json is never touched).
+pack_sources() {
+    local config="${1:-}" stage=""
+    local extra=()
+    if [ -n "$config" ]; then
+        stage=$(mktemp -d)
+        mkdir -p "$stage/config"
+        cp "$config" "$stage/config/config.json"
+        extra=(-C "$stage" config/config.json)
+    fi
+    git ls-files -co --exclude-standard -z \
+        | while IFS= read -r -d '' f; do
+              [ -e "$f" ] || continue
+              [ -n "$config" ] && [ "$f" = config/config.json ] && continue
+              printf '%s\0' "$f"
+          done \
+        | tar --null -T - ${extra[@]+"${extra[@]}"} -czf -
+    [ -z "$stage" ] || rm -rf "$stage"
+}
+
+# Uploads the sources of run $1 (with the config file $2, if given) to jobs/$1/sources.tar.gz.
+upload_sources() {
+    echo ">> Uploading sources to $CLUSTER_HOST:$REMOTE_DIR/jobs/$1/sources.tar.gz${2:+ (config $2)}"
+    pack_sources "${2:-}" \
+        | "$SSH" "$CLUSTER_HOST" "mkdir -p '$REMOTE_DIR/jobs/$1' && cat > '$REMOTE_DIR/jobs/$1/sources.tar.gz'"
+}
+
+# Local commit, marked "-dirty" when uncommitted changes (or untracked files) are uploaded too.
+# config/config.json does not count: it is the input of the run, not code, and every run
+# keeps it in info/setup/config.json (and in sources.tar.gz) anyway.
+local_commit() {
+    local c
+    c=$(git rev-parse --short HEAD)
+    [ -z "$(git status --porcelain -- . ':(exclude)config/config.json')" ] || c="$c-dirty"
+    printf '%s\n' "$c"
+}
+
+# sbatch for run $1, whose archives are already uploaded. Reads the settings from the caller:
+# gres, extra, mode, delete, commit, base_short, new_short, repeat, bench_set.
+# The batch script comes from the uploaded archive too (sbatch reads it from stdin), so the
+# job script always matches the code. The job name is the run name, which `status` shows
+# and `cancel` and `clean` rely on. If sbatch fails, the upload is deleted so the name stays free.
+# Prints sbatch's "Submitted batch job N".
+# run.sbatch calls the mode of a plain submit "run" (and rejects "submit": from 6db179f until
+# this mapping, every plain submit failed at the start of the job with "Unknown MODE 'submit'").
+sbatch_run() {
+    local job_mode=$mode
+    [ "$job_mode" = submit ] && job_mode=run
+    rssh "cd '$REMOTE_DIR' && { tar xzOf 'jobs/$1/sources.tar.gz' slurm/run.sbatch | sbatch --job-name='$1' ${gres[*]:-} ${extra[*]:-} --export=ALL,FOLDER='$1',DELETE_CALCS=$delete,GIT_COMMIT='$commit',MODE=$job_mode,BASELINE_COMMIT='${base_short:-}',NEW_COMMIT='${new_short:-}',REPEAT=${repeat:-},BENCH_SET='${bench_set:-}' || { rm -rf 'jobs/$1'; exit 1; }; }"
 }
 
 # For gpus and nodes: reads [--mem SIZE] and sets need_cpu and mem to what a job of ours asks
@@ -148,12 +260,16 @@ submit|test|bench)
     # test and bench are submit with a second archive (the baseline) and MODE=test or MODE=bench
     # for run.sbatch.
     mode=$cmd
-    folder=""; delete=0; force=0; gpu=""; mem=""; against=""; new=""; repeat=""; long=0
+    folder=""; delete=0; force=0; gpu=""; mem=""; against=""; new=""; repeat=""; long=0; config=""
     while [ $# -gt 0 ]; do
         case "$1" in
             --delete-calcs)
                 [ "$mode" = submit ] || { echo "--delete-calcs is only for submit." >&2; exit 1; }
                 delete=1 ;;
+            --config)
+                [ "$mode" = submit ] || { echo "--config is only for submit (test and bench use their own configs)." >&2; exit 1; }
+                [ $# -ge 2 ] || { echo "--config needs a config file, e.g. --config comp_configurations/a.json" >&2; exit 1; }
+                config=$(local_path "$2"); shift ;;
             --force)        force=1 ;;
             --gpu)
                 [ $# -ge 2 ] || { echo "--gpu needs a GPU type, e.g. --gpu rtx5080" >&2; exit 1; }
@@ -187,7 +303,7 @@ submit|test|bench)
         case "$mode" in
             test)  echo "Usage: cluster.sh test NAME [--against COMMIT] [--new COMMIT] [--force] [--gpu TYPE] [--mem SIZE]" >&2 ;;
             bench) echo "Usage: cluster.sh bench NAME [--against COMMIT] [--new COMMIT] [--repeat N] [--long] [--force] [--gpu TYPE] [--mem SIZE]" >&2 ;;
-            *)     echo "Usage: cluster.sh submit FOLDER [--delete-calcs] [--force] [--gpu TYPE] [--mem SIZE]" >&2 ;;
+            *)     echo "Usage: cluster.sh submit FOLDER [--config FILE] [--delete-calcs] [--force] [--gpu TYPE] [--mem SIZE]" >&2 ;;
         esac
         exit 1
     fi
@@ -197,7 +313,11 @@ submit|test|bench)
     bench_set=""; [ "$long" = 1 ] && bench_set=long
     [ -n "$repeat" ] || { [ "$long" = 1 ] && repeat=1 || repeat=3; }
     if [ "$mode" = submit ]; then
-        [ -f config/config.json ] || { echo "config/config.json does not exist, nothing to run." >&2; exit 1; }
+        if [ -n "$config" ]; then
+            check_config_file "$config"
+        else
+            [ -f config/config.json ] || { echo "config/config.json does not exist, nothing to run." >&2; exit 1; }
+        fi
     else
         configs_dir=tests/configs
         [ "$mode" = bench ] && configs_dir=tests/benchmark_configs${bench_set:+_$bench_set}
@@ -236,20 +356,8 @@ submit|test|bench)
         fi
     fi
 
-    # --gpu TYPE requests that card type (--gres=gpu:TYPE:1 overrides the "any GPU" line in
-    # run.sbatch). Checked against the cluster before anything is uploaded.
-    gres=()
-    if [ -n "$gpu" ]; then
-        case "$gpu" in
-            *[!A-Za-z0-9_]*) echo "Invalid GPU type '$gpu'." >&2; exit 1 ;;
-        esac
-        types=$(rssh "sinfo -h -o %G" | tr ',' '\n' | sed -nE 's/^gpu:([^:]+):.*/\1/p' | sort -u)
-        if ! printf '%s\n' "$types" | grep -qx "$gpu"; then
-            echo "GPU type '$gpu' does not exist on $CLUSTER_HOST. Available types:" $types >&2
-            exit 1
-        fi
-        gres=(--gres="gpu:$gpu:1")
-    fi
+    # Checked against the cluster before anything is uploaded.
+    set_gres "$gpu"
 
     # A name is taken if its results exist (finished or running) or its upload waits in jobs/ (queued).
     taken=$(rssh "cd '$REMOTE_DIR' 2>/dev/null && { [ -e 'results/$folder' ] || [ -e '$job_dir' ]; } && echo yes || echo no")
@@ -264,15 +372,9 @@ submit|test|bench)
         fi
     fi
 
-    echo ">> Uploading sources to $CLUSTER_HOST:$REMOTE_DIR/$job_dir/sources.tar.gz"
-    # Tracked + untracked-but-not-ignored files (with config/config.json); results/ and build/
-    # are gitignored. Files deleted locally but still in the index would break tar, so filter them.
     # The archive belongs to this run only: the job unpacks it into its own folder and builds
     # it from scratch, so nothing from other runs can get mixed in.
-    git ls-files -co --exclude-standard -z \
-        | while IFS= read -r -d '' f; do [ -e "$f" ] && printf '%s\0' "$f"; done \
-        | tar --null -T - -czf - \
-        | "$SSH" "$CLUSTER_HOST" "mkdir -p '$REMOTE_DIR/$job_dir' && cat > '$REMOTE_DIR/$job_dir/sources.tar.gz'"
+    upload_sources "$folder" "$config"
 
     if [ "$mode" != submit ]; then
         # The committed baseline, exactly as git stores it. core.autocrlf=false: old commits have
@@ -289,17 +391,10 @@ submit|test|bench)
         fi
     fi
 
-    # Local commit, marked "-dirty" when uncommitted changes (or untracked files) were uploaded too.
-    # config/config.json does not count: it is the input of the run, not code, and every run
-    # keeps it in info/setup/config.json (and in sources.tar.gz) anyway.
     # With --new, the version under test is exactly that commit.
-    commit=$(git rev-parse --short HEAD)
-    [ -z "$(git status --porcelain -- . ':(exclude)config/config.json')" ] || commit="$commit-dirty"
+    commit=$(local_commit)
     [ -n "${new_short:-}" ] && commit=$new_short
 
-    # The batch script comes from the uploaded archive too (sbatch reads it from stdin), so the
-    # job script always matches the code. The job name is the run name, which `status` shows
-    # and `cancel` and `clean` rely on. If sbatch fails, the upload is deleted so the name stays free.
     # A test takes minutes, so it gets a short time limit (overrides the 12 h in run.sbatch):
     # if something hangs, it does not hold the GPU for long. A benchmark runs every case
     # 2 x N times for about half a minute each; 1 h for N = 3, plus 15 min for every further run.
@@ -325,7 +420,127 @@ submit|test|bench)
         extra+=(--mem="$mem")
         echo ">> Host RAM: $mem"
     fi
-    rssh "cd '$REMOTE_DIR' && { tar xzOf '$job_dir/sources.tar.gz' slurm/run.sbatch | sbatch --job-name='$folder' ${gres[*]:-} ${extra[*]:-} --export=ALL,FOLDER='$folder',DELETE_CALCS=$delete,GIT_COMMIT='$commit',MODE=$mode,BASELINE_COMMIT='${base_short:-}',NEW_COMMIT='${new_short:-}',REPEAT=$repeat,BENCH_SET='${bench_set:-}' || { rm -rf '$job_dir'; exit 1; }; }"
+    sbatch_run "$folder"
+    ;;
+submit-many)
+    # One ordinary submit per config file (as with submit --config), named after the file.
+    # Everything is checked before the first upload, so a mistake submits nothing.
+    prefix=""; delete=0; force=0; gpu=""; mem=""; dry=0; inputs=()
+    while [ $# -gt 0 ]; do
+        case "$1" in
+            --prefix)
+                [ $# -ge 2 ] || { echo "--prefix needs a prefix, e.g. --prefix Conv_" >&2; exit 1; }
+                prefix="$2"; shift ;;
+            --dry-run)      dry=1 ;;
+            --delete-calcs) delete=1 ;;
+            --force)        force=1 ;;
+            --gpu)
+                [ $# -ge 2 ] || { echo "--gpu needs a GPU type, e.g. --gpu rtx5080" >&2; exit 1; }
+                gpu="$2"; shift ;;
+            --mem)
+                [ $# -ge 2 ] || { echo "--mem needs a size, e.g. --mem 4G" >&2; exit 1; }
+                check_mem "$2"
+                mem="$2"; shift ;;
+            -*) echo "Unknown option: $1" >&2; exit 1 ;;
+            *)  inputs+=("$(local_path "$1")") ;;
+        esac
+        shift
+    done
+    # No files or folders given: the configs for run_all, relative to the repo root.
+    [ ${#inputs[@]} -gt 0 ] || inputs=("$(pwd)/comp_configurations")
+
+    # The config files: every *.json of a folder (sorted by name), or the file itself.
+    files=()
+    for p in "${inputs[@]}"; do
+        if [ -d "$p" ]; then
+            found=0
+            for f in "${p%/}"/*.json; do
+                [ -f "$f" ] || continue
+                files+=("$f"); found=1
+            done
+            [ "$found" = 1 ] || { echo "There are no *.json files in $p." >&2; exit 1; }
+        elif [ -f "$p" ]; then
+            files+=("$p")
+        else
+            echo "$p does not exist (give config files or folders with them)." >&2
+            exit 1
+        fi
+    done
+
+    # Run name = prefix + file name without .json; valid, distinct, and the files are JSON.
+    names=()
+    declare -A source_of=()
+    for f in "${files[@]}"; do
+        base=$(basename "$f")
+        name="$prefix${base%.json}"
+        check_name "$name"
+        if [ -n "${source_of[$name]:-}" ]; then
+            echo "Two configs give the same run name '$name':" >&2
+            echo "    ${source_of[$name]}" >&2
+            echo "    $f" >&2
+            exit 1
+        fi
+        source_of[$name]="$f"
+        check_config_file "$f"
+        names+=("$name")
+    done
+
+    set_gres "$gpu"
+
+    # Names already used on the cluster (finished, running or queued), all in one ssh call.
+    # The names contain only safe characters (check_name), so they can go into the command.
+    taken=$(rssh "cd '$REMOTE_DIR' 2>/dev/null || exit 0; for n in ${names[*]}; do { [ -e \"results/\$n\" ] || [ -e \"jobs/\$n\" ]; } && echo \"\$n\"; done; true")
+    if [ -n "$taken" ] && [ "$force" != 1 ]; then
+        echo "These run names are already used on $CLUSTER_HOST (finished or queued):" >&2
+        printf '    %s\n' $taken >&2
+        echo "Pick other names (e.g. --prefix), or use --force to delete the old runs and start again." >&2
+        exit 1
+    fi
+
+    commit=$(local_commit)
+    echo ">> ${#names[@]} run(s) (commit $commit, GPU ${gpu:-any}${mem:+, host RAM $mem}${taken:+; --force deletes the old runs of the taken names first}):"
+    for name in "${names[@]}"; do
+        mark=""; printf '%s\n' "$taken" | grep -qxF -- "$name" && mark="   (taken: the old run is deleted)"
+        printf '    %-30s <- %s%s\n' "$name" "${source_of[$name]}" "$mark"
+    done
+    if [ "$dry" = 1 ]; then
+        echo ">> Dry run: nothing was deleted, uploaded or submitted."
+        exit 0
+    fi
+
+    if [ -n "$taken" ]; then
+        # --force does NOT stop a job that is still running under such a name (see the top).
+        echo ">> Deleting the old results and uploads of the taken names (--force)"
+        rssh "cd '$REMOTE_DIR' && for n in $(printf '%s ' $taken); do rm -rf \"results/\$n\" \"jobs/\$n\"; done"
+    fi
+
+    # The settings sbatch_run reads; the same as a plain submit.
+    mode=submit; base_short=""; new_short=""; repeat=""; bench_set=""
+    extra=(); [ -n "$mem" ] && extra+=(--mem="$mem")
+    submitted=()
+    for name in "${names[@]}"; do
+        if upload_sources "$name" "${source_of[$name]}" && out=$(sbatch_run "$name"); then
+            echo "$out"
+            submitted+=("$name ${out##* }")
+        else
+            # A failed upload can leave jobs/<name> behind, which would keep the name taken
+            # (sbatch_run deletes it itself when sbatch fails). If even this fails, `clean` does it.
+            rssh "rm -rf '$REMOTE_DIR/jobs/$name'" || true
+            echo "Submitting '$name' failed. Not submitted:" >&2
+            started=0
+            for n in "${names[@]}"; do
+                [ "$n" = "$name" ] && started=1
+                [ "$started" = 1 ] && echo "    $n" >&2
+            done
+            echo "Fix the problem and submit them again (the names are still free)." >&2
+            break
+        fi
+    done
+    echo ">> Submitted ${#submitted[@]} of ${#names[@]} run(s):"
+    for s in ${submitted[@]+"${submitted[@]}"}; do
+        printf '    %-30s job %s\n' "${s% *}" "${s##* }"
+    done
+    [ ${#submitted[@]} -eq ${#names[@]} ]
     ;;
 status)
     # Queue plus progress of running jobs, read from the "Steps completed" lines that the

@@ -112,6 +112,7 @@ elif [ "$mode" = bench ]; then
     REPEAT="${REPEAT:-3}" BENCH_SET="${BENCH_SET:-}" bash tests/benchmark.sh "$new_work" "$base_work" "results/$FOLDER" "${GIT_COMMIT:-unknown}" "${BASELINE_COMMIT:-unknown}"
 else
     # The copy has no .git folder, so the commit comes from cluster.sh. config/config.json is the
-    # config from the uploaded sources, i.e. the one that was in your repo when you submitted.
+    # config from the uploaded sources, i.e. the one that was in your repo when you submitted
+    # (or the file given with submit --config / submit-many, which cluster.sh put there).
     make run FOLDER="${FOLDER}" CONFIG=config/config.json DELETE_CALCS="${DELETE_CALCS:-0}" GIT_COMMIT="${GIT_COMMIT:-unknown}"
 fi
