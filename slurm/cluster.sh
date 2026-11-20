@@ -111,9 +111,17 @@ export MSYS_NO_PATHCONV=1
 SSH=ssh
 [ -x /c/Windows/System32/OpenSSH/ssh.exe ] && SSH=/c/Windows/System32/OpenSSH/ssh.exe
 
+# Every ssh call goes through cssh. A firewall in front of gp3 drops new ssh connections that
+# come in quick succession (measured 2026-11-20: ping loses nothing, but a run of connections
+# often needed TCP retries of 1, 2, 4 s, and submit-many failed with "Connection timed out" on
+# its 6th connection). So ssh gives up on a connection after 10 s and tries again, 4 times in
+# all. That is safe for every command: nothing is sent (no stdin read, no remote command run)
+# before the connection is made. Still, keep the number of connections small (see submit-many).
+cssh() { "$SSH" -o ConnectTimeout=10 -o ConnectionAttempts=4 "$CLUSTER_HOST" "$@"; }
+
 # ssh for commands that need no input. Without </dev/null, Windows ssh.exe started from
 # Git Bash can wait for the terminal's input forever and the script hangs.
-rssh() { "$SSH" "$CLUSTER_HOST" "$@" </dev/null; }
+rssh() { cssh "$@" </dev/null; }
 
 # Config files on the command line are relative to the folder the script was started from.
 start_dir="$(pwd)"
@@ -213,7 +221,7 @@ pack_sources() {
 upload_sources() {
     echo ">> Uploading sources to $CLUSTER_HOST:$REMOTE_DIR/jobs/$1/sources.tar.gz${2:+ (config $2)}"
     pack_sources "${2:-}" \
-        | "$SSH" "$CLUSTER_HOST" "mkdir -p '$REMOTE_DIR/jobs/$1' && cat > '$REMOTE_DIR/jobs/$1/sources.tar.gz'"
+        | cssh "mkdir -p '$REMOTE_DIR/jobs/$1' && cat > '$REMOTE_DIR/jobs/$1/sources.tar.gz'"
 }
 
 # Local commit, marked "-dirty" when uncommitted changes (or untracked files) are uploaded too.
@@ -235,9 +243,14 @@ local_commit() {
 # run.sbatch calls the mode of a plain submit "run" (and rejects "submit": from 6db179f until
 # this mapping, every plain submit failed at the start of the job with "Unknown MODE 'submit'").
 sbatch_run() {
+    rssh "cd '$REMOTE_DIR' && { $(sbatch_cmd "$1") || { rm -rf 'jobs/$1'; exit 1; }; }"
+}
+
+# The remote shell command that submits run $1 (run in $REMOTE_DIR); for sbatch_run and submit-many.
+sbatch_cmd() {
     local job_mode=$mode
     [ "$job_mode" = submit ] && job_mode=run
-    rssh "cd '$REMOTE_DIR' && { tar xzOf 'jobs/$1/sources.tar.gz' slurm/run.sbatch | sbatch --job-name='$1' ${gres[*]:-} ${extra[*]:-} --export=ALL,FOLDER='$1',DELETE_CALCS=$delete,GIT_COMMIT='$commit',MODE=$job_mode,BASELINE_COMMIT='${base_short:-}',NEW_COMMIT='${new_short:-}',REPEAT=${repeat:-},BENCH_SET='${bench_set:-}' || { rm -rf 'jobs/$1'; exit 1; }; }"
+    printf '%s' "tar xzOf 'jobs/$1/sources.tar.gz' slurm/run.sbatch | sbatch --job-name='$1' ${gres[*]:-} ${extra[*]:-} --export=ALL,FOLDER='$1',DELETE_CALCS=$delete,GIT_COMMIT='$commit',MODE=$job_mode,BASELINE_COMMIT='${base_short:-}',NEW_COMMIT='${new_short:-}',REPEAT=${repeat:-},BENCH_SET='${bench_set:-}'"
 }
 
 # For gpus and nodes: reads [--mem SIZE] and sets need_cpu and mem to what a job of ours asks
@@ -388,13 +401,13 @@ submit|test|bench)
         # no .gitattributes, and CRLF line endings would break make and the scripts on Linux.
         echo ">> Uploading the baseline $against ($base_short) to $CLUSTER_HOST:$REMOTE_DIR/$job_dir/baseline.tar.gz"
         git -c core.autocrlf=false archive --format=tar.gz "$base_commit" \
-            | "$SSH" "$CLUSTER_HOST" "cat > '$REMOTE_DIR/$job_dir/baseline.tar.gz'"
+            | cssh "cat > '$REMOTE_DIR/$job_dir/baseline.tar.gz'"
         # With --new, the version under test too; the working tree uploaded above then only
         # supplies the job script, the test scripts, the configs and the comparison.
         if [ -n "${new_commit:-}" ]; then
             echo ">> Uploading the version under test $new ($new_short) to $CLUSTER_HOST:$REMOTE_DIR/$job_dir/new.tar.gz"
             git -c core.autocrlf=false archive --format=tar.gz "$new_commit" \
-                | "$SSH" "$CLUSTER_HOST" "cat > '$REMOTE_DIR/$job_dir/new.tar.gz'"
+                | cssh "cat > '$REMOTE_DIR/$job_dir/new.tar.gz'"
         fi
     fi
 
@@ -515,34 +528,60 @@ submit-many)
         exit 0
     fi
 
-    if [ -n "$taken" ]; then
-        # --force does NOT stop a job that is still running under such a name (see the top).
-        echo ">> Deleting the old results and uploads of the taken names (--force)"
-        rssh "cd '$REMOTE_DIR' && for n in $(printf '%s ' $taken); do rm -rf \"results/\$n\" \"jobs/\$n\"; done"
-    fi
-
-    # The settings sbatch_run reads; the same as a plain submit.
+    # The settings sbatch_cmd reads; the same as a plain submit.
     mode=submit; base_short=""; new_short=""; repeat=""; bench_set=""
     extra=(); [ -n "$mem" ] && extra+=(--mem="$mem")
-    submitted=()
+
+    # Everything goes over ONE ssh connection: the firewall drops connections that come in quick
+    # succession (see cssh), and two per run (upload + sbatch) made submit-many fail often.
+    # Locally, a staging folder gets jobs/<name>/sources.tar.gz for every run and a script
+    # submit.sh; they go as one tar on stdin into a fresh folder in $REMOTE_DIR, and submit.sh
+    # runs there: it deletes the taken runs (--force), moves the uploads into jobs/ and submits
+    # the runs in order, printing "SUBMITTED <name> <job id>" for each. When sbatch fails, it
+    # stops and deletes the uploads of the runs not submitted, so their names stay free.
+    stage=$(mktemp -d)
     for name in "${names[@]}"; do
-        if upload_sources "$name" "${source_of[$name]}" && out=$(sbatch_run "$name"); then
-            echo "$out"
-            submitted+=("$name ${out##* }")
-        else
-            # A failed upload can leave jobs/<name> behind, which would keep the name taken
-            # (sbatch_run deletes it itself when sbatch fails). If even this fails, `clean` does it.
-            rssh "rm -rf '$REMOTE_DIR/jobs/$name'" || true
-            echo "Submitting '$name' failed. Not submitted:" >&2
-            started=0
-            for n in "${names[@]}"; do
-                [ "$n" = "$name" ] && started=1
-                [ "$started" = 1 ] && echo "    $n" >&2
-            done
-            echo "Fix the problem and submit them again (the names are still free)." >&2
-            break
-        fi
+        mkdir -p "$stage/jobs/$name"
+        pack_sources "${source_of[$name]}" > "$stage/jobs/$name/sources.tar.gz"
     done
+    {
+        echo '# Generated by cluster.sh submit-many; runs in $REMOTE_DIR, $1 = the unpacked upload.'
+        # --force does NOT stop a job that is still running under such a name (see the top).
+        for n in $taken; do echo "rm -rf 'results/$n' 'jobs/$n'"; done
+        all_uploads=$(printf "'jobs/%s' " "${names[@]}")
+        echo "mkdir -p jobs && mv \"\$1\"/jobs/* jobs/ || { rm -rf $all_uploads; echo 'Moving the uploads into jobs/ failed.' >&2; exit 1; }"
+        for i in "${!names[@]}"; do
+            name=${names[$i]}
+            not_submitted=$(printf "'jobs/%s' " "${names[@]:$i}")
+            printf '%s\n' "if out=\$($(sbatch_cmd "$name")); then echo \"SUBMITTED $name \${out##* }\"; else rm -rf $not_submitted; exit 1; fi"
+        done
+    } > "$stage/submit.sh"
+
+    [ -z "$taken" ] || echo ">> The old results and uploads of the taken names are deleted first (--force)"
+    echo ">> Uploading the sources of ${#names[@]} run(s) to $CLUSTER_HOST:$REMOTE_DIR/jobs/ and submitting them"
+    rc=0
+    out=$(tar -C "$stage" -cf - jobs submit.sh \
+          | cssh "mkdir -p '$REMOTE_DIR' && cd '$REMOTE_DIR' && t=\$(mktemp -d .submit-many.XXXXXX) && { tar xf - -C \"\$t\" && bash \"\$t/submit.sh\" \"\$t\"; s=\$?; rm -rf \"\$t\"; exit \$s; }") \
+        || rc=$?
+    rm -rf "$stage"
+
+    submitted=()
+    while read -r tag name id; do
+        [ "$tag" = SUBMITTED ] && submitted+=("$name $id")
+    done <<< "$out"
+
+    if [ $rc -ne 0 ]; then
+        echo "Submitting failed (exit code $rc). Not submitted:" >&2
+        for n in "${names[@]:${#submitted[@]}}"; do echo "    $n" >&2; done
+        if [ $rc -eq 255 ]; then
+            # ssh itself failed: the connection could have broken after sbatch, so a run listed
+            # above may be queued after all, and an upload may be left in jobs/.
+            echo "The ssh connection failed. Check with 'status' which runs are queued; 'clean' deletes" >&2
+            echo "the uploads that no job uses, which frees the names of the runs that were not submitted." >&2
+        else
+            echo "Fix the problem and submit them again (the names are still free)." >&2
+        fi
+    fi
     echo ">> Submitted ${#submitted[@]} of ${#names[@]} run(s):"
     for s in ${submitted[@]+"${submitted[@]}"}; do
         printf '    %-30s job %s\n' "${s% *}" "${s##* }"
@@ -554,7 +593,7 @@ status)
     # solver prints into slurm-<jobid>.out. The computation is finished only when the solver
     # has written "Computation time" into parameters.txt (see `list`).
     # The remote script is sent on stdin.
-    "$SSH" "$CLUSTER_HOST" bash -s -- "$REMOTE_DIR" <<'REMOTE_SCRIPT'
+    cssh bash -s -- "$REMOTE_DIR" <<'REMOTE_SCRIPT'
 cd "$1" 2>/dev/null || { echo "Folder $1 does not exist on the cluster yet (nothing was submitted)."; exit 0; }
 # Seconds as "3 min 20 s".
 duration() {
@@ -611,7 +650,7 @@ REMOTE_SCRIPT
     ;;
 list)
     # One line per run in results/ or jobs/. The remote script is sent on stdin.
-    "$SSH" "$CLUSTER_HOST" bash -s -- "$REMOTE_DIR" <<'REMOTE_SCRIPT'
+    cssh bash -s -- "$REMOTE_DIR" <<'REMOTE_SCRIPT'
 cd "$1" 2>/dev/null || { echo "Folder $1 does not exist on the cluster yet (nothing was submitted)."; exit 0; }
 shopt -s nullglob
 
@@ -734,7 +773,7 @@ gpus)
     # a verdict. "Our job" is what run.sbatch asks for, or --mem SIZE as with submit.
     # The remote script is sent on stdin; its arguments are the CPUs and MB of RAM we need.
     our_job_request "$@"
-    "$SSH" "$CLUSTER_HOST" bash -s -- "$need_cpu" "$(mem_to_mb "$mem")" <<'REMOTE_SCRIPT'
+    cssh bash -s -- "$need_cpu" "$(mem_to_mb "$mem")" <<'REMOTE_SCRIPT'
 {
     # "node NAME STATE CPUS(A/I/O/T) MEMORY_MB ALLOCMEM_MB gpu:TYPE:COUNT(S:0) gpu:TYPE:USED(IDX:..)"
     sinfo -N -h -p gp -O "NodeList:20,StateLong:20,CPUsState:30,Memory:20,AllocMem:20,Gres:80,GresUsed:80" | sed 's/^/node /'
@@ -821,7 +860,7 @@ nodes)
     # has reserved (Slurm schedules by the reservations, not by what is really in use).
     # "Our job" is what run.sbatch asks for (1 GPU, its CPUs and RAM), or --mem SIZE as with submit.
     our_job_request "$@"
-    "$SSH" "$CLUSTER_HOST" bash -s -- "$need_cpu" "$(mem_to_mb "$mem")" <<'REMOTE_SCRIPT'
+    cssh bash -s -- "$need_cpu" "$(mem_to_mb "$mem")" <<'REMOTE_SCRIPT'
 {
     # "node NAME STATE CPUS(A/I/O/T) MEMORY_MB ALLOCMEM_MB GRES GRES_USED"
     sinfo -N -h -p gp -O "NodeList:20,StateLong:20,CPUsState:30,Memory:20,AllocMem:20,Gres:80,GresUsed:80" | sed 's/^/node /'
@@ -951,7 +990,7 @@ cancel)
     # A job that has not started yet still has its upload in jobs/<name> (the job name is the
     # run name), which would keep the name taken, so delete it. A running job has already moved
     # its sources to the results and cleans up after itself. The remote script is sent on stdin.
-    "$SSH" "$CLUSTER_HOST" bash -s -- "$REMOTE_DIR" "$id" <<'REMOTE_SCRIPT'
+    cssh bash -s -- "$REMOTE_DIR" "$id" <<'REMOTE_SCRIPT'
 read -r state name <<< "$(squeue -h -j "$2" -o '%T %j' 2>/dev/null)"
 scancel "$2" || exit 1
 case "$name" in ""|.|..|*[!A-Za-z0-9._-]*) exit 0 ;; esac
@@ -964,7 +1003,7 @@ REMOTE_SCRIPT
 clean)
     # Upload folders whose name is not the name of a queued or running job are leftovers.
     # The remote script is sent on stdin.
-    "$SSH" "$CLUSTER_HOST" bash -s -- "$REMOTE_DIR" <<'REMOTE_SCRIPT'
+    cssh bash -s -- "$REMOTE_DIR" <<'REMOTE_SCRIPT'
 cd "$1/jobs" 2>/dev/null || { echo "There is no jobs/ folder on the cluster, nothing to clean."; exit 0; }
 active=$(squeue -u "$USER" -h -o %j) || exit 1
 deleted=0
@@ -1001,7 +1040,7 @@ cache)
     # Deleting an entry cannot disturb a running job: the
     # job copied its binary to the node at the start (a job that is storing one just fails to
     # store it, and its run goes on).
-    "$SSH" "$CLUSTER_HOST" bash -s -- "$REMOTE_DIR/build_cache" "$action" "$days" <<'REMOTE_SCRIPT'
+    cssh bash -s -- "$REMOTE_DIR/build_cache" "$action" "$days" <<'REMOTE_SCRIPT'
 cd "$1" 2>/dev/null || { echo "The build cache ($1) is empty."; exit 0; }
 now=$(date +%s)
 count=0; deleted=0
