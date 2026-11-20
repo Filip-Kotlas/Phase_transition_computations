@@ -22,11 +22,15 @@ GIT_COMMIT ?= $(shell git rev-parse --short HEAD 2>/dev/null || echo unknown)
 CONFIG ?= $(CONFIG_TARGET)
 
 # Compile for the GPU that is present on the build machine (needs a reasonably recent nvcc).
-# To force one architecture: make CUDA_ARCH="-gencode arch=compute_86,code=sm_86"
+# To force one architecture: make CUDA_ARCH=-arch=sm_86
 CUDA_ARCH ?= -arch=native
 
+# -rdc=true: device functions may be defined in another .cu file than the kernel that calls them.
+# -dlto (device link-time optimization): the device code is optimized once more at link time, as
+# a whole, so calls between .cu files are inlined too. Without it every such call is a real call,
+# and on sm_86 the RHS kernels needed 92 registers instead of 39-41 (2 instead of 5-6 blocks per SM).
 COMPILER = nvcc
-COMPILER_FLAGS = -std=c++17 $(INCLUDE_DIR) -O3 --expt-relaxed-constexpr --extended-lambda -rdc=true $(CUDA_ARCH)
+COMPILER_FLAGS = -std=c++17 $(INCLUDE_DIR) -O3 --expt-relaxed-constexpr --extended-lambda -rdc=true -dlto $(CUDA_ARCH)
 
 # Suppress unnecessary warnings
 # -diag-suppress 20012 = "annotation ignored" (ArrayView etc.)
