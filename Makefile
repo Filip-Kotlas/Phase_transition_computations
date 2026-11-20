@@ -69,13 +69,17 @@ $(BUILD_DIR)/%.o: $(SRC_DIR)/%.c
 $(BUILD_DIR)/$(TARGET): $(OBJ)
 	$(COMPILER) $(COMPILER_FLAGS) $(SUPPRESS_WARNINGS) $(OBJ) -o $@ $(TNL_LDFLAGS)
 
+# The binary `make run` runs. On the cluster, run.sbatch passes the one from the build cache
+# (slurm/cached_build.sh); make has no rule for a file outside build/, so it does not rebuild it.
+BINARY ?= $(BUILD_DIR)/$(TARGET)
+
 .PHONY: run
-run: $(BUILD_DIR)/$(TARGET)
+run: $(BINARY)
 	@# Exit code 2 (EXIT_RUN_FAILED in main.cu): the solution broke down (NaN or inf, or the solver got stuck).
 	@# The frames up to the failure are still plotted (--force: basic_plot.py refuses an incomplete
 	@# run without it), then make fails with that code, so the frames are not deleted (DELETE_CALCS)
 	@# and the job counts as failed.
-	status=0; $(BUILD_DIR)/$(TARGET) $(RESULTS_DIR)/$(FOLDER) $(CONFIG) || status=$$?; \
+	status=0; $(BINARY) $(RESULTS_DIR)/$(FOLDER) $(CONFIG) || status=$$?; \
 	if [ $$status -ne 0 ] && [ $$status -ne 2 ]; then exit $$status; fi; \
 	force=""; if [ $$status -eq 2 ]; then force=--force; fi; \
 	echo "Git commit: $(GIT_COMMIT)" >> $(RESULTS_DIR)/$(FOLDER)/$(PARAM_PATH); \

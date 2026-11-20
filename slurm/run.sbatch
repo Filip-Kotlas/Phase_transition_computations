@@ -111,8 +111,12 @@ elif [ "$mode" = bench ]; then
     # The same for the times: both versions on this GPU, report.txt in results/$FOLDER.
     REPEAT="${REPEAT:-3}" BENCH_SET="${BENCH_SET:-}" bash tests/benchmark.sh "$new_work" "$base_work" "results/$FOLDER" "${GIT_COMMIT:-unknown}" "${BASELINE_COMMIT:-unknown}"
 else
+    # The binary comes from the build cache in the cluster folder when the same code was already
+    # built for this GPU type (e.g. the other runs of a submit-many); otherwise it is built here
+    # and stored there. See slurm/cached_build.sh; `cluster.sh cache` lists and prunes it.
+    binary=$(bash slurm/cached_build.sh "$work" "$base/build_cache" "${GIT_COMMIT:-unknown}")
     # The copy has no .git folder, so the commit comes from cluster.sh. config/config.json is the
     # config from the uploaded sources, i.e. the one that was in your repo when you submitted
     # (or the file given with submit --config / submit-many, which cluster.sh put there).
-    make run FOLDER="${FOLDER}" CONFIG=config/config.json DELETE_CALCS="${DELETE_CALCS:-0}" GIT_COMMIT="${GIT_COMMIT:-unknown}"
+    make run FOLDER="${FOLDER}" BINARY="$binary" CONFIG=config/config.json DELETE_CALCS="${DELETE_CALCS:-0}" GIT_COMMIT="${GIT_COMMIT:-unknown}"
 fi

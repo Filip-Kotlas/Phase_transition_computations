@@ -36,11 +36,18 @@
 #   slurm/cluster.sh fetch [MyRun] [--no-calcs] [--force]      download results/MyRun, or all runs
 #   slurm/cluster.sh cancel JOBID
 #   slurm/cluster.sh clean                                     delete leftover upload folders jobs/*
+#   slurm/cluster.sh cache [prune [--days N]]                  list the build cache; prune deletes
+#                                                              the binaries unused for N days
+#                                                              (default 30; 0 = all of them)
 #   slurm/cluster.sh delete-results [--yes]                    delete ALL results on the cluster
 #
 # Every run gets its own copy of the code: submit uploads the sources (including
 # config/config.json) as jobs/MyRun/sources.tar.gz, and the job compiles and runs that copy
 # on the node's local disk. A later submit therefore never changes the code of a queued job.
+# The compiled binary goes into the build cache (build_cache/ in the cluster folder), under a
+# hash of the code (not the config), the GPU type and the compilers; a later run with the same
+# code on the same GPU type takes it from there instead of compiling (slurm/cached_build.sh).
+# The job's log says which happened. So the runs of a submit-many compile once per GPU type.
 # The job keeps the archive as results/MyRun/info/setup/sources.tar.gz and deletes jobs/MyRun.
 # submit --config FILE puts FILE into the archive as config/config.json instead of your
 # config/config.json, which stays untouched (a relative FILE is relative to the folder you
@@ -969,6 +976,65 @@ for d in *; do
     deleted=$((deleted + 1))
 done
 echo ">> $deleted leftover upload(s) deleted"
+REMOTE_SCRIPT
+    ;;
+cache)
+    # The build cache of run.sbatch (slurm/cached_build.sh): list it, or prune it.
+    action=list; days=30
+    if [ "${1:-}" = prune ]; then
+        action=prune; shift
+        while [ $# -gt 0 ]; do
+            case "$1" in
+                --days)
+                    [[ "${2:-}" =~ ^[0-9]+$ ]] || { echo "--days needs a whole number, e.g. --days 30" >&2; exit 1; }
+                    days=$2; shift ;;
+                *) echo "Usage: cluster.sh cache [prune [--days N]]" >&2; exit 1 ;;
+            esac
+            shift
+        done
+    elif [ $# -gt 0 ]; then
+        echo "Usage: cluster.sh cache [prune [--days N]]" >&2; exit 1
+    fi
+    # The remote script is sent on stdin. An entry is sm_XX-KEY/ with Phase-field, info.txt and
+    # last_used (the time of the last use in seconds since 1970, as its content: a touch from a
+    # compute node does not reach gp3; older entries have an empty file, then its time counts).
+    # Deleting an entry cannot disturb a running job: the
+    # job copied its binary to the node at the start (a job that is storing one just fails to
+    # store it, and its run goes on).
+    "$SSH" "$CLUSTER_HOST" bash -s -- "$REMOTE_DIR/build_cache" "$action" "$days" <<'REMOTE_SCRIPT'
+cd "$1" 2>/dev/null || { echo "The build cache ($1) is empty."; exit 0; }
+now=$(date +%s)
+count=0; deleted=0
+for d in sm_*; do
+    [ -d "$d" ] || continue
+    count=$((count + 1))
+    used=$(cat "$d/last_used" 2>/dev/null || true)
+    [[ "$used" =~ ^[0-9]+$ ]] || used=$(stat -c %Y "$d/last_used" 2>/dev/null || echo 0)
+    if [ "$2" = prune ]; then
+        # No binary or no last_used: a store that failed half way; deleted like an old entry.
+        if [ ! -f "$d/Phase-field" ] || [ $((now - used)) -ge $(($3 * 86400)) ]; then
+            rm -rf -- "$d"
+            echo ">> Deleted $d (last used $( [ "$used" = 0 ] && echo never || date -d "@$used" '+%Y-%m-%d %H:%M'))"
+            deleted=$((deleted + 1))
+        else
+            # Temporary files of a store that was killed.
+            find "$d" -maxdepth 1 -name '.tmp-*' -mmin +1440 -delete 2>/dev/null || true
+        fi
+    else
+        [ "$count" = 1 ] && printf '%-24s %6s  %-16s  %s\n' ENTRY SIZE "LAST USED" BUILT
+        if [ -f "$d/Phase-field" ]; then size=$(du -sh "$d" | cut -f1); else size="(none)"; fi
+        printf '%-24s %6s  %-16s  %s\n' "$d" "$size" \
+            "$( [ "$used" = 0 ] && echo never || date -d "@$used" '+%Y-%m-%d %H:%M')" \
+            "$(sed -n '1s/^Built //p' "$d/info.txt" 2>/dev/null)"
+    fi
+done
+if [ "$2" = prune ]; then
+    echo ">> $deleted of $count cache entries deleted (unused for $3 days or more)"
+elif [ "$count" = 0 ]; then
+    echo "The build cache ($1) is empty."
+else
+    echo ">> $count entries, $(du -sh . | cut -f1) in total"
+fi
 REMOTE_SCRIPT
     ;;
 delete-results)
