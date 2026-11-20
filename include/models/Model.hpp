@@ -1,7 +1,7 @@
 #pragma once
 
 // The base class of the discretised models: what all of them share. Every model is a child class
-// (AllenCahn.hpp, ZrNbChoud2013.hpp) that provides
+// (AllenCahn.hpp, ZrNbChoud2013.hpp, ZrHMa2002.hpp) that provides
 //     static constexpr const char* name;   (model.type in the config, and its section model.<name>)
 //     struct Params;                       (its physical parameters, plain data, with
 //         static Params load(const nlohmann::json& section);   (reads model.<name>, see ConfigSection.hpp)
@@ -20,7 +20,8 @@
 // All models so far have the same state vector u: the phase, then the concentration (layout in
 // Grid.hpp), and the same boundary conditions (BoundaryConditions, from the config section bound_cond).
 // Everything else (the equations and their physical parameters, from the model's own config section)
-// is in the child classes; the anisotropic Allen-Cahn operator for the phase is a copy in each of them.
+// is in the child classes; the anisotropic Allen-Cahn operator for the phase is a copy in each of them
+// that uses it (AllenCahn, ZrNbChoud2013).
 
 #include "config/Parameters.hpp"
 #include "core/Grid.hpp"

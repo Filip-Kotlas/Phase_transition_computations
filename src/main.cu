@@ -12,11 +12,13 @@
 #include <sstream>
 #include <string>
 #include <stdexcept>
+#include <type_traits>
 
 #include <TNL/Algorithms/reduce.h>
 
 #include "models/AllenCahn.hpp"
 #include "models/ZrNbChoud2013.hpp"
+#include "models/ZrHMa2002.hpp"
 #include "config/Parameters.hpp"
 #include "core/types.hpp"
 #include "core/Grid.hpp"
@@ -266,6 +268,14 @@ int run(const Parameters& parameters, const ModelT& model, Vector& u, const RunF
     return EXIT_SUCCESS;
 }
 
+// Whether the parameters of a model contain ksi and the anisotropy of an anisotropic Allen-Cahn phase
+// equation, which the initial conditions HyperbolicTangent and WulffShape use.
+template< class Params, class = void >
+struct has_phase_interface : std::false_type {};
+template< class Params >
+struct has_phase_interface< Params, std::void_t< decltype(&Params::ksi), decltype(&Params::anisotropy) > >
+    : std::true_type {};
+
 // Reads the parameters of the model ModelT from its config section (strictly, so that a wrong config
 // stops before anything is written), creates run_folder and records the setup there, builds the model
 // and the initial condition, and runs the computation.
@@ -274,6 +284,21 @@ int start(const Parameters& parameters, const RunFolder& run_folder,
           const std::filesystem::path& input_config_path, std::time_t run_start)
 {
     const typename ModelT::Params model_params = ModelT::Params::load(parameters.model_config);
+
+    // ksi and the anisotropy of the model, for the initial conditions HyperbolicTangent and WulffShape.
+    // A model without them cannot use those two (checked here, before anything is written).
+    Real ic_ksi = 0;
+    Anisotropy ic_anisotropy{0, 0, 0};
+    if constexpr (has_phase_interface< typename ModelT::Params >::value) {
+        ic_ksi = model_params.ksi;
+        ic_anisotropy = model_params.anisotropy;
+    }
+    else if (!parameters.init_cond_from_file
+             && (parameters.init_condition == ICType::HyperbolicTangent
+                 || parameters.init_condition == ICType::WulffShape))
+        throw std::runtime_error("The initial condition " + ICType_to_string(parameters.init_condition)
+                                 + " needs ksi and the anisotropy of the model, which the model "
+                                 + ModelT::name + " does not have.");
 
     if (!run_folder.create())
         return EXIT_FAILURE;
@@ -290,8 +315,7 @@ int start(const Parameters& parameters, const RunFolder& run_folder,
 
         const ModelT model(parameters, model_params);
         Vector u(model.getDegreesOfFreedom());
-        // ksi and the anisotropy of the model, for the initial conditions HyperbolicTangent and WulffShape.
-        if (!set_initial_condition(u, parameters, model_params.ksi, model_params.anisotropy,
+        if (!set_initial_condition(u, parameters, ic_ksi, ic_anisotropy,
                                    run_folder.calculations()))
             return EXIT_FAILURE;
 
@@ -329,8 +353,10 @@ int main(int argc, char** argv) {
             return start<AllenCahn>(parameters, run_folder, input_config_path, run_start);
         if (parameters.model_type == ZrNbChoud2013::name)
             return start<ZrNbChoud2013>(parameters, run_folder, input_config_path, run_start);
+        if (parameters.model_type == ZrHMa2002::name)
+            return start<ZrHMa2002>(parameters, run_folder, input_config_path, run_start);
         throw std::runtime_error("Unknown model in the config: model.type = \"" + parameters.model_type + "\" (known: "
-                                 + AllenCahn::name + ", " + ZrNbChoud2013::name + ").");
+                                 + AllenCahn::name + ", " + ZrNbChoud2013::name + ", " + ZrHMa2002::name + ").");
     }
     catch (const std::exception& e) {
         std::cerr << "Error: " << e.what() << std::endl;

@@ -6,7 +6,7 @@ import numpy as np
 
 
 def model_type(configuration: dict) -> str:
-    """The model of the run, "allen_cahn" or "Zr-Nb_Choud2013" (model.type in the config)."""
+    """The model of the run, "allen_cahn", "Zr-Nb_Choud2013" or "Zr-H_Ma2002" (model.type in the config)."""
     return configuration["model"]["type"]
 
 
