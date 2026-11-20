@@ -18,9 +18,21 @@ CASE_TIMEOUT=${CASE_TIMEOUT:-600}
 # The calling script deletes it when it ends normally.
 progress() { echo "$*" > "$out/progress"; }
 
-# Builds the version in $1 and prints the path of its binary. Only plain `make` is used, which
+# build DIR [COMMIT]
+# Builds the version in DIR and prints the path of its binary. Only plain `make` is used, which
 # every version of the Makefile has (the binary moved from build/ to build/sm_XX/ over time).
+# With BUILD_CACHE set (run.sbatch sets it to the cluster's build_cache/), the harness's
+# slurm/cached_build.sh does it: it takes the binary from the cache when the same code was
+# already built for this GPU type (by a test, a bench or a plain run), else it builds it and
+# stores it there, labelled with COMMIT. This works for any commit, also one from before the
+# cache existed: the script only needs `make` and the binary it builds.
 build() {
+    if [ -n "${BUILD_CACHE:-}" ]; then
+        # Explicit check: set -e does not apply inside $(...), from which this function is called.
+        bash "$harness_dir/slurm/cached_build.sh" "$1" "$BUILD_CACHE" "${2:-unknown}" \
+            || { echo "The build of $1 failed" >&2; exit 1; }
+        return 0
+    fi
     echo ">> Building $1" >&2
     # Explicit check: set -e does not apply inside $(...), from which this function is called.
     make -C "$1" -j 2 >&2 || { echo "The build of $1 failed" >&2; exit 1; }

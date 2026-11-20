@@ -103,6 +103,10 @@ export LD_LIBRARY_PATH="$CUDA_HOME/lib64:${LD_LIBRARY_PATH:-}"
 nvcc --version | tail -n 2
 
 nvidia-smi --query-gpu=name,compute_cap --format=csv
+# Every mode takes its binaries from the build cache in the cluster folder when the same code was
+# already built for this GPU type, and stores the ones it builds there (slurm/cached_build.sh;
+# test and bench through build() in tests/common.sh). `cluster.sh cache` lists and prunes it.
+export BUILD_CACHE="$base/build_cache"
 if [ "$mode" = test ]; then
     # Both versions run on this GPU, so differences between GPU types cannot show up as
     # differences between the versions. The results and report.txt go to results/$FOLDER.
@@ -111,10 +115,8 @@ elif [ "$mode" = bench ]; then
     # The same for the times: both versions on this GPU, report.txt in results/$FOLDER.
     REPEAT="${REPEAT:-3}" BENCH_SET="${BENCH_SET:-}" bash tests/benchmark.sh "$new_work" "$base_work" "results/$FOLDER" "${GIT_COMMIT:-unknown}" "${BASELINE_COMMIT:-unknown}"
 else
-    # The binary comes from the build cache in the cluster folder when the same code was already
-    # built for this GPU type (e.g. the other runs of a submit-many); otherwise it is built here
-    # and stored there. See slurm/cached_build.sh; `cluster.sh cache` lists and prunes it.
-    binary=$(bash slurm/cached_build.sh "$work" "$base/build_cache" "${GIT_COMMIT:-unknown}")
+    # E.g. the other runs of a submit-many take the binary from the cache.
+    binary=$(bash slurm/cached_build.sh "$work" "$BUILD_CACHE" "${GIT_COMMIT:-unknown}")
     # The copy has no .git folder, so the commit comes from cluster.sh. config/config.json is the
     # config from the uploaded sources, i.e. the one that was in your repo when you submitted
     # (or the file given with submit --config / submit-many, which cluster.sh put there).

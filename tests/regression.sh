@@ -30,9 +30,9 @@ configs=("$harness_dir"/tests/configs/*.json)
 [ -e "${configs[0]}" ] || { echo "No configs in $harness_dir/tests/configs" >&2; exit 2; }
 
 progress build new
-new_binary=$(build "$new_dir")
+new_binary=$(build "$new_dir" "$new_commit")
 progress build base
-base_binary=$(build "$base_dir")
+base_binary=$(build "$base_dir" "$base_commit")
 
 total=$(( 2 * ${#configs[@]} ))
 k=0

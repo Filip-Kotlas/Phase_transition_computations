@@ -55,9 +55,9 @@ configs=("$harness_dir"/tests/$configs_folder/*.json)
 [ -e "${configs[0]}" ] || { echo "No configs in $harness_dir/tests/$configs_folder" >&2; exit 2; }
 
 progress build new
-new_binary=$(build "$new_dir")
+new_binary=$(build "$new_dir" "$new_commit")
 progress build base
-base_binary=$(build "$base_dir")
+base_binary=$(build "$base_dir" "$base_commit")
 
 times="$out/times.csv"
 echo "case,version,repetition,computation_s,wall_s,exit_code" > "$times"
