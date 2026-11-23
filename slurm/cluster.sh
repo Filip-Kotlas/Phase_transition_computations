@@ -935,16 +935,26 @@ fetch)
     # Downloads results/$1 from the cluster into the local results/; an existing local copy is
     # replaced first (the callers decide whether that is allowed).
     fetch_one() {
-        local f=$1 excl=""
+        local f=$1 excl="" files="-type f"
         if [ -e "results/$f" ]; then
             echo ">> Replacing existing local results/$f (--force)"
             rm -rf "results/$f"
         fi
         # Excluded when packing on the cluster, so the calculations are not downloaded at all.
         # (GNU tar applies --exclude only to the names after it.)
-        [ "$no_calcs" = "1" ] && excl="--exclude='$f/calculations'"
+        if [ "$no_calcs" = "1" ]; then
+            excl="--exclude='$f/calculations'"
+            files="-path '$f/calculations' -prune -o -type f"
+        fi
         mkdir -p results
-        rssh "cd '$REMOTE_DIR/results' && tar czf - $excl '$f'" | tar xzf - -C results
+        # gp3 is the NFS server of the compute nodes, and a node that wrote a file keeps an NFSv4
+        # write delegation on it for a while (also after the job ends). GNU tar opens files with
+        # O_NONBLOCK, and such an open fails with "Cannot open: Resource temporarily unavailable"
+        # instead of waiting for the node to return the delegation. A plain read waits for it,
+        # so read every file once first (from the page cache for tar afterwards, so it costs
+        # little). ';', not '&&': tar still runs, and reports any file it cannot read.
+        rssh "cd '$REMOTE_DIR/results' && { find '$f' $files -exec cat {} + >/dev/null; tar czf - $excl '$f'; }" \
+            | tar xzf - -C results
         echo ">> Saved to results/$f"
     }
 
