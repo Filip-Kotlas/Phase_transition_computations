@@ -5,7 +5,12 @@
 //     static constexpr const char* name;   (model.type in the config, and its section model.<name>)
 //     struct Params;                       (its physical parameters, plain data, with
 //         static Params load(const nlohmann::json& section);   (reads model.<name>, see ConfigSection.hpp)
-//         std::vector<ParameterEntry> entries() const;         (for parameters.txt and .tex))
+//         std::vector<ParameterEntry> entries() const;         (for parameters.txt and .tex)
+//         InitialConcentrations initial_concentrations() const; (the concentrations of the initial
+//             condition where the phase is 1 and 0, see Parameters.hpp; from constants or the config))
+//     static void check_parameters(const Parameters& parameters);  (inherited from here, does nothing;
+//         a model that cannot work with some run settings hides it with its own, which throws
+//         std::runtime_error; start calls it before the run folder is created)
 //     ModelT(const Parameters& parameters, const Params& own);
 //     Index getDegreesOfFreedom() const;                                   (inherited from here)
 //     void set_rhs_at(const VectorView& u, VectorView& fu, Index i, Index j) const;   (interior points)
@@ -33,6 +38,10 @@ class Model
    public:
 
     Index getDegreesOfFreedom() const;
+
+    // Checks the run settings (e.g. the boundary conditions) that the model cannot work with. Nothing
+    // here; a child class hides it with its own if it needs a check (see the list at the top).
+    static void check_parameters(const Parameters&) {}
 
     /*
     * Phase and concentration access

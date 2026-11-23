@@ -37,6 +37,9 @@ class ZrNbChoud2013 : public Model
         static Params load(const nlohmann::json& section);
         // The parameters for parameters.txt and parameters.tex.
         std::vector<ParameterEntry> entries() const;
+        // The concentrations of the initial condition: the equilibrium ones of the two phases
+        // (constants::c_init_alpha where the phase is 1, c_init_beta where it is 0).
+        InitialConcentrations initial_concentrations() const;
     };
 
     ZrNbChoud2013(const Parameters& parameters, const Params& own) : Model(parameters), own(own) {}
@@ -47,10 +50,10 @@ class ZrNbChoud2013 : public Model
     /*
     * The anisotropic Allen-Cahn equation for the phase (the same in both models)
     */
-    // The RHS of the phase equation at (i, j) for the value F of the force term there
-    // (each model computes its own F).
+    // The RHS of the phase equation at (i, j). The force term F (G_m_alpha - G_m_beta) is computed
+    // inside, from the concentration there (AllenCahn's copy takes its prescribed F as an argument).
     __cuda_callable__
-    Real get_rhs_phase_at(const VectorView& u, Index i, Index j, Real F) const;
+    Real get_rhs_phase_at(const VectorView& u, Index i, Index j) const;
 
     __cuda_callable__
     Real grad_p_1_forward(const VectorView& u, Index i, Index j) const;

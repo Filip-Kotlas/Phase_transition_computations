@@ -263,8 +263,8 @@ Real InitialCondition::get_phase(Index ind) const
 
 __cuda_callable__
 Real InitialCondition::get_concentration(Index index) const {
-    return constants::c_init_alpha
-           + (static_cast<Real>(constants::Phase::alpha) - get_phase(index)) * (constants::c_init_beta - constants::c_init_alpha);
+    return concentrations.c_phase_1
+           + (static_cast<Real>(constants::Phase::alpha) - get_phase(index)) * (concentrations.c_phase_0 - concentrations.c_phase_1);
 }
 
 __cuda_callable__
@@ -301,7 +301,8 @@ void set_init_cond_manually(Vector& u, const InitialCondition& init_cond, const 
         } );
 }
 
-bool set_init_cond_from_file(Vector& u, const std::filesystem::path& filename, const Grid& grid, bool scaling)
+bool set_init_cond_from_file(Vector& u, const std::filesystem::path& filename, const Grid& grid, bool scaling,
+                             const InitialConcentrations& concentrations)
 {
     const Index N = grid.num_points();
 
@@ -316,7 +317,7 @@ bool set_init_cond_from_file(Vector& u, const std::filesystem::path& filename, c
     for (Index k = 0; k < N; ++k)
     {
         host_u[k] = static_cast<Real>(constants::Phase::beta); // phase initialization
-        host_u[N + k] = constants::c_init_beta; // concentration initialization
+        host_u[N + k] = concentrations.c_phase_0; // concentration initialization
     }
 
     const Index start_i = grid.sizeX / 4;
@@ -353,11 +354,12 @@ void set_boundary_point(VectorView& u, Index edge, Index neighbour, BCType bc, R
         u[edge] = u[neighbour];
 }
 
-void set_init_cond_boundary(Vector& u, const Grid& grid, const BoundaryConditions& bound_cond)
+void set_init_cond_boundary(Vector& u, const Grid& grid, const BoundaryConditions& bound_cond,
+                            const InitialConcentrations& concentrations)
 {
     const Index N = grid.num_points();
     const Real phase_dirichlet = static_cast<Real>(constants::Phase::beta);
-    const Real conc_dirichlet = constants::c_init_beta;
+    const Real conc_dirichlet = concentrations.c_phase_0;
 
     // Bottom and top edges first, then left and right edges, in the same order as the boundary
     // conditions in main.cu, so that the corners get the same values as there: when both
@@ -392,6 +394,7 @@ void set_init_cond_boundary(Vector& u, const Grid& grid, const BoundaryCondition
 }
 
 bool set_initial_condition(Vector& u, const Parameters& parameters, Real ksi, const Anisotropy& anisotropy,
+                           const InitialConcentrations& concentrations,
                            const std::filesystem::path& calculations_dir)
 {
     const Grid grid = parameters.grid();
@@ -400,7 +403,7 @@ bool set_initial_condition(Vector& u, const Parameters& parameters, Real ksi, co
         // The path in the config is relative to the calculations/ folder of this run.
         const std::filesystem::path init_cond_path = calculations_dir / parameters.init_cond_file_path;
         std::cout << "Setting initial condition from file: " << init_cond_path << std::endl;
-        if (!set_init_cond_from_file(u, init_cond_path, grid, parameters.init_cond_scaling)){
+        if (!set_init_cond_from_file(u, init_cond_path, grid, parameters.init_cond_scaling, concentrations)){
             std::cerr << "Error: could not set the initial condition from the file " << init_cond_path
                       << " (init_cond_file_path = " << parameters.init_cond_file_path
                       << ", resolved relative to " << calculations_dir << "). Exiting." << std::endl;
@@ -409,11 +412,11 @@ bool set_initial_condition(Vector& u, const Parameters& parameters, Real ksi, co
     }
     else{
         std::cout << "Setting initial condition from code: " << ICType_to_string(parameters.init_condition) << std::endl;
-        InitialCondition init_cond(parameters, ksi, anisotropy);
+        InitialCondition init_cond(parameters, ksi, anisotropy, concentrations);
         set_init_cond_manually(u, init_cond, grid);
     }
     // The time stepping keeps the boundary values consistent only if they are consistent at the start.
-    set_init_cond_boundary(u, grid, parameters.bound_cond);
+    set_init_cond_boundary(u, grid, parameters.bound_cond, concentrations);
     std::cout << "Initial condition set." << std::endl;
     return true;
 }

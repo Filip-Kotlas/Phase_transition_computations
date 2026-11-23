@@ -1,26 +1,26 @@
 {
     "solver": {
         "initial_time": 0.0,
-        "final_time": 0.03,
+        "final_time": 200,
         "domain": {
             "x_left": 0,
-            "x_right": 1,
+            "x_right": 64,
             "y_left": 0,
-            "y_right": 1
+            "y_right": 64
         },
         "custom_integration_time_step": false,
         "integration_time_step": 5e-06,
         "adaptivity": 1e-05,
-        "sizeX": 200,
-        "sizeY": 200,
+        "sizeX": 129,
+        "sizeY": 129,
         "frame_num": 100
     },
     "init_cond": {
         "init_cond_from_file": false,
         "init_cond_file_path": "init.npy",
         "initial_condition": "Circle",
-        "radius_proportion": 0.05,
-        "slope_width": 0.005,
+        "radius_proportion": 0.08,
+        "slope_width": 2,
         "scaling": false
     },
     "bound_cond": {
@@ -30,12 +30,12 @@
         "y_conc": "neumann"
     },
     "model": {
-        "type": "Zr-Nb_Choud2013",
+        "type": "Zr-H_Ma2002",
         "Zr-Nb_Choud2013": {
             "alpha": 1,
             "a": 1,
             "b": 3.53553391,
-            "ksi": 0.075,
+            "ksi": 0.025,
             "A": 0.06,
             "m": 4,
             "theta_0": -0.392699,
@@ -45,12 +45,25 @@
         "allen_cahn": {
             "alpha": 1,
             "a": 1,
-            "b": 1,
-            "ksi": 0.05,
+            "b": 3.53553391,
+            "ksi": 0.01,
             "A": 0.06,
             "m": 4,
             "theta_0": 0.3,
             "force_term": "radial"
+        },
+        "Zr-H_Ma2002": {
+            "C1": 0.05,
+            "C2": 0.58,
+            "A1": 60,
+            "A2": -57.142857142857146,
+            "A3": 81.63265306122449,
+            "alpha": 10,
+            "beta": 3.5,
+            "L_p": 0.14,
+            "M": 0.4,
+            "c_init_hydride": 0.58,
+            "c_init_matrix": 0.2
         }
     }
 }

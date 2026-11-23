@@ -28,6 +28,11 @@ ZrNbChoud2013::Params ZrNbChoud2013::Params::load(const nlohmann::json& section)
     return params;
 }
 
+InitialConcentrations ZrNbChoud2013::Params::initial_concentrations() const
+{
+    return {constants::c_init_alpha, constants::c_init_beta};
+}
+
 std::vector<ParameterEntry> ZrNbChoud2013::Params::entries() const
 {
     std::vector<ParameterEntry> result;
@@ -47,7 +52,7 @@ __cuda_callable__
 void ZrNbChoud2013::set_rhs_at(const VectorView& u, VectorView& fu, Index i, Index j) const
 {
     const Index offset = grid.num_points();
-    fu[grid.index(i, j)] = get_rhs_phase_at(u, i, j, F(u, i, j));
+    fu[grid.index(i, j)] = get_rhs_phase_at(u, i, j);
     fu[offset + grid.index(i, j)] = get_rhs_concentration_at(u, i, j);
 }
 
@@ -159,9 +164,9 @@ Real ZrNbChoud2013::deriv_of_g_w_resp_to_c_and_p(const VectorView& u, Index i, I
 }
 
 __cuda_callable__
-Real ZrNbChoud2013::get_rhs_phase_at(const VectorView& u, Index i, Index j, Real F) const
+Real ZrNbChoud2013::get_rhs_phase_at(const VectorView& u, Index i, Index j) const
 {
-    return Real(1.0)/own.alpha * (div_T0(u, i, j) + f_0(u, i , j) / own.ksi / own.ksi - own.par_b/own.ksi*grade_4_polynom(u, i, j)*F);
+    return Real(1.0)/own.alpha * (div_T0(u, i, j) + f_0(u, i , j) / own.ksi / own.ksi - own.par_b/own.ksi*grade_4_polynom(u, i, j)*F(u, i, j));
 }
 
 __cuda_callable__

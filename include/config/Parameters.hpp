@@ -38,6 +38,15 @@ struct BoundaryConditions {
     BCType conc_y;
 };
 
+// The concentrations of an initial condition computed in code: c_phase_1 where the phase is 1, c_phase_0
+// where it is 0, linear in between. c_phase_0 is also the concentration outside the embedded file
+// (init_cond scaling) and the Dirichlet value of the concentration. Each model gives its own
+// (ModelT::Params::initial_concentrations()).
+struct InitialConcentrations {
+    Real c_phase_1;
+    Real c_phase_0;
+};
+
 // One parameter of a model, as written to parameters.txt (label: value) and parameters.tex
 // (latex & value). Each model lists its own parameters (ModelT::Params::entries()).
 struct ParameterEntry {

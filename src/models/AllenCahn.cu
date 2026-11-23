@@ -3,6 +3,7 @@
 
 #include "models/AllenCahn.hpp"
 #include "config/ConfigSection.hpp"
+#include "models/constants.hpp"
 
 AllenCahn::Params AllenCahn::Params::load(const nlohmann::json& section)
 {
@@ -32,6 +33,11 @@ AllenCahn::Params AllenCahn::Params::load(const nlohmann::json& section)
     params.force_size = (params.force_term == FTType::Constant) ? config.get<Real>("force_size") : Real(0);
     config.check_all_read();
     return params;
+}
+
+InitialConcentrations AllenCahn::Params::initial_concentrations() const
+{
+    return {constants::c_init_alpha, constants::c_init_beta};
 }
 
 std::vector<ParameterEntry> AllenCahn::Params::entries() const

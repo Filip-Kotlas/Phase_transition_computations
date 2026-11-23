@@ -284,6 +284,8 @@ int start(const Parameters& parameters, const RunFolder& run_folder,
           const std::filesystem::path& input_config_path, std::time_t run_start)
 {
     const typename ModelT::Params model_params = ModelT::Params::load(parameters.model_config);
+    // The run settings the model cannot work with (Model::check_parameters, or the model's own).
+    ModelT::check_parameters(parameters);
 
     // ksi and the anisotropy of the model, for the initial conditions HyperbolicTangent and WulffShape.
     // A model without them cannot use those two (checked here, before anything is written).
@@ -316,7 +318,7 @@ int start(const Parameters& parameters, const RunFolder& run_folder,
         const ModelT model(parameters, model_params);
         Vector u(model.getDegreesOfFreedom());
         if (!set_initial_condition(u, parameters, ic_ksi, ic_anisotropy,
-                                   run_folder.calculations()))
+                                   model_params.initial_concentrations(), run_folder.calculations()))
             return EXIT_FAILURE;
 
         computing = true;

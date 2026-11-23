@@ -44,7 +44,7 @@ def main() -> None:
 
     solver = config["solver"]
     if target.name.startswith("random"):
-        phase, concentration = random_fields(solver)
+        phase, concentration = random_fields(solver, config.get("model", {}).get("type"))
     else:
         phase, concentration = smooth_circle(solver)
 
@@ -73,13 +73,19 @@ def smooth_circle(solver: dict) -> tuple:
     return phase, concentration
 
 
-def random_fields(solver: dict) -> tuple:
+def random_fields(solver: dict, model_type) -> tuple:
     """Independent uniform random values: the phase in [0, 1], the concentration between the
-    equilibrium concentrations of the two phases (the Zr-Nb_Choud2013 model needs 0 < c < 1)."""
+    equilibrium concentrations of the two phases (the Zr-Nb_Choud2013 model needs 0 < c < 1);
+    for Zr-H_Ma2002 the hydrogen content in [0, 0.7], which covers the matrix (C1 = 0.05) and the
+    hydride (C2 = 0.58), so both wells of its free energy are used. The phase is drawn first, so it
+    is the same for every model."""
     shape = (solver["sizeY"], solver["sizeX"])
     rng = np.random.default_rng(seed=2026)
     phase = rng.uniform(0.0, 1.0, shape)
-    concentration = rng.uniform(C_ALPHA, C_BETA, shape)
+    if model_type == "Zr-H_Ma2002":
+        concentration = rng.uniform(0.0, 0.7, shape)
+    else:
+        concentration = rng.uniform(C_ALPHA, C_BETA, shape)
     return phase, concentration
 
 
