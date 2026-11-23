@@ -8,8 +8,8 @@
             "y_left": 0.0,
             "y_right": 47.2
         },
-        "custom_integration_time_step": false,
-        "integration_time_step": 0.1,
+        "custom_integration_time_step": true,
+        "integration_time_step": 0.001,
         "adaptivity": 1e-05,
         "sizeX": 80,
         "sizeY": 60,
