@@ -2,6 +2,7 @@
 #include <vector>
 #include <iostream>
 #include <TNL/Algorithms/parallelFor.h>
+#include <TNL/Math.h>
 #include "io/ResultIO.hpp"
 
 __cuda_callable__
@@ -223,7 +224,7 @@ Real InitialCondition::get_phase(Index ind) const
             f_left = f(wulff_left);
             f_right = f(wulff_right);
 
-            while(abs(f(wulff_mid)) > Real(1e-5)) {
+            while(TNL::abs(f(wulff_mid)) > Real(1e-5)) {
                 iter_num++;
                 if (f_left*f(wulff_mid) < 0) {
                     wulff_right = wulff_mid;
