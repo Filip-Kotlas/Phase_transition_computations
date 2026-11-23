@@ -11,6 +11,8 @@
 # With --new COMMIT, test and bench also upload that commit as jobs/<FOLDER>/new.tar.gz and pass
 # NEW_COMMIT: it is then the version under test, and sources.tar.gz (your working tree) only
 # supplies this script, the test scripts, the configs and the comparison.
+# BASE_CONFIG_SET and NEW_CONFIG_SET (from cluster.sh, empty for the current configs) name the
+# config set of each version in tests/config_sets/; the test scripts read them.
 # The mode is kept in results/<FOLDER>/info/setup/mode.txt, for `cluster.sh status` and `list`.
 #
 #SBATCH --partition=gp               # any GPU node; the Makefile compiles for whichever GPU it lands on

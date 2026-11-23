@@ -80,15 +80,17 @@
 # under test, e.g. `bench Old --against 5e9bccb~1 --new 5e9bccb` for an old change. Your working
 # tree is still uploaded: the job script, the test scripts, the configs and the comparison come
 # from it, so they also work for commits from before they existed (the commits still have to
-# accept `Phase-field RESULT_FOLDER CONFIG` and read today's configs).
+# accept `Phase-field RESULT_FOLDER CONFIG`, i.e. 98e885c or later).
+# The configs of test and bench come from your working tree, but each version gets the ones in
+# the layout it reads: the working tree the current configs (tests/configs, ...), a commit the
+# config set of its time from tests/config_sets/ (config_set_of).
 # list shows each run in results/ and jobs/ with its state: queued, running (with progress),
 # finished (computation time; warns when the animations are missing), failed (the solver stopped
 # because of NaN or inf, got stuck or could not write a frame, and wrote the reason into
 # parameters.txt) or stopped (no job any
 # more and not finished: crashed, cancelled or time limit; it names the log to look at).
 # A run counts as finished only when the solver wrote "Computation time" into parameters.txt
-# (all frames written is not enough: the solver can hang after the last one). Runs from
-# before the run date was recorded have no such line; for them all frames is enough.
+# (all frames written is not enough: the solver can hang after the last one).
 # fetch refuses to write into an existing local results/MyRun; --force replaces it.
 # fetch without a name downloads every run on the cluster except the queued or running ones;
 # runs that already exist locally are skipped, or replaced with --force.
@@ -248,8 +250,30 @@ local_commit() {
     printf '%s\n' "$c"
 }
 
+# The config set of commit $1 for test and bench. The test and benchmark configs change their
+# layout over time (e.g. a new required key), and the solver refuses a config with a key it does
+# not know, so a commit gets them in the layout of its time. The current configs are
+# tests/configs, tests/benchmark_configs and tests/benchmark_configs_long; an older layout is
+# kept in tests/config_sets/up_to_<C>/ (with the same subfolders), for C and the commits before
+# it. Prints the name of the set with the oldest such C that is $1 or comes after $1, or nothing
+# for the current configs.
+config_set_of() {
+    local dir name label best="" best_label=""
+    for dir in tests/config_sets/up_to_*; do
+        [ -d "$dir" ] || continue
+        name=${dir##*/}
+        label=$(git rev-parse --verify --quiet "${name#up_to_}^{commit}") \
+            || { echo "$dir is not named after a commit (up_to_<commit>)." >&2; return 1; }
+        if git merge-base --is-ancestor "$1" "$label" \
+            && { [ -z "$best" ] || git merge-base --is-ancestor "$label" "$best_label"; }; then
+            best=$name; best_label=$label
+        fi
+    done
+    printf '%s\n' "$best"
+}
+
 # sbatch for run $1, whose archives are already uploaded. Reads the settings from the caller:
-# gres, extra, mode, delete, commit, base_short, new_short, repeat, bench_set.
+# gres, extra, mode, delete, commit, base_short, new_short, base_set, new_set, repeat, bench_set.
 # The batch script comes from the uploaded archive too (sbatch reads it from stdin), so the
 # job script always matches the code. The job name is the run name, which `status` shows
 # and `cancel` and `clean` rely on. If sbatch fails, the upload is deleted so the name stays free.
@@ -264,7 +288,7 @@ sbatch_run() {
 sbatch_cmd() {
     local job_mode=$mode
     [ "$job_mode" = submit ] && job_mode=run
-    printf '%s' "tar xzOf 'jobs/$1/sources.tar.gz' slurm/run.sbatch | sbatch --job-name='$1' ${gres[*]:-} ${extra[*]:-} --export=ALL,FOLDER='$1',DELETE_CALCS=$delete,GIT_COMMIT='$commit',MODE=$job_mode,BASELINE_COMMIT='${base_short:-}',NEW_COMMIT='${new_short:-}',REPEAT=${repeat:-},BENCH_SET='${bench_set:-}'"
+    printf '%s' "tar xzOf 'jobs/$1/sources.tar.gz' slurm/run.sbatch | sbatch --job-name='$1' ${gres[*]:-} ${extra[*]:-} --export=ALL,FOLDER='$1',DELETE_CALCS=$delete,GIT_COMMIT='$commit',MODE=$job_mode,BASELINE_COMMIT='${base_short:-}',NEW_COMMIT='${new_short:-}',BASE_CONFIG_SET='${base_set:-}',NEW_CONFIG_SET='${new_set:-}',REPEAT=${repeat:-},BENCH_SET='${bench_set:-}'"
 }
 
 # For gpus and nodes: reads [--mem SIZE] and sets need_cpu and mem to what a job of ours asks
@@ -376,6 +400,11 @@ submit|test|bench)
                 || { echo "'$new' is not a commit." >&2; exit 1; }
             new_short=$(git rev-parse --short "$new_commit")
         fi
+        # The configs of each version (empty: the current ones; the working tree always has them).
+        base_set=$(config_set_of "$base_commit") || exit 1
+        new_set=""
+        if [ -n "$new_commit" ]; then new_set=$(config_set_of "$new_commit") || exit 1; fi
+        echo ">> Configs: base ${base_set:+tests/config_sets/}${base_set:-current}, new ${new_set:+tests/config_sets/}${new_set:-current}"
         # The test compares the version under test with the baseline. If they have the same code
         # (e.g. the changes were committed before testing and the baseline is HEAD), both versions
         # are the same and every case would come out IDENTICAL without saying anything.

@@ -29,23 +29,6 @@
         "x_conc": "neumann",
         "y_conc": "neumann"
     },
-    "problem": {
-        "alpha": 1,
-        "a": 1,
-        "b": 1,
-        "d": 1600000000000000.0,
-        "T": 1000,
-        "ksi": 0.05
-    },
-    "force_term": {
-        "type": "constant",
-        "size": 1.0
-    },
-    "anisotropy": {
-        "A": 0.0,
-        "m": 4,
-        "theta_0": 0.0
-    },
     "model": {
         "type": "allen_cahn",
         "allen_cahn": {

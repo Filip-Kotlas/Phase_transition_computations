@@ -44,7 +44,7 @@ def main() -> None:
 
     solver = config["solver"]
     if target.name.startswith("random"):
-        phase, concentration = random_fields(solver, config.get("model", {}).get("type"))
+        phase, concentration = random_fields(solver, config["model"]["type"])
     else:
         phase, concentration = smooth_circle(solver)
 

@@ -1,7 +1,7 @@
 {
     "solver": {
         "initial_time": 0.0,
-        "final_time": 200,
+        "final_time": 2000,
         "domain": {
             "x_left": 0,
             "x_right": 64,
@@ -40,7 +40,7 @@
             "alpha": 10,
             "beta": 3.5,
             "L_p": 0.14,
-            "M": 0.4,
+            "M": 0.001,
             "c_init_hydride": 0.58,
             "c_init_matrix": 0.2
         }

@@ -32,7 +32,7 @@ class Dataset():
     """Access to the results of one computation stored in a results folder.
 
     The folder has to contain the subfolder "calculations" with the frames and the file
-    "info/setup/config.json" with the configuration (older results have it in "info/config.json").
+    "info/setup/config.json" with the configuration.
     A frame is stored in "Result-NNNNN.npy", an array of the shape (2, sizeY, sizeX), phase first
     and concentration second. The coordinates are not stored, they are computed from the configuration.
     The last loaded frame is kept in memory, so several plotters asking for
@@ -56,16 +56,9 @@ class Dataset():
 
         config_path = self.setup_folder / "config.json"
         if not config_path.exists():
-            # Results computed before the subfolders existed have the config directly in "info".
-            old_config_path = self.folder / "info" / "config.json"
-            if not old_config_path.exists():
-                raise FileNotFoundError(f"File {config_path} does not exist!")
-            config_path = old_config_path
+            raise FileNotFoundError(f"File {config_path} does not exist!")
         with config_path.open("r", encoding="utf-8") as file:
             self.configuration = json.load(file)
-        if "model" not in self.configuration:
-            raise ValueError(f"{config_path} has the old config layout (no section 'model'); "
-                             f"convert it with python3 python/migrate_config.py {config_path}")
 
         self.time_step = self._calculate_time_step()
 

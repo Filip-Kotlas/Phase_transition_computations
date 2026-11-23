@@ -45,7 +45,6 @@ DEFAULT_TOLERANCE = 1e-4
 class SetupInfo:
     """What the binary (and make run or tests/regression.sh) wrote into parameters.txt."""
     found: bool = False
-    has_run_date: bool = False
     computation_seconds: Optional[float] = None
     commit: Optional[str] = None
 
@@ -85,21 +84,19 @@ def is_run(path: Path) -> bool:
 
 
 def read_setup(run: Path) -> SetupInfo:
-    """Reads parameters.txt (info/setup/, or info/ for old results)."""
+    """Reads info/setup/parameters.txt."""
     info = SetupInfo()
-    for candidate in (run / "info" / "setup" / "parameters.txt", run / "info" / "parameters.txt"):
-        if candidate.exists():
-            text = candidate.read_text(encoding="utf-8", errors="replace")
-            info.found = True
-            info.has_run_date = re.search(r"^Run date:", text, re.MULTILINE) is not None
-            # "Computation time: 0h 00m 01s (0.9 s)"
-            match = re.search(r"^Computation time:.*\(([0-9.]+) s\)", text, re.MULTILINE)
-            if match:
-                info.computation_seconds = float(match.group(1))
-            match = re.search(r"^Git commit:\s*(\S+)", text, re.MULTILINE)
-            if match:
-                info.commit = match.group(1)
-            break
+    parameters = run / "info" / "setup" / "parameters.txt"
+    if parameters.exists():
+        text = parameters.read_text(encoding="utf-8", errors="replace")
+        info.found = True
+        # "Computation time: 0h 00m 01s (0.9 s)"
+        match = re.search(r"^Computation time:.*\(([0-9.]+) s\)", text, re.MULTILINE)
+        if match:
+            info.computation_seconds = float(match.group(1))
+        match = re.search(r"^Git commit:\s*(\S+)", text, re.MULTILINE)
+        if match:
+            info.commit = match.group(1)
     return info
 
 
@@ -129,10 +126,9 @@ def compare_pair(name: str, path_a: Path, path_b: Path, tolerance: float) -> Pai
         result.notes.append(str(error))
         return result
 
-    # A run that recorded its start but not its end crashed, was killed or is still running.
-    # (Runs from before the run date was recorded have neither line; nothing can be said about them.)
+    # A run without its computation time crashed, was killed or is still running.
     unfinished = [label for label, setup in (("A", result.setup_a), ("B", result.setup_b))
-                  if setup.has_run_date and setup.computation_seconds is None]
+                  if setup.computation_seconds is None]
     if unfinished:
         result.notes.append(f"run {' and '.join(unfinished)} did not finish (no 'Computation time' in parameters.txt)")
         return result

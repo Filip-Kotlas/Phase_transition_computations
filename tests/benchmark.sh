@@ -9,7 +9,9 @@
 #                                             (cluster.sh bench --long, which passes REPEAT=1)
 #
 # NEW_DIR and BASE_DIR are unpacked source trees, as for tests/regression.sh; the configs and the
-# comparison come from the tree of this script (normally NEW_DIR itself). In OUT_DIR:
+# comparison come from the tree of this script (normally NEW_DIR itself), each version runs the
+# configs of its config set (BASE_CONFIG_SET, NEW_CONFIG_SET), and a case that the base version's
+# set does not have is skipped, as in tests/regression.sh. In OUT_DIR:
 #   times.csv          one line per run: case, version, repetition, computation time (the solver's
 #                      own "Computation time" from parameters.txt: the time loop including frame
 #                      writing, without start-up, config and initial condition; empty in versions
@@ -48,11 +50,21 @@ case "${BENCH_SET:-}" in
     *)    echo "BENCH_SET has to be empty or 'long', not '$BENCH_SET'" >&2; exit 2 ;;
 esac
 
-# progress, build, run_case and CASE_TIMEOUT.
+# progress, build, run_case, config_folder and CASE_TIMEOUT.
 source "$(dirname "${BASH_SOURCE[0]}")/common.sh"
 
-configs=("$harness_dir"/tests/$configs_folder/*.json)
-[ -e "${configs[0]}" ] || { echo "No configs in $harness_dir/tests/$configs_folder" >&2; exit 2; }
+new_configs=$(config_folder "${NEW_CONFIG_SET:-}" "$configs_folder") || exit 2
+base_configs=$(config_folder "${BASE_CONFIG_SET:-}" "$configs_folder") || exit 2
+# The cases: the configs of the new version that the base version's set has too.
+cases=(); skipped=()
+for config in "$new_configs"/*.json; do
+    [ -e "$config" ] || continue
+    case_name=$(basename "$config" .json)
+    if [ -f "$base_configs/$case_name.json" ]; then cases+=("$case_name"); else skipped+=("$case_name"); fi
+done
+[ ${#cases[@]} -gt 0 ] || { echo "No configs in both $new_configs and $base_configs" >&2; exit 2; }
+echo ">> Configs: base ${base_configs#$harness_dir/}, new ${new_configs#$harness_dir/}"
+[ ${#skipped[@]} -eq 0 ] || echo ">> Skipped, the base version's configs do not have them: ${skipped[*]}"
 
 progress build new
 new_binary=$(build "$new_dir" "$new_commit")
@@ -62,16 +74,15 @@ base_binary=$(build "$base_dir" "$base_commit")
 times="$out/times.csv"
 echo "case,version,repetition,computation_s,wall_s,exit_code" > "$times"
 
-total=$(( 2 * repeat * ${#configs[@]} ))
+total=$(( 2 * repeat * ${#cases[@]} ))
 k=0
-for config in "${configs[@]}"; do
-    case_name=$(basename "$config" .json)
+for case_name in "${cases[@]}"; do
     for (( r = 1; r <= repeat; r++ )); do
         # Odd repetitions run base first, even ones new first.
         if (( r % 2 == 1 )); then order="base new"; else order="new base"; fi
         for version in $order; do
-            if [ "$version" = new ]; then binary=$new_binary; src=$new_dir; commit=$new_commit
-            else                          binary=$base_binary; src=$base_dir; commit=$base_commit; fi
+            if [ "$version" = new ]; then binary=$new_binary; src=$new_dir; commit=$new_commit; config=$new_configs/$case_name.json
+            else                          binary=$base_binary; src=$base_dir; commit=$base_commit; config=$base_configs/$case_name.json; fi
             k=$(( k + 1 ))
             progress run "$k" "$total" "$(date +%s)" "$case_name" "$version"
             echo ">> [$k/$total] $case_name, repetition $r: running the $version version ($commit)"
@@ -101,7 +112,12 @@ tail -n 1 "$out/comparison.txt"
 echo
 echo ">> Comparing the times"
 status=0
-python3 "$harness_dir/python/compare_times.py" "$out" > "$out/report.txt" || status=$?
+{
+    echo "Configs: base ${base_configs#$harness_dir/}, new ${new_configs#$harness_dir/}"
+    [ ${#skipped[@]} -eq 0 ] || echo "Not run, the base version's configs do not have them: ${skipped[*]}"
+    echo
+    python3 "$harness_dir/python/compare_times.py" "$out" || status=$?
+} > "$out/report.txt"
 cat "$out/report.txt"
 rm -f "$out/progress"
 exit "$status"

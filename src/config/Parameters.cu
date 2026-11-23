@@ -1,6 +1,5 @@
 #include "config/Parameters.hpp"
 #include "config/ConfigSection.hpp"
-#include "core/warnings.hpp"
 #include <fstream>
 #include <iomanip>
 #include <sstream>
@@ -19,13 +18,6 @@ Parameters Parameters::load(const std::filesystem::path& filename) {
     json config;
     file >> config;
     Parameters p;
-
-    // The old layout had the model's parameters in the top-level sections problem, force_term and anisotropy.
-    // Checked first, so such a config gets this hint and not an error about one of its keys.
-    if (!config.contains("model") && (config.contains("problem") || config.contains("force_term")))
-        throw std::runtime_error("The config " + filename.string() + " has the old layout (the sections problem,"
-                                 " force_term, anisotropy); convert it with python3 python/migrate_config.py "
-                                 + filename.string());
 
     // The sections solver, init_cond and bound_cond are read strictly, like the model's section
     // (ConfigSection): every key is required, so a typo is an error instead of a silent default.
@@ -117,11 +109,11 @@ Parameters Parameters::load(const std::filesystem::path& filename) {
                                  + ", the section with the parameters of the model " + p.model_type + ".");
     p.model_config = config.at("model").at(p.model_type);
 
-    // Anything else at the top level is not read, e.g. a parameter that belongs into model.<type>.
+    // Nothing else is allowed at the top level, e.g. a parameter that belongs into model.<type>.
     for (const auto& item : config.items()) {
         if (item.key() != "solver" && item.key() != "init_cond" && item.key() != "bound_cond" && item.key() != "model")
-            warn("the config section " + item.key() + " is not used (the physical parameters"
-                 " of the model belong into model." + p.model_type + ").");
+            throw std::runtime_error("The config section " + item.key() + " is unknown (the physical parameters"
+                                     " of the model belong into model." + p.model_type + ").");
     }
 
     return p;

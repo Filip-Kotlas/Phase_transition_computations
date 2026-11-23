@@ -3,17 +3,15 @@
 // Strict reading of one section of the config (a JSON object), used for every section the solver reads
 // (solver, solver.domain, init_cond, bound_cond and the model's model.<type>): every key has to be
 // present (there are no defaults), so a typo ("ksl" instead of "ksi") is an error ("missing ksi"),
-// and its value has to have the right type. check_all_read() only WARNS about the keys nobody read
-// (a stray key, a parameter of another model, or a key that a newer version of the solver added):
-// an error there would make every commit refuse the configs of later commits, so `cluster.sh test`
-// and `bench` against an older commit would fail whenever a key is added. Host code only.
+// and its value has to have the right type. check_all_read() refuses the keys nobody read (a stray
+// key, a parameter of another model). A test or benchmark against an older commit gives that
+// commit the configs it reads (tests/config_sets/). Host code only.
 
 #include <set>
 #include <stdexcept>
 #include <string>
 #include <type_traits>
 #include "external/json.hpp"
-#include "core/warnings.hpp"
 
 class ConfigSection {
 public:
@@ -48,14 +46,13 @@ public:
         }
     }
 
-    // Warns (warn(): on std::cerr and in parameters.txt) about every key of the section that get()
-    // did not read. Call it after reading the section.
+    // Throws if the section has a key that get() did not read. Call it after reading the section.
     void check_all_read() const
     {
         for (const auto& item : data.items()) {
             if (read_keys.count(item.key()) == 0)
-                warn("the config entry " + path(item.key()) + " is not used (a stray key,"
-                     " a parameter of another model, or a key of a newer version of the solver?).");
+                throw std::runtime_error("The config entry " + path(item.key()) + " is unknown"
+                                         " (a typo, or a parameter of another model?).");
         }
     }
 

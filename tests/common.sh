@@ -7,6 +7,17 @@
 tests_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 harness_dir=$(cd "$tests_dir/.." && pwd)
 
+# config_folder SET KIND
+# The folder with the configs of KIND (configs, benchmark_configs or benchmark_configs_long) of
+# the config set SET in the harness: tests/config_sets/SET/KIND, or tests/KIND, the current
+# configs, for an empty SET. Each version uses the set its code reads: cluster.sh chooses it from
+# the version's commit and passes it on as BASE_CONFIG_SET and NEW_CONFIG_SET.
+config_folder() {
+    local folder="$harness_dir/tests/${1:+config_sets/$1/}$2"
+    [ -d "$folder" ] || { echo "There is no config folder $folder" >&2; return 1; }
+    echo "$folder"
+}
+
 # A test case that runs longer than this is stuck; the solver loop has hung before (job 53761)
 # and would otherwise hold the GPU until the job's time limit.
 CASE_TIMEOUT=${CASE_TIMEOUT:-600}
@@ -62,14 +73,8 @@ run_case() {
     run_seconds=$(awk -v s="$start" -v e="$end" 'BEGIN { printf "%.2f", e - s }')
 
     # parameters.txt gets the commit like with `make run`, so compare_runs.py can show it.
-    # (Versions before commit 98e885c write it into info/ instead of info/setup/.)
-    local parameters
-    for parameters in "$run_dir/info/setup/parameters.txt" "$run_dir/info/parameters.txt"; do
-        if [ -f "$parameters" ]; then
-            echo "Git commit: $commit" >> "$parameters"
-            break
-        fi
-    done
+    local parameters="$run_dir/info/setup/parameters.txt"
+    [ ! -f "$parameters" ] || echo "Git commit: $commit" >> "$parameters"
     if [ "$run_status" != 0 ]; then
         if [ "$run_status" = 124 ]; then echo "   timed out after $CASE_TIMEOUT s"
         else echo "   failed with exit code $run_status"; fi

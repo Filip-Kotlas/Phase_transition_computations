@@ -175,8 +175,8 @@ def used_settings(configuration: dict) -> Dict[str, object]:
     """The settings the solver uses, as flattened config keys with their values ({"solver.sizeX": 200, ...}).
 
     The solver reads the sections solver, init_cond and bound_cond, model.type and the section of the
-    chosen model, model.<type>; everything else in the config (the sections of the other models, the
-    old-layout sections kept in tests/configs, ...) is not used. Of the read keys, two groups are
+    chosen model, model.<type>; everything else in the config (the sections of the other models) is
+    not used. Of the read keys, two groups are
     required by the solver but not used:
         solver.integration_time_step, when solver.custom_integration_time_step is false
             (the solver starts from min(hx, hy)^2 / 5),

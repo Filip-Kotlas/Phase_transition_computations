@@ -1,9 +1,8 @@
 #pragma once
 
 // Warnings of the solver (host code). warn() prints the warning to std::cerr, as before, and also
-// keeps it, so that the run records its warnings in parameters.txt (RunFolder::append_warnings):
-// most of them (unused config sections and keys) come while the config is read, before the run
-// folder exists.
+// keeps it, so that the run records its warnings in parameters.txt (RunFolder::append_warnings),
+// also those that come before the run folder exists (e.g. while the config is read).
 
 #include <string>
 #include <vector>
