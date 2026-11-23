@@ -1,6 +1,8 @@
-from typing import List, Tuple
+from typing import List, Optional, Tuple
 from contextlib import ExitStack
+from pathlib import Path
 import math
+import sys
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib import animation
@@ -88,7 +90,6 @@ class Plotter():
         plots_folder = self.dataset.plots_folder
         if not plots_folder.exists():
             plots_folder.mkdir(parents=True, exist_ok=True)
-            print("Creating folder", plots_folder)
 
     def set_time_title(self, frame: int, title) -> None:
         t0 = self.configuration["solver"]["initial_time"]
@@ -114,15 +115,17 @@ class Plotter():
     def save_animation(self, file_format: str="auto") -> None:
         save_animations([self], file_format)
 
-    def save_frame(self, frame: int) -> None:
+    def save_frame(self, frame: int) -> Optional[Path]:
+        """Saves the frame as an image into the plots folder and returns its path (None if the frame
+        does not exist). Prints nothing, the callers report the saved images."""
         if frame >= len(self.file_paths):
             print(f"Frame {frame} is unavailable.")
-            return
+            return None
         self.check_for_plots_folder()
         self.update(frame)
         output_file = self.dataset.plots_folder / ("ACE" + self.output_name_tag + f"_{frame:05d}.jpg")
         self.fig.savefig(output_file, dpi=300, bbox_inches='tight')
-        print(f"Frame {frame} saved at:", output_file)
+        return output_file
 
     def show_frame(self, frame: int) -> None:
         if frame >= len(self.file_paths):
@@ -196,7 +199,6 @@ class BoundaryPlotter2D(Plotter):
         _, _, value = self._load_data(frame)
         self.set_time_title(frame, self.title)
 
-        print("Updating frame: ", frame)
         artist = []
 
         if self.draw_function:
@@ -260,7 +262,6 @@ class SurfacePlotter(Plotter):
 
         self.set_time_title(frame, self.title)
 
-        print("Updating frame: ", frame)
         artist = []
 
         alpha = 1
@@ -343,7 +344,6 @@ class CutPlotter(Plotter):
 
         self.set_time_title(frame, self.title)
 
-        print("Updating frame: ", frame)
 
         self.function.set_data(self.variable_lines, self.get_cut(value))
         return [self.function, self.title]
@@ -421,9 +421,13 @@ def save_animations(plotters: List[Plotter], file_format: str="auto") -> None:
 
     fps = max(1, int(round(len(frames) / duration_s)))
 
+    print(f"Saving {len(plotters)} animations ({file_format}, {len(frames)} frames, {fps} fps) "
+          f"into {dataset.plots_folder}")
+    # In a terminal the count of the frames done is rewritten on one line; in a file (e.g. the log of
+    # a cluster job) only the final line is written.
+    show_progress = sys.stdout.isatty()
     output_files = []
     for plotter in plotters:
-        print("Preparing animation for", str(plotter.output_name_tag)[1:])
         plotter.check_for_plots_folder()
         output_files.append(plotter.dataset.plots_folder / ("ACE" + plotter.output_name_tag + "." + file_format))
 
@@ -442,10 +446,12 @@ def save_animations(plotters: List[Plotter], file_format: str="auto") -> None:
             stack.enter_context(writer.saving(plotter.fig, output_file, plotter.fig.dpi))
             writers.append(writer)
 
-        for frame in frames:
+        for done, frame in enumerate(frames, start=1):
             for plotter, writer in zip(plotters, writers):
                 plotter.update(frame)
                 writer.grab_frame()
+            if show_progress:
+                print(f"\r  {done}/{len(frames)} frames", end="", flush=True)
 
-    for output_file in output_files:
-        print("Finished the animation. Saved at:", output_file)
+    # The gif files are written when the "with" block ends, so "done" comes only after it.
+    print(f"\r  {len(frames)}/{len(frames)} frames, done")

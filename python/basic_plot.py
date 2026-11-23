@@ -99,9 +99,15 @@ def plot_run(name: str, args: argparse.Namespace) -> None:
     frames = resolve_frames(DEFAULT_FRAMES if args.frames is None else args.frames,
                             dataset.get_max_frame_number(),
                             report_unavailable=args.frames is not None)
-    for frame in frames:
-        for plotter in plotters:
-            render(plotter, frame, save=True)
+    if frames:
+        # One line: the frame numbers are added as they are saved.
+        print(f"Saving {len(plotters)} images per frame into {dataset.plots_folder}")
+        print("  frames", end="", flush=True)
+        for frame in frames:
+            for plotter in plotters:
+                render(plotter, frame, save=True)
+            print(f" {frame}", end="", flush=True)
+        print()
 
     save_animations(plotters, args.format)
 

@@ -31,7 +31,10 @@ def main(argv=None) -> None:
         return
 
     plan = decide_drawing(dataset.configuration, args.type)
-    for plotter in build_plotters(dataset, plan):
+    plotters = build_plotters(dataset, plan)
+    if args.save and plotters:
+        print(f"Saving {len(plotters)} images of frame {frames[0]} into {dataset.plots_folder}")
+    for plotter in plotters:
         render(plotter, frames[0], args.save)
 
 

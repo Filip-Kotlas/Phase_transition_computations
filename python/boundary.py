@@ -256,5 +256,5 @@ def write_boundary_files(dataset: Dataset, include_analytic: bool) -> None:
                     file.write(f"    {x:.17g}   {y:.17g}\n")
                 file.write("##\n\n")
 
-    for path, _ in outputs:
-        print("Boundary saved at:", path)
+    names = ", ".join(path.name for path, _ in outputs)
+    print(f"Boundary of all frames saved into {boundary_folder} ({names})")
