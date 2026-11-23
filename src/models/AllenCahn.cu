@@ -3,7 +3,7 @@
 
 #include "models/AllenCahn.hpp"
 #include "config/ConfigSection.hpp"
-#include "models/constants.hpp"
+#include "models/thermodynamics/ZrNbThermodynamics.hpp"
 
 AllenCahn::Params AllenCahn::Params::load(const nlohmann::json& section)
 {
@@ -37,7 +37,7 @@ AllenCahn::Params AllenCahn::Params::load(const nlohmann::json& section)
 
 InitialConcentrations AllenCahn::Params::initial_concentrations() const
 {
-    return {constants::c_init_alpha, constants::c_init_beta};
+    return {ZrNbThermodynamics::c_init_alpha, ZrNbThermodynamics::c_init_beta};
 }
 
 std::vector<ParameterEntry> AllenCahn::Params::entries() const

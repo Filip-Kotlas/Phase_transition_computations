@@ -24,7 +24,7 @@ import json
 import sys
 import numpy as np
 
-# Equilibrium concentrations of the two phases, as constants::c_init_alpha / c_init_beta in include/constants.hpp.
+# Equilibrium concentrations of the two phases, as ZrNbThermodynamics::c_init_alpha / c_init_beta in include/models/thermodynamics/ZrNbThermodynamics.hpp.
 C_ALPHA = 0.007
 C_BETA = 0.025
 

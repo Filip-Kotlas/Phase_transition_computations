@@ -38,7 +38,7 @@ class AllenCahn : public Model
         // The parameters for parameters.txt and parameters.tex.
         std::vector<ParameterEntry> entries() const;
         // The concentrations of the initial condition. The concentration does not change in this model;
-        // those of ZrNbChoud2013 (constants.hpp), as before the models had their own.
+        // those of ZrNbChoud2013 (ZrNbThermodynamics.hpp), as before the models had their own.
         InitialConcentrations initial_concentrations() const;
     };
 

@@ -1,7 +1,6 @@
 #include <cmath>
 
 #include "models/ZrNbChoud2013.hpp"
-#include "models/constants.hpp"
 #include "config/ConfigSection.hpp"
 
 ZrNbChoud2013::Params ZrNbChoud2013::Params::load(const nlohmann::json& section)
@@ -30,7 +29,7 @@ ZrNbChoud2013::Params ZrNbChoud2013::Params::load(const nlohmann::json& section)
 
 InitialConcentrations ZrNbChoud2013::Params::initial_concentrations() const
 {
-    return {constants::c_init_alpha, constants::c_init_beta};
+    return {ZrNbThermodynamics::c_init_alpha, ZrNbThermodynamics::c_init_beta};
 }
 
 std::vector<ParameterEntry> ZrNbChoud2013::Params::entries() const
@@ -65,7 +64,7 @@ Real ZrNbChoud2013::get_rhs_concentration_at(const VectorView& u, Index i, Index
 __cuda_callable__
 Real ZrNbChoud2013::F(const VectorView& u, Index i, Index j) const
 {
-    return constants::G_m_alpha(conc_at(u, i, j), own.T) - constants::G_m_beta(conc_at(u, i, j), own.T);
+    return thermo.G_m_alpha(conc_at(u, i, j)) - thermo.G_m_beta(conc_at(u, i, j));
 }
 
 __cuda_callable__
@@ -106,8 +105,8 @@ Real ZrNbChoud2013::get_conc_diff_coef(const VectorView& u, Index i, Index j) co
     return own.par_b*own.d/Real(30.0)
             * conc_at(u, i, j)
             * (1 - conc_at(u, i, j))
-            * constants::M_Nb_beta(own.T)
-		    * pow(constants::M_Nb_alpha(own.T)/constants::M_Nb_beta(own.T), polynom_p(u, i, j))
+            * thermo.M_Nb_beta
+		    * pow(thermo.M_Nb_alpha/thermo.M_Nb_beta, polynom_p(u, i, j))
 		    * sec_deriv_of_g_w_resp_to_c(u, i, j);
 }
 
@@ -117,8 +116,8 @@ Real ZrNbChoud2013::get_phas_diff_coef(const VectorView& u, Index i, Index j) co
    return own.par_b*own.d/Real(30.0)
           * conc_at(u, i, j)
 		  * (1 - conc_at(u, i, j))
-          * constants::M_Nb_beta(own.T)
-		  * pow(constants::M_Nb_alpha(own.T)/constants::M_Nb_beta(own.T), polynom_p(u, i, j))
+          * thermo.M_Nb_beta
+		  * pow(thermo.M_Nb_alpha/thermo.M_Nb_beta, polynom_p(u, i, j))
 		  * deriv_of_g_w_resp_to_c_and_p(u, i, j);
 }
 
@@ -138,11 +137,11 @@ __cuda_callable__
 Real ZrNbChoud2013::sec_deriv_of_g_w_resp_to_c(const VectorView& u, Index i, Index j) const
 {
    Real c = conc_at(u, i, j);
-   Real d2_G_alpha_wrt_c = constants::R * own.T / (c*(1-c))
-   							 - 2 * constants::L_0_alpha;
-   Real d2_G_beta_wrt_c = constants::R * own.T / (c*(1-c))
-   							 - 2 * constants::L_0_beta(own.T)
-							 + (6 - 12*c) * constants::L_0_i_beta(own.T);
+   Real d2_G_alpha_wrt_c = thermo.RT / (c*(1-c))
+   							 - 2 * ZrNbThermodynamics::L_0_alpha;
+   Real d2_G_beta_wrt_c = thermo.RT / (c*(1-c))
+   							 - 2 * thermo.L_0_beta
+							 + (6 - 12*c) * thermo.L_0_i_beta;
    return polynom_p(u, i, j)*d2_G_alpha_wrt_c + (1 - polynom_p(u, i, j))*d2_G_beta_wrt_c;
 }
 
@@ -150,15 +149,15 @@ __cuda_callable__
 Real ZrNbChoud2013::deriv_of_g_w_resp_to_c_and_p(const VectorView& u, Index i, Index j) const
 {
    Real c = conc_at(u, i, j);
-   Real d_G_alpha_wrt_c = constants::G_Nb_alpha_0(own.T)
-                            - constants::G_Zr_alpha_0(own.T)
-                            + constants::R * own.T * (log(c) - log(1-c))
-                            + (1 - 2*c) * constants::L_0_alpha;
-   Real d_G_beta_wrt_c = constants::G_Nb_beta_0(own.T)
-						   - constants::G_Zr_beta_0(own.T)
-						   + constants::R * own.T * (log(c) - log(1-c))
-						   + (1 - 2 * c) * constants::L_0_beta(own.T)
-						   + (6*c - 6*pow(c, Real(2)) - 1) * constants::L_0_i_beta(own.T);
+   Real d_G_alpha_wrt_c = thermo.G_Nb_alpha_0
+                            - thermo.G_Zr_alpha_0
+                            + thermo.RT * (log(c) - log(1-c))
+                            + (1 - 2*c) * ZrNbThermodynamics::L_0_alpha;
+   Real d_G_beta_wrt_c = thermo.G_Nb_beta_0
+						   - thermo.G_Zr_beta_0
+						   + thermo.RT * (log(c) - log(1-c))
+						   + (1 - 2 * c) * thermo.L_0_beta
+						   + (6*c - 6*pow(c, Real(2)) - 1) * thermo.L_0_i_beta;
 
    return der_polynom_p(u, i, j)*(d_G_alpha_wrt_c - d_G_beta_wrt_c);
 }

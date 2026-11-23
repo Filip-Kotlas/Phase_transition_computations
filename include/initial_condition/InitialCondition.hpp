@@ -1,7 +1,7 @@
 #pragma once
 #include <filesystem>
 #include "core/types.hpp"
-#include "models/constants.hpp"
+#include "core/constants.hpp"
 #include "config/Parameters.hpp"
 #include "core/Grid.hpp"
 #include "config/enums.hpp"

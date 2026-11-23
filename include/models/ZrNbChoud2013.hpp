@@ -2,7 +2,7 @@
 
 // The phase transition in the Zr-Nb alloy (model.type "Zr-Nb_Choud2013"): the anisotropic
 // Allen-Cahn equation for the phase, with the force term F = G_m_alpha - G_m_beta (the difference
-// of the Gibbs energies, constants.hpp), coupled with the diffusion of the Nb concentration.
+// of the Gibbs energies, ZrNbThermodynamics.hpp), coupled with the diffusion of the Nb concentration.
 // See Model.hpp for what a model provides.
 //
 // Its config section (all keys required):
@@ -13,6 +13,7 @@
 #include "external/json.hpp"
 
 #include "models/Model.hpp"
+#include "models/thermodynamics/ZrNbThermodynamics.hpp"
 
 class ZrNbChoud2013 : public Model
 {
@@ -38,11 +39,13 @@ class ZrNbChoud2013 : public Model
         // The parameters for parameters.txt and parameters.tex.
         std::vector<ParameterEntry> entries() const;
         // The concentrations of the initial condition: the equilibrium ones of the two phases
-        // (constants::c_init_alpha where the phase is 1, c_init_beta where it is 0).
+        // (ZrNbThermodynamics::c_init_alpha where the phase is 1, c_init_beta where it is 0).
         InitialConcentrations initial_concentrations() const;
     };
 
-    ZrNbChoud2013(const Parameters& parameters, const Params& own) : Model(parameters), own(own) {}
+    // Also computes the thermodynamic values at the temperature T, once, on the host.
+    ZrNbChoud2013(const Parameters& parameters, const Params& own)
+        : Model(parameters), own(own), thermo(own.T) {}
 
     __cuda_callable__
     void set_rhs_at(const VectorView& u, VectorView& fu, Index i, Index j) const;
@@ -103,4 +106,6 @@ class ZrNbChoud2013 : public Model
    private:
 
     const Params own;
+    // The thermodynamic values at own.T (declared after own, so it is initialized after it).
+    const ZrNbThermodynamics thermo;
 };
