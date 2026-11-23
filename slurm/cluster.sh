@@ -1,10 +1,11 @@
 #!/bin/bash
 # Run from your own computer (Git Bash / WSL / Linux), from anywhere in the repo.
 #
-#   slurm/cluster.sh submit MyRun [--config FILE] [--delete-calcs] [--force] [--gpu TYPE] [--mem SIZE]
+#   slurm/cluster.sh submit MyRun (--model NAME | --config FILE) [--delete-calcs] [--force] [--gpu TYPE] [--mem SIZE]
 #                                                              upload code, sbatch the job
-#                                                              (--config: run FILE instead of
-#                                                              config/config.json;
+#                                                              (--model Zr-H_Ma2002: run
+#                                                              config/Zr-H_Ma2002.json;
+#                                                              --config: run any config FILE;
 #                                                              --gpu rtx5080: only that card type;
 #                                                              --mem 4G: host RAM instead of the
 #                                                              default in run.sbatch; also for
@@ -41,17 +42,19 @@
 #                                                              (default 30; 0 = all of them)
 #   slurm/cluster.sh delete-results [--yes]                    delete ALL results on the cluster
 #
-# Every run gets its own copy of the code: submit uploads the sources (including
-# config/config.json) as jobs/MyRun/sources.tar.gz, and the job compiles and runs that copy
+# Every model has its own complete config, config/<model>.json; submit needs the one to run,
+# --model NAME (config/NAME.json) or --config FILE (any file, e.g. from comp_configurations/).
+# Every run gets its own copy of the code: submit uploads the sources (with the chosen config
+# as config/config.json) as jobs/MyRun/sources.tar.gz, and the job compiles and runs that copy
 # on the node's local disk. A later submit therefore never changes the code of a queued job.
 # The compiled binary goes into the build cache (build_cache/ in the cluster folder), under a
 # hash of the code (not the config), the GPU type and the compilers; a later run with the same
 # code on the same GPU type takes it from there instead of compiling (slurm/cached_build.sh).
 # The job's log says which happened. So the runs of a submit-many compile once per GPU type.
 # The job keeps the archive as results/MyRun/info/setup/sources.tar.gz and deletes jobs/MyRun.
-# submit --config FILE puts FILE into the archive as config/config.json instead of your
-# config/config.json, which stays untouched (a relative FILE is relative to the folder you
-# started the script from). submit-many does that for every config it is given, each as its own
+# submit --config FILE puts FILE into the archive as config/config.json, the name the job runs
+# (a relative FILE is relative to the folder you started the script from; your files stay
+# untouched). submit-many does that for every config it is given, each as its own
 # run and job, so status, list, log, cancel and fetch see ordinary runs. It checks everything
 # first (the files are JSON, the names are valid, distinct and free on the cluster, the GPU type
 # exists) and submits nothing if a check fails; --force deletes the taken names first, as with
@@ -166,6 +169,16 @@ local_path() {
 # A config file to upload must exist and be valid JSON. The solver checks the rest, but only on
 # the node; a broken file is cheaper to catch here. The file goes to Python on stdin, so the
 # Windows Python needs no path conversion. Without Python the JSON check is skipped.
+model_names() {
+    local f names=()
+    for f in config/*.json; do
+        [ -e "$f" ] || continue
+        f=${f##*/}; f=${f%.json}
+        [ "$f" = config ] || names+=("$f")
+    done
+    printf '%s\n' "${names[*]:-none}"
+}
+
 check_config_file() {
     [ -f "$1" ] || { echo "Config file $1 does not exist." >&2; exit 1; }
     command -v python3 >/dev/null 2>&1 || return 0
@@ -193,11 +206,12 @@ set_gres() {
     gres=(--gres="gpu:$1:1")
 }
 
-# The sources of a run as a tar.gz on stdout: tracked + untracked-but-not-ignored files (with
-# config/config.json); results/ and build/ are gitignored. Files deleted locally but still in
-# the index would break tar, so they are filtered out. With a config file as the argument, that
-# file goes into the archive as config/config.json instead (from a staging folder, so the local
-# config/config.json is never touched).
+# The sources of a run as a tar.gz on stdout: tracked + untracked-but-not-ignored files;
+# results/ and build/ are gitignored. Files deleted locally but still in the index would break
+# tar, so they are filtered out. With a config file as the argument, that file goes into the
+# archive as config/config.json, the config the job runs (from a staging folder, so no local
+# file is touched; a local config/config.json, which is not used any more, is left out).
+# test and bench pass no config: they run their own.
 pack_sources() {
     local config="${1:-}" stage=""
     local extra=()
@@ -225,12 +239,12 @@ upload_sources() {
 }
 
 # Local commit, marked "-dirty" when uncommitted changes (or untracked files) are uploaded too.
-# config/config.json does not count: it is the input of the run, not code, and every run
-# keeps it in info/setup/config.json (and in sources.tar.gz) anyway.
+# The configs in config/ do not count: they are the input of the run, not code, and every run
+# keeps its config in info/setup/config.json (and in sources.tar.gz) anyway.
 local_commit() {
     local c
     c=$(git rev-parse --short HEAD)
-    [ -z "$(git status --porcelain -- . ':(exclude)config/config.json')" ] || c="$c-dirty"
+    [ -z "$(git status --porcelain -- . ':(exclude)config/')" ] || c="$c-dirty"
     printf '%s\n' "$c"
 }
 
@@ -280,7 +294,7 @@ submit|test|bench)
     # test and bench are submit with a second archive (the baseline) and MODE=test or MODE=bench
     # for run.sbatch.
     mode=$cmd
-    folder=""; delete=0; force=0; gpu=""; mem=""; against=""; new=""; repeat=""; long=0; config=""
+    folder=""; delete=0; force=0; gpu=""; mem=""; against=""; new=""; repeat=""; long=0; config=""; model=""
     while [ $# -gt 0 ]; do
         case "$1" in
             --delete-calcs)
@@ -290,6 +304,10 @@ submit|test|bench)
                 [ "$mode" = submit ] || { echo "--config is only for submit (test and bench use their own configs)." >&2; exit 1; }
                 [ $# -ge 2 ] || { echo "--config needs a config file, e.g. --config comp_configurations/a.json" >&2; exit 1; }
                 config=$(local_path "$2"); shift ;;
+            --model)
+                [ "$mode" = submit ] || { echo "--model is only for submit (test and bench use their own configs)." >&2; exit 1; }
+                [ $# -ge 2 ] || { echo "--model needs a model name, e.g. --model Zr-H_Ma2002 (models: $(model_names))" >&2; exit 1; }
+                model="$2"; shift ;;
             --force)        force=1 ;;
             --gpu)
                 [ $# -ge 2 ] || { echo "--gpu needs a GPU type, e.g. --gpu rtx5080" >&2; exit 1; }
@@ -323,7 +341,7 @@ submit|test|bench)
         case "$mode" in
             test)  echo "Usage: cluster.sh test NAME [--against COMMIT] [--new COMMIT] [--force] [--gpu TYPE] [--mem SIZE]" >&2 ;;
             bench) echo "Usage: cluster.sh bench NAME [--against COMMIT] [--new COMMIT] [--repeat N] [--long] [--force] [--gpu TYPE] [--mem SIZE]" >&2 ;;
-            *)     echo "Usage: cluster.sh submit FOLDER [--config FILE] [--delete-calcs] [--force] [--gpu TYPE] [--mem SIZE]" >&2 ;;
+            *)     echo "Usage: cluster.sh submit FOLDER (--model NAME | --config FILE) [--delete-calcs] [--force] [--gpu TYPE] [--mem SIZE]" >&2 ;;
         esac
         exit 1
     fi
@@ -333,11 +351,16 @@ submit|test|bench)
     bench_set=""; [ "$long" = 1 ] && bench_set=long
     [ -n "$repeat" ] || { [ "$long" = 1 ] && repeat=1 || repeat=3; }
     if [ "$mode" = submit ]; then
-        if [ -n "$config" ]; then
-            check_config_file "$config"
-        else
-            [ -f config/config.json ] || { echo "config/config.json does not exist, nothing to run." >&2; exit 1; }
+        # There is no default config: each model has its own, config/<model>.json.
+        if [ -n "$model" ] && [ -n "$config" ]; then
+            echo "Give --model or --config, not both." >&2; exit 1
         fi
+        if [ -n "$model" ]; then
+            config="config/$model.json"
+            [ -f "$config" ] || { echo "There is no config for the model '$model' ($config). Models: $(model_names)" >&2; exit 1; }
+        fi
+        [ -n "$config" ] || { echo "Choose the config: --model NAME (models: $(model_names)) or --config FILE." >&2; exit 1; }
+        check_config_file "$config"
     else
         configs_dir=tests/configs
         [ "$mode" = bench ] && configs_dir=tests/benchmark_configs${bench_set:+_$bench_set}
@@ -356,14 +379,14 @@ submit|test|bench)
         # The test compares the version under test with the baseline. If they have the same code
         # (e.g. the changes were committed before testing and the baseline is HEAD), both versions
         # are the same and every case would come out IDENTICAL without saying anything.
-        # config/config.json does not count: the test does not use it.
+        # The configs in config/ do not count: the test does not use them.
         # A benchmark of the same code is still useful: it shows the noise of the timings.
         if [ -n "$new_commit" ]; then
-            git diff --quiet "$base_commit" "$new_commit" -- . ':(exclude)config/config.json' && same=1 || same=0
+            git diff --quiet "$base_commit" "$new_commit" -- . ':(exclude)config/' && same=1 || same=0
             tested="The commit $new ($new_short)"
         else
-            git diff --quiet "$base_commit" -- . ':(exclude)config/config.json' \
-                && [ -z "$(git ls-files -o --exclude-standard)" ] && same=1 || same=0
+            git diff --quiet "$base_commit" -- . ':(exclude)config/' \
+                && [ -z "$(git ls-files -o --exclude-standard -- . ':(exclude)config/')" ] && same=1 || same=0
             tested="Your working tree"
         fi
         if [ "$same" = 1 ]; then

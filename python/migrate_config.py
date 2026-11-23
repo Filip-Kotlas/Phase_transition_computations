@@ -3,7 +3,7 @@ Converts configs from the old layout (the physical parameters in the top-level s
 "force_term" and "anisotropy") to the current one, where they are in the section of the model,
 model.<type>, in place:
 
-    python3 python/migrate_config.py config/config.json results/OldRun/info/setup/config.json ...
+    python3 python/migrate_config.py comp_configurations/old.json results/OldRun/info/setup/config.json ...
 
 The old force term "zirconium" gives
 

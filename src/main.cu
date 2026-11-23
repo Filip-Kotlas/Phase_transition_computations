@@ -338,13 +338,12 @@ int main(int argc, char** argv) {
     // message is printed and the program exits with EXIT_FAILURE. These are mostly config errors, found
     // before the run folder is touched; later exceptions are also recorded in the run folder by start.
     try {
-        // usage: Phase-field [result_folder [config_file]]
-        std::filesystem::path result_path = "Results";
-        if (argc >= 2)
-            result_path = argv[1];
-        std::filesystem::path input_config_path = "config/config.json";
-        if (argc >= 3)
-            input_config_path = argv[2];
+        // There is no default config: each model has its own (config/<model>.json), so the run names it.
+        if (argc != 3)
+            throw std::runtime_error(std::string("usage: ") + argv[0] + " RESULT_FOLDER CONFIG_FILE"
+                                     + " (e.g. config/Zr-H_Ma2002.json; make run takes MODEL=<name> or CONFIG=<file>).");
+        const std::filesystem::path result_path = argv[1];
+        const std::filesystem::path input_config_path = argv[2];
 
         const Parameters parameters = Parameters::load(input_config_path);
         const RunFolder run_folder(result_path);

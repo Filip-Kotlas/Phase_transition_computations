@@ -15,11 +15,28 @@ PARAM_PATH := info/setup/parameters.txt
 DELETE_CALCS ?= 0
 
 CONFIGS_DIR := ./comp_configurations
-CONFIG_TARGET := ./config/config.json
 # Commit recorded in parameters.txt. On the cluster there is no .git folder, so cluster.sh passes it in.
 GIT_COMMIT ?= $(shell git rev-parse --short HEAD 2>/dev/null || echo unknown)
-# Config file the program reads (make run CONFIG=path/to/other.json)
-CONFIG ?= $(CONFIG_TARGET)
+
+# The config file of the run: each model has its own complete config, config/<model>.json.
+# make run MODEL=Zr-H_Ma2002 reads config/Zr-H_Ma2002.json, make run CONFIG=path/to/file.json any file.
+# There is no default: make run without either (or with both) stops before building anything.
+MODEL_CONFIGS_DIR := ./config
+MODELS := $(sort $(basename $(notdir $(wildcard $(MODEL_CONFIGS_DIR)/*.json))))
+ifneq ($(filter run,$(MAKECMDGOALS)),)
+  ifneq ($(and $(MODEL),$(CONFIG)),)
+    $(error Give MODEL or CONFIG, not both)
+  endif
+  ifdef MODEL
+    CONFIG := $(MODEL_CONFIGS_DIR)/$(MODEL).json
+    ifeq ($(wildcard $(CONFIG)),)
+      $(error No config for the model $(MODEL): $(CONFIG) does not exist (models: $(MODELS)))
+    endif
+  endif
+  ifndef CONFIG
+    $(error Choose the config: make run FOLDER=... MODEL=<name> (models: $(MODELS)) or CONFIG=<file>)
+  endif
+endif
 
 # Compile for the GPU that is present on the build machine (needs a reasonably recent nvcc).
 # To force one architecture: make CUDA_ARCH=-arch=sm_86
@@ -107,8 +124,7 @@ run_all:
 		name=$$(basename $$cfg .json); \
 		echo "Running computation for configuration: $$name"; \
 		echo "========================================"; \
-		cp $$cfg $(CONFIG_TARGET); \
-		$(MAKE) run FOLDER=$$name; \
+		$(MAKE) run FOLDER=$$name CONFIG=$$cfg; \
 	done
 
 .PHONY: clean

@@ -118,7 +118,7 @@ else
     # E.g. the other runs of a submit-many take the binary from the cache.
     binary=$(bash slurm/cached_build.sh "$work" "$BUILD_CACHE" "${GIT_COMMIT:-unknown}")
     # The copy has no .git folder, so the commit comes from cluster.sh. config/config.json is the
-    # config from the uploaded sources, i.e. the one that was in your repo when you submitted
-    # (or the file given with submit --config / submit-many, which cluster.sh put there).
+    # config chosen with submit --model / --config (or by submit-many), which cluster.sh put
+    # into the uploaded sources under this name.
     make run FOLDER="${FOLDER}" BINARY="$binary" CONFIG=config/config.json DELETE_CALCS="${DELETE_CALCS:-0}" GIT_COMMIT="${GIT_COMMIT:-unknown}"
 fi
