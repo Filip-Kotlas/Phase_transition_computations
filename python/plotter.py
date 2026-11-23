@@ -9,11 +9,45 @@ from dataset import Dataset
 from boundary import Boundary, join_curves
 
 
-def finite_max(value: np.ndarray) -> float:
-    """Largest value, skipping NaN and inf (the last frame of a run that stopped because the solution
-    broke down contains them); 0 if no value is finite."""
-    finite = value[np.isfinite(value)]
-    return finite.max() if finite.size else 0.0
+# Height of the 3D box relative to the longer side of the domain, and the height/width ratio of the
+# cut plots. Both are independent of the units of the domain (the Zr-H model has a domain of tens of
+# grid units, the others the unit square).
+SURFACE_HEIGHT = {"phase": 1.0, "concentration": 0.5}
+CUT_BOX_ASPECT = 1.0
+
+
+def value_limits(dataset: Dataset, data_drawn: str) -> Tuple[float, float]:
+    """
+    The range of values shown for the field, the same for all frames: from the smallest to the largest
+    value over all frames, but always including 0 (and 1 for the phase), so a field is drawn as its
+    height above 0. A field that is 0 everywhere gets (0, 1).
+    """
+    low, high = dataset.value_range(data_drawn)
+    low = min(0.0, low)
+    if data_drawn == "phase":
+        high = max(1.0, high)
+    if high <= low:
+        high = low + 1.0
+    return low, high
+
+
+def colour_limits(dataset: Dataset, data_drawn: str) -> Tuple[float, float]:
+    """
+    The range of the colour map of the field, the same for all frames: exactly from the smallest to
+    the largest value over all frames (unlike value_limits without 0, so that all the colours are used).
+    A constant field gets a range of 1 above its value.
+    """
+    low, high = dataset.value_range(data_drawn)
+    if high <= low:
+        high = low + 1.0
+    return low, high
+
+
+def axis_limits(dataset: Dataset, data_drawn: str) -> Tuple[float, float]:
+    """value_limits with a margin of 10 % above (and below, if there are negative values)."""
+    low, high = value_limits(dataset, data_drawn)
+    margin = 0.1 * (high - low)
+    return (low - margin if low < 0 else low), high + margin
 
 
 class Plotter():
@@ -141,11 +175,13 @@ class BoundaryPlotter2D(Plotter):
             half_hy = (y.max() - y.min()) / (n_y - 1) / 2
             extent = (x.min() - half_hx, x.max() + half_hx,
                       y.min() - half_hy, y.max() + half_hy)
+            vmin, vmax = colour_limits(dataset, self.data_drawn)
             self.function_im = self.ax.imshow(np.zeros(self.grid_shape), origin="lower", extent=extent,
-                                              cmap='viridis', vmin=0.0, vmax=0.09)
+                                              cmap='viridis', vmin=vmin, vmax=vmax)
             divider = make_axes_locatable(self.ax)
             cax = divider.append_axes("right", size="5%", pad=0.05)  # same height as the axes
-            self.colorbar = self.fig.colorbar(self.function_im, cax=cax, label=r"$c$")
+            label = r"$c$" if self.data_drawn == "concentration" else r"$\phi$"
+            self.colorbar = self.fig.colorbar(self.function_im, cax=cax, label=label)
             self.output_name_tag += "f"
         if self.draw_num_boundary:
             self.num_bound_sc, = self.ax.plot([], [], color='orange', linestyle="-", label='Numerical solution')
@@ -196,14 +232,12 @@ class SurfacePlotter(Plotter):
 
         self.ax.set_xlim(x.min(), x.max())
         self.ax.set_ylim(y.min(), y.max())
-        if( data_drawn == "phase"):
-            self.ax.set_zlim(0, 1.1)
-            self.ax.set_box_aspect([x.max() - x.min(), y.max() - y.min(), 1])
-        elif( data_drawn == "concentration"):
-            self.ax.set_zlim(0, 0.09)
-            self.ax.set_box_aspect([x.max() - x.min(), y.max() - y.min(), 0.5])
-        else:
+        if data_drawn not in SURFACE_HEIGHT:
             raise ValueError("Wrong data_drawn given.")
+        self.ax.set_zlim(*axis_limits(dataset, data_drawn))
+        # x and y keep the proportions of the domain, the height is relative to its longer side.
+        width_x, width_y = x.max() - x.min(), y.max() - y.min()
+        self.ax.set_box_aspect([width_x, width_y, SURFACE_HEIGHT[data_drawn] * max(width_x, width_y)])
 
         self.ax.set_xlabel(r"$x$")
         self.ax.set_ylabel(r"$y$")
@@ -288,9 +322,10 @@ class CutPlotter(Plotter):
 
         self.fig, self.ax = plt.subplots()
 
-        self.ax.set_ylim(0, max(0.1, finite_max(value)*1.2))
+        # The same scale in all frames, so that the animation shows the changes of the values.
+        self.ax.set_ylim(*axis_limits(dataset, self.data_drawn))
         self.ax.set_xlim(self.variable_lines[0], self.variable_lines[-1])
-        self.ax.set_box_aspect(1/(self.variable_lines[-1] - self.variable_lines[0]))
+        self.ax.set_box_aspect(CUT_BOX_ASPECT)
         self.ax.set_xlabel(rf"${self.axis}$ (${fixed_name} = {self.cut_position:.4g}$)")
         self.ax.set_ylabel(r"$\phi$" if self.data_drawn == "phase" else r"$c$")
 
@@ -305,8 +340,6 @@ class CutPlotter(Plotter):
 
     def update(self, frame: int):
         _, _, value = self._load_data(frame)
-        #self.ax.set_ylim(min(0, value.min()*1.5), math.floor(value.max()*1.2 / 0.01)*0.01)
-        self.ax.set_ylim(0, max(0.11, finite_max(value)*1.1))
 
         self.set_time_title(frame, self.title)
 

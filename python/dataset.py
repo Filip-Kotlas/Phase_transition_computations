@@ -72,6 +72,7 @@ class Dataset():
         self._grid_xy = None    # coordinates of the grid points, computed when first needed
         self._cached_frame = None
         self._cached_data = None
+        self._value_ranges = None   # (min, max) of each field over all frames, computed when first needed
 
     @staticmethod
     def _find_frames(calc_folder: Path) -> List[Path]:
@@ -119,6 +120,29 @@ class Dataset():
 
         x, y, phase, concentration = self._get_frame_data(frame)
         return x, y, phase if data_drawn == "phase" else concentration
+
+    def value_range(self, data_drawn: str="phase") -> Tuple[float, float]:
+        """
+        The smallest and the largest finite value of the field over all frames, so that the plots of
+        all frames (and the animations) can share one scale whatever the model and its units.
+        NaN and inf are skipped (the last frame of a failed run); (0, 0) if no value is finite.
+        All frames are read once, at the first call, for both fields.
+        """
+        if data_drawn not in ("phase", "concentration"):
+            raise ValueError("Wrong value for data_drawn given.")
+        if self._value_ranges is None:
+            lows = [np.inf, np.inf]
+            highs = [-np.inf, -np.inf]
+            for path in self.file_paths:
+                fields = np.load(path)
+                for k in range(2):
+                    finite = fields[k][np.isfinite(fields[k])]
+                    if finite.size:
+                        lows[k] = min(lows[k], float(finite.min()))
+                        highs[k] = max(highs[k], float(finite.max()))
+            self._value_ranges = {name: (lows[k], highs[k]) if lows[k] <= highs[k] else (0.0, 0.0)
+                                  for k, name in enumerate(("phase", "concentration"))}
+        return self._value_ranges[data_drawn]
 
     def _get_frame_data(self, frame: int) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
         """Returns x, y, phase and concentration of the frame, reading the file only if it is not cached."""
