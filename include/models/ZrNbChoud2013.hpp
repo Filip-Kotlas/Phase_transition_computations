@@ -1,6 +1,6 @@
 #pragma once
 
-// The phase transition in the Zr-Nb alloy (model.type "Zr-Nb_Choud2013"): the anisotropic
+// The phase transition in the Zr-Nb alloy (config: "model": "Zr-Nb_Choud2013"): the anisotropic
 // Allen-Cahn equation for the phase, with the force term F = G_m_alpha - G_m_beta (the difference
 // of the Gibbs energies, ZrNbThermodynamics.hpp), coupled with the diffusion of the Nb concentration.
 // See Model.hpp for what a model provides.
@@ -19,10 +19,10 @@ class ZrNbChoud2013 : public Model
 {
    public:
 
-    // The name of the model in the config: model.type and the section model.Zr-Nb_Choud2013.
+    // The name of the model in the config (the entry model).
     static constexpr const char* name = "Zr-Nb_Choud2013";
 
-    // The physical parameters of this model (the config section model.Zr-Nb_Choud2013). Plain data,
+    // The physical parameters of this model (the config section parameters). Plain data,
     // copied to the GPU with the model.
     struct Params {
         // the anisotropic Allen-Cahn equation for the phase (ksi and anisotropy also go to the initial condition)

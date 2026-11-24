@@ -98,22 +98,25 @@ Parameters Parameters::load(const std::filesystem::path& filename) {
     if ( (p.bound_cond.conc_y != BCType::Neumann) && (p.bound_cond.conc_y != BCType::Dirichlet) )
         throw std::runtime_error("Unknown boundary condition for concentration in y direction: " + BCType_to_string(p.bound_cond.conc_y));
 
-    // the model: only its type and its section are taken here, the model reads the section itself
-    // (ModelT::Params::load). The section "model" may also hold the sections of other models.
+    // the model: only its name (model) and its section (parameters) are taken here, the model reads
+    // the section itself (ModelT::Params::load), strictly like the sections above.
     if (!config.contains("model"))
-        throw std::runtime_error("The config is missing the section model.");
-    ConfigSection model(config.at("model"), "model");
-    p.model_type = model.get<std::string>("type");
-    if (!model.contains(p.model_type))
-        throw std::runtime_error("The config is missing model." + p.model_type
-                                 + ", the section with the parameters of the model " + p.model_type + ".");
-    p.model_config = config.at("model").at(p.model_type);
+        throw std::runtime_error("The config is missing the entry model (the name of the model).");
+    if (!config.at("model").is_string())
+        throw std::runtime_error("The config entry model has to be the name of the model, it is "
+                                 + config.at("model").dump() + ".");
+    p.model_type = config.at("model").get<std::string>();
+    if (!config.contains("parameters"))
+        throw std::runtime_error("The config is missing the section parameters (the physical parameters of the model "
+                                 + p.model_type + ").");
+    p.model_config = config.at("parameters");
 
-    // Nothing else is allowed at the top level, e.g. a parameter that belongs into model.<type>.
+    // Nothing else is allowed at the top level, e.g. a parameter that belongs into parameters.
     for (const auto& item : config.items()) {
-        if (item.key() != "solver" && item.key() != "init_cond" && item.key() != "bound_cond" && item.key() != "model")
-            throw std::runtime_error("The config section " + item.key() + " is unknown (the physical parameters"
-                                     " of the model belong into model." + p.model_type + ").");
+        const std::string& key = item.key();
+        if (key != "solver" && key != "init_cond" && key != "bound_cond" && key != "model" && key != "parameters")
+            throw std::runtime_error("The config section " + key + " is unknown (the physical parameters"
+                                     " of the model belong into parameters).");
     }
 
     return p;

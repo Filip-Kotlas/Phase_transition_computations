@@ -1,7 +1,7 @@
 {
     "solver": {
         "initial_time": 0.0,
-        "final_time": 2000,
+        "final_time": 20000,
         "domain": {
             "x_left": 0,
             "x_right": 64,
@@ -29,20 +29,18 @@
         "x_conc": "neumann",
         "y_conc": "neumann"
     },
-    "model": {
-        "type": "Zr-H_Ma2002",
-        "Zr-H_Ma2002": {
-            "C1": 0.05,
-            "C2": 0.58,
-            "A1": 60,
-            "A2": -57.142857142857146,
-            "A3": 81.63265306122449,
-            "alpha": 10,
-            "beta": 3.5,
-            "L_p": 0.14,
-            "M": 0.001,
-            "c_init_hydride": 0.58,
-            "c_init_matrix": 0.2
-        }
+    "model": "Zr-H_Ma2002",
+    "parameters": {
+        "C1": 0.05,
+        "C2": 0.58,
+        "A1": 60,
+        "A2": -57.142857142857146,
+        "A3": 81.63265306122449,
+        "alpha": 10,
+        "beta": 3.5,
+        "L_p": 0.14,
+        "M": 0.001,
+        "c_init_hydride": 0.58,
+        "c_init_matrix": 0.2
     }
 }

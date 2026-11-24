@@ -2,9 +2,9 @@
 
 // The base class of the discretised models: what all of them share. Every model is a child class
 // (AllenCahn.hpp, ZrNbChoud2013.hpp, ZrHMa2002.hpp) that provides
-//     static constexpr const char* name;   (model.type in the config, and its section model.<name>)
+//     static constexpr const char* name;   (the entry model in the config)
 //     struct Params;                       (its physical parameters, plain data, with
-//         static Params load(const nlohmann::json& section);   (reads model.<name>, see ConfigSection.hpp)
+//         static Params load(const nlohmann::json& section);   (reads the config section parameters, see ConfigSection.hpp)
 //         std::vector<ParameterEntry> entries() const;         (for parameters.txt and .tex)
 //         InitialConcentrations initial_concentrations() const; (the concentrations of the initial
 //             condition where the phase is 1 and 0, see Parameters.hpp; from constants or the config))

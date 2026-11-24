@@ -1,7 +1,7 @@
 #pragma once
 
 // Strict reading of one section of the config (a JSON object), used for every section the solver reads
-// (solver, solver.domain, init_cond, bound_cond and the model's model.<type>): every key has to be
+// (solver, solver.domain, init_cond, bound_cond and the model's parameters): every key has to be
 // present (there are no defaults), so a typo ("ksl" instead of "ksi") is an error ("missing ksi"),
 // and its value has to have the right type. check_all_read() refuses the keys nobody read (a stray
 // key, a parameter of another model). A test or benchmark against an older commit gives that
@@ -15,7 +15,7 @@
 
 class ConfigSection {
 public:
-    // data is the JSON object at the path name in the config (e.g. "model.allen_cahn"); the name
+    // data is the JSON object at the path name in the config (e.g. "solver.domain"); the name
     // is used in the error messages.
     ConfigSection(const nlohmann::json& data, std::string name)
     :  data(data), name(std::move(name))

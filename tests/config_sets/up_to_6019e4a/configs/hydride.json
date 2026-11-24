@@ -1,0 +1,48 @@
+{
+    "solver": {
+        "initial_time": 0.0,
+        "final_time": 1.0,
+        "domain": {
+            "x_left": 0.0,
+            "x_right": 79.0,
+            "y_left": 0.0,
+            "y_right": 47.2
+        },
+        "custom_integration_time_step": true,
+        "integration_time_step": 0.001,
+        "adaptivity": 1e-05,
+        "sizeX": 80,
+        "sizeY": 60,
+        "frame_num": 5
+    },
+    "init_cond": {
+        "init_cond_from_file": true,
+        "init_cond_file_path": "random.npy",
+        "initial_condition": "Circle",
+        "radius_proportion": 0.2,
+        "slope_width": 0.03,
+        "scaling": false
+    },
+    "bound_cond": {
+        "x_phase": "dirichlet",
+        "y_phase": "neumann",
+        "x_conc": "neumann",
+        "y_conc": "neumann"
+    },
+    "model": {
+        "type": "Zr-H_Ma2002",
+        "Zr-H_Ma2002": {
+            "C1": 0.05,
+            "C2": 0.58,
+            "A1": 60,
+            "A2": -57.142857142857146,
+            "A3": 81.63265306122449,
+            "alpha": 10,
+            "beta": 3.5,
+            "L_p": 0.14,
+            "M": 0.4,
+            "c_init_hydride": 0.58,
+            "c_init_matrix": 0.1
+        }
+    }
+}

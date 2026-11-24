@@ -1,7 +1,7 @@
 #pragma once
 
 // The anisotropic Allen-Cahn equation for the phase with a prescribed force term F
-// (model.type "allen_cahn", force_term "constant" or "radial"): the verification cases with
+// (config: "model": "allen_cahn", force_term "constant" or "radial"): the verification cases with
 // analytic solutions (a shrinking circle or Wulff shape). The concentration is carried along but
 // does not evolve. See Model.hpp for what a model provides.
 //
@@ -18,10 +18,10 @@ class AllenCahn : public Model
 {
    public:
 
-    // The name of the model in the config: model.type and the section model.allen_cahn.
+    // The name of the model in the config (the entry model).
     static constexpr const char* name = "allen_cahn";
 
-    // The physical parameters of this model (the config section model.allen_cahn). Plain data,
+    // The physical parameters of this model (the config section parameters). Plain data,
     // copied to the GPU with the model.
     struct Params {
         // the anisotropic Allen-Cahn equation for the phase (ksi and anisotropy also go to the initial condition)

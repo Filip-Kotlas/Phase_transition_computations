@@ -348,7 +348,7 @@ int main(int argc, char** argv) {
         const Parameters parameters = Parameters::load(input_config_path);
         const RunFolder run_folder(result_path);
 
-        // The model is chosen by its name in the config (model.type). Each model is a separate
+        // The model is chosen by its name in the config (the entry model). Each model is a separate
         // instantiation of start and run, compiled with its own GPU kernels; a new model is added here.
         if (parameters.model_type == AllenCahn::name)
             return start<AllenCahn>(parameters, run_folder, input_config_path, run_start);
@@ -356,7 +356,7 @@ int main(int argc, char** argv) {
             return start<ZrNbChoud2013>(parameters, run_folder, input_config_path, run_start);
         if (parameters.model_type == ZrHMa2002::name)
             return start<ZrHMa2002>(parameters, run_folder, input_config_path, run_start);
-        throw std::runtime_error("Unknown model in the config: model.type = \"" + parameters.model_type + "\" (known: "
+        throw std::runtime_error("Unknown model in the config: model = \"" + parameters.model_type + "\" (known: "
                                  + AllenCahn::name + ", " + ZrNbChoud2013::name + ", " + ZrHMa2002::name + ").");
     }
     catch (const std::exception& e) {

@@ -1,6 +1,6 @@
 #pragma once
 
-// The hydride precipitation in the Zr-H alloy after Ma et al. (2002) (model.type "Zr-H_Ma2002"), with one
+// The hydride precipitation in the Zr-H alloy after Ma et al. (2002) (config: "model": "Zr-H_Ma2002"), with one
 // orientation variant: the phase is the order parameter phi of the hydride (eta_1 in the article), the
 // concentration is the hydrogen content C. The free energy (eq. 1 and 2 of the article, one variant)
 //     F = int f(C, phi) + alpha/2 |grad phi|^2 + beta/2 |grad C|^2,
@@ -50,10 +50,10 @@ class ZrHMa2002 : public Model
 {
    public:
 
-    // The name of the model in the config: model.type and the section model.Zr-H_Ma2002.
+    // The name of the model in the config (the entry model).
     static constexpr const char* name = "Zr-H_Ma2002";
 
-    // The physical parameters of this model (the config section model.Zr-H_Ma2002). Plain data,
+    // The physical parameters of this model (the config section parameters). Plain data,
     // copied to the GPU with the model.
     struct Params {
         Real C1;     // equilibrium hydrogen content of the matrix

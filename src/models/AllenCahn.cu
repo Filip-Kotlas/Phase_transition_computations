@@ -7,7 +7,7 @@
 
 AllenCahn::Params AllenCahn::Params::load(const nlohmann::json& section)
 {
-    ConfigSection config(section, std::string("model.") + name);
+    ConfigSection config(section, "parameters");
     Params params;
     // the phase equation
     params.alpha = config.get<Real>("alpha");
@@ -25,7 +25,7 @@ AllenCahn::Params AllenCahn::Params::load(const nlohmann::json& section)
         throw std::runtime_error("Parameters A and m do not fulfill the convexity condition.");
     const std::string force_term = config.get<std::string>("force_term");
     if (force_term != "constant" && force_term != "radial")
-        throw std::runtime_error("The config value model.allen_cahn.force_term has to be \"constant\" or \"radial\", it is \""
+        throw std::runtime_error("The config value parameters.force_term has to be \"constant\" or \"radial\", it is \""
                                  + force_term + "\".");
     params.force_term = string_to_FTType(force_term);
     // The size only means something for the constant force term; otherwise it is not read, and

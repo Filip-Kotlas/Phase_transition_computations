@@ -44,13 +44,21 @@ def main() -> None:
 
     solver = config["solver"]
     if target.name.startswith("random"):
-        phase, concentration = random_fields(solver, config["model"]["type"])
+        phase, concentration = random_fields(solver, model_type(config))
     else:
         phase, concentration = smooth_circle(solver)
 
     # The Result-*.npy format: shape (2, sizeY, sizeX), phase first; x changes fastest, as in phase[j, i].
     target.parent.mkdir(parents=True, exist_ok=True)
     np.save(target, np.stack([phase, concentration]).astype("<f4"))
+
+
+def model_type(config: dict) -> str:
+    """The name of the model. The harness runs this script on the configs of every config set
+    (tests/config_sets/), so it reads both layouts: "model": "<name>" (the current one) and
+    "model": {"type": "<name>", ...} (up to 6019e4a)."""
+    model = config["model"]
+    return model if isinstance(model, str) else model["type"]
 
 
 def smooth_circle(solver: dict) -> tuple:

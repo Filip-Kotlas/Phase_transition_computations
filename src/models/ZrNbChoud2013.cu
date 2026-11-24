@@ -5,7 +5,7 @@
 
 ZrNbChoud2013::Params ZrNbChoud2013::Params::load(const nlohmann::json& section)
 {
-    ConfigSection config(section, std::string("model.") + name);
+    ConfigSection config(section, "parameters");
     Params params;
     // the phase equation
     params.alpha = config.get<Real>("alpha");

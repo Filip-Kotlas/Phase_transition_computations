@@ -89,8 +89,8 @@ struct Parameters {
     bool init_cond_scaling;
     // boundary conditions (plain data, copied to the GPU)
     BoundaryConditions bound_cond;
-    // the model (the config section "model"): its name (model.type, e.g. "allen_cahn") chooses the
-    // model class in main.cu, its section model.<type> holds the physical parameters of that model
+    // the model: its name (the config entry model, e.g. "allen_cahn") chooses the model class in
+    // main.cu, the config section parameters holds the physical parameters of that model
     std::string model_type;
     nlohmann::json model_config;
 

@@ -39,11 +39,11 @@ import argparse
 import math
 import sys
 import numpy as np
-from dataset import Dataset
+from dataset import Dataset, model_type
 from compare_runs import flatten, read_setup
 
 FIELDS = ("phase", "concentration")
-# The config sections the solver reads (Parameters::load), besides model.type and model.<type>.
+# The config sections the solver reads (Parameters::load), besides model and parameters.
 SOLVER_SECTIONS = ("solver", "init_cond", "bound_cond")
 # Keys that are compared by check_compatible() itself (they have to be equal) or that differ on purpose.
 NOT_WARNED_KEYS = ("solver.sizeX", "solver.sizeY")
@@ -174,19 +174,18 @@ def open_run(path: Path, label: str) -> Dataset:
 def used_settings(configuration: dict) -> Dict[str, object]:
     """The settings the solver uses, as flattened config keys with their values ({"solver.sizeX": 200, ...}).
 
-    The solver reads the sections solver, init_cond and bound_cond, model.type and the section of the
-    chosen model, model.<type>; everything else in the config (the sections of the other models) is
-    not used. Of the read keys, two groups are
+    The solver reads the sections solver, init_cond and bound_cond, the name of the model (model) and
+    its section parameters; the config has nothing else (the solver refuses other sections). Of the
+    read keys, two groups are
     required by the solver but not used:
         solver.integration_time_step, when solver.custom_integration_time_step is false
             (the solver starts from min(hx, hy)^2 / 5),
         init_cond.init_cond_file_path and init_cond.scaling, when init_cond.init_cond_from_file is false.
     """
-    model = configuration["model"]["type"]
-    used: Dict[str, object] = {"model.type": model}
+    used: Dict[str, object] = {"model": model_type(configuration)}
     for section in SOLVER_SECTIONS:
         used.update(flatten(configuration.get(section, {}), section + "."))
-    used.update(flatten(configuration["model"].get(model, {}), f"model.{model}."))
+    used.update(flatten(configuration.get("parameters", {}), "parameters."))
     if used.get("solver.custom_integration_time_step") is False:
         used.pop("solver.integration_time_step", None)
     if used.get("init_cond.init_cond_from_file") is False:
@@ -205,7 +204,7 @@ def check_compatible(run: Dataset, reference: Dataset) -> List[str]:
     for key in ("initial_time", "final_time", "frame_num"):
         if run_solver[key] != ref_solver[key]:
             problems.append(f"{key} {run_solver[key]} vs {ref_solver[key]}")
-    run_model, ref_model = run.configuration["model"]["type"], reference.configuration["model"]["type"]
+    run_model, ref_model = model_type(run.configuration), model_type(reference.configuration)
     if run_model != ref_model:
         problems.append(f"model {run_model} vs {ref_model}")
     if problems:
@@ -296,7 +295,7 @@ def compute_errors(run_path: Path, reference_path: Path,
     weight_y = np.ones(cells[1] + 1)
     weight_y[0] = weight_y[-1] = 0.5
 
-    model = run.configuration["model"]["type"]
+    model = model_type(run.configuration)
     measured = [name for name in FIELDS
                 if not (name == "concentration" and model in MODELS_WITHOUT_CONCENTRATION)]
     solver = run.configuration["solver"]

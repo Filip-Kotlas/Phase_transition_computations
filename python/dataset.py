@@ -6,8 +6,8 @@ import numpy as np
 
 
 def model_type(configuration: dict) -> str:
-    """The model of the run, "allen_cahn", "Zr-Nb_Choud2013" or "Zr-H_Ma2002" (model.type in the config)."""
-    return configuration["model"]["type"]
+    """The model of the run, "allen_cahn", "Zr-Nb_Choud2013" or "Zr-H_Ma2002" (the entry model in the config)."""
+    return configuration["model"]
 
 
 def force_term(configuration: dict) -> Tuple[str, float]:
@@ -15,14 +15,14 @@ def force_term(configuration: dict) -> Tuple[str, float]:
     the size is 0 for "radial", which has none. ("", 0.0) for the other models."""
     if model_type(configuration) != "allen_cahn":
         return "", 0.0
-    section = configuration["model"]["allen_cahn"]
+    section = configuration["parameters"]
     return section["force_term"], section.get("force_size", 0.0)
 
 
 def anisotropy(configuration: dict) -> Optional[dict]:
-    """The anisotropy {"A", "m", "theta_0"} of the model (the keys A, m, theta_0 of model.<type>),
-    None if the model has none."""
-    section = configuration["model"][model_type(configuration)]
+    """The anisotropy {"A", "m", "theta_0"} of the model (the keys A, m, theta_0 of the section
+    parameters), None if the model has none."""
+    section = configuration["parameters"]
     if "A" not in section:
         return None
     return {key: section[key] for key in ("A", "m", "theta_0")}

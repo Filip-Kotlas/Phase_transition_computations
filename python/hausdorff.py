@@ -50,7 +50,7 @@ import sys
 import numpy as np
 import shapely
 from boundary import Boundary, analytic_polyline, ANALYTIC_INITIAL_CONDITIONS, CIRCLE_INITIAL_CONDITIONS
-from dataset import Dataset, force_term
+from dataset import Dataset, force_term, model_type
 from lp_errors import RunError, cells_of, check_compatible, l2_in_time, max_in_time, open_run, steps_of
 
 # The default distance of the sample points, as a fraction of h = max(hx, hy) of the run (--spacing).
@@ -166,7 +166,7 @@ def point_segment_distances(points: np.ndarray, starts: np.ndarray, ends: np.nda
 def analytic_solution(run: Dataset) -> AnalyticSolution:
     """The analytic solution of the run; RunError if the run has none."""
     configuration = run.configuration
-    model = configuration["model"]["type"]
+    model = model_type(configuration)
     init_cond = configuration["init_cond"]
     problems = []
     if model != "allen_cahn":
@@ -287,7 +287,7 @@ def compute_distances(run_path: Path, reference_path: Optional[Path],
                         "a smaller --spacing may be needed")
 
     return HausdorffResult(run=run_path, reference=reference_path, reference_description=description,
-                           model=run.configuration["model"]["type"], run_cells=cells_of(run), h=h,
+                           model=model_type(run.configuration), run_cells=cells_of(run), h=h,
                            spacing=spacing, times=times, time_step=time_step, distances=distances,
                            check_distances=check_distances, warnings=warnings)
 
