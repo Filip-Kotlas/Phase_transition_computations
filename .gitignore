@@ -53,3 +53,6 @@ comp_configurations/*
 !comp_configurations/.gitkeep
 
 Measurement
+
+# LaTeX log of the computations (its own repo, github computations_log)
+computations_log/
