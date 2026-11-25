@@ -13,6 +13,11 @@
 # supplies this script, the test scripts, the configs and the comparison.
 # BASE_CONFIG_SET and NEW_CONFIG_SET (from cluster.sh, empty for the current configs) name the
 # config set of each version in tests/config_sets/; the test scripts read them.
+# `slurm/cluster.sh test NAME --range A..B` submits it with MODE=range: it uploads every commit of
+# the chain A, ..., B as jobs/<FOLDER>/range/<short hash>.tar.gz (and range/commits.txt with their
+# subjects) and passes RANGE_COMMITS and RANGE_CONFIG_SETS (the short hashes and the config sets,
+# separated by ':', '-' for the current configs). The job runs tests/range.sh, which compares
+# every commit after A with its parent; sources.tar.gz (your working tree) is only the harness.
 # The mode is kept in results/<FOLDER>/info/setup/mode.txt, for `cluster.sh status` and `list`.
 #
 #SBATCH --partition=gp               # any GPU node; the Makefile compiles for whichever GPU it lands on
@@ -43,9 +48,15 @@ case "$mode" in
           echo "Regression test: ${GIT_COMMIT:-unknown} against the baseline ${BASELINE_COMMIT:-unknown}" ;;
     bench) archives="sources.tar.gz baseline.tar.gz"
           echo "Benchmark${BENCH_SET:+ ($BENCH_SET)}: ${GIT_COMMIT:-unknown} against the baseline ${BASELINE_COMMIT:-unknown}, ${REPEAT:-3} run(s) of each" ;;
+    range) : "${RANGE_COMMITS:?RANGE_COMMITS is not set; submit with slurm/cluster.sh test NAME --range A..B}"
+          IFS=: read -r -a range_commits <<< "$RANGE_COMMITS"
+          IFS=: read -r -a range_sets <<< "${RANGE_CONFIG_SETS:-}"
+          archives="sources.tar.gz range/commits.txt"
+          for c in "${range_commits[@]}"; do archives="$archives range/$c.tar.gz"; done
+          echo "Range test: ${GIT_COMMIT:-unknown}, $(( ${#range_commits[@]} - 1 )) commit(s), each against its parent" ;;
     *)    echo "Unknown MODE '$mode'" >&2; exit 1 ;;
 esac
-if [ "$mode" != run ] && [ -n "${NEW_COMMIT:-}" ]; then
+if { [ "$mode" = test ] || [ "$mode" = bench ]; } && [ -n "${NEW_COMMIT:-}" ]; then
     archives="$archives new.tar.gz"
     echo "The version under test is the commit $NEW_COMMIT, not the uploaded working tree."
 fi
@@ -67,15 +78,21 @@ uploaded || { echo "Missing $archives in $job_dir after waiting 2 minutes (was t
 # Every job compiles and runs its own copy of the sources, unpacked on the node's local disk.
 # So a later submit cannot change the code of a queued job, and jobs cannot disturb each other.
 # A test also unpacks the baseline version, into its own folder, and the version under test, if
-# it is a commit (otherwise the version under test is the working tree in $work).
+# it is a commit (otherwise the version under test is the working tree in $work). A range test
+# unpacks every commit into $work-range/<short hash>.
 work="${TMPDIR:-/tmp}/phase-field-${SLURM_JOB_ID}"
 base_work="$work-baseline"
 new_work="$work"
-trap 'rm -rf "$work" "$base_work" "$work-new"' EXIT
+trap 'rm -rf "$work" "$base_work" "$work-new" "$work-range"' EXIT
 trap 'exit 143' TERM                 # scancel or time limit: exit, so that the EXIT cleanup runs
 mkdir -p "$work"
 tar xzf "$job_dir/sources.tar.gz" -C "$work"
-if [ "$mode" != run ]; then
+if [ "$mode" = range ]; then
+    for c in "${range_commits[@]}"; do
+        mkdir -p "$work-range/$c"
+        tar xzf "$job_dir/range/$c.tar.gz" -C "$work-range/$c"
+    done
+elif [ "$mode" != run ]; then
     mkdir -p "$base_work"
     tar xzf "$job_dir/baseline.tar.gz" -C "$base_work"
     if [ -n "${NEW_COMMIT:-}" ]; then
@@ -89,6 +106,7 @@ fi
 # run name stays taken. The upload folder is not needed any more after that.
 mkdir -p "results/$FOLDER/info/setup"
 for a in $archives; do
+    mkdir -p "$(dirname "results/$FOLDER/info/setup/$a")"
     cp "$job_dir/$a" "results/$FOLDER/info/setup/$a"
 done
 echo "$mode" > "results/$FOLDER/info/setup/mode.txt"
@@ -113,6 +131,14 @@ if [ "$mode" = test ]; then
     # Both versions run on this GPU, so differences between GPU types cannot show up as
     # differences between the versions. The results and report.txt go to results/$FOLDER.
     bash tests/regression.sh "$new_work" "$base_work" "results/$FOLDER" "${GIT_COMMIT:-unknown}" "${BASELINE_COMMIT:-unknown}"
+elif [ "$mode" = range ]; then
+    # Every version on this GPU too; the runs, the comparisons and report.txt go to results/$FOLDER.
+    range_args=()
+    for i in "${!range_commits[@]}"; do
+        set_name=${range_sets[$i]:--}
+        range_args+=("$work-range/${range_commits[$i]}" "${range_commits[$i]}" "$set_name")
+    done
+    RANGE_SUBJECTS="results/$FOLDER/info/setup/range/commits.txt" bash tests/range.sh "results/$FOLDER" "${range_args[@]}"
 elif [ "$mode" = bench ]; then
     # The same for the times: both versions on this GPU, report.txt in results/$FOLDER.
     REPEAT="${REPEAT:-3}" BENCH_SET="${BENCH_SET:-}" bash tests/benchmark.sh "$new_work" "$base_work" "results/$FOLDER" "${GIT_COMMIT:-unknown}" "${BASELINE_COMMIT:-unknown}"

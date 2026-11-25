@@ -1,12 +1,13 @@
 """Compares the results of two runs frame by frame.
 
 Usage:
-    python3 python/compare_runs.py RUN_A RUN_B [--tol 1e-4]
+    python3 python/compare_runs.py RUN_A RUN_B [--tol 1e-4] [--cases NAME...]
 
 RUN_A and RUN_B are either two run folders (each with calculations/ and info/setup/), e.g.
 results/Test_2 and results/Test_3, or two folders whose subfolders are runs. In the second case
 the subfolders with the same name are compared, e.g. results/MyTest/base and results/MyTest/new
-of a regression test (tests/regression.sh), where each subfolder is one test case.
+of a regression test (tests/regression.sh), where each subfolder is one test case. --cases limits
+that to the given subfolders (tests/range.sh passes the cases both config sets have).
 
 For each pair of runs it checks that both runs finished and have the same grid and the same
 number of frames, and then compares the frames that both have:
@@ -256,6 +257,9 @@ def main() -> int:
     parser.add_argument("--tol", type=float, default=DEFAULT_TOLERANCE,
                         help=f"largest difference for the verdict CLOSE (default {DEFAULT_TOLERANCE:g}); "
                              "absolute for the phase, relative to the concentration range for the concentration")
+    parser.add_argument("--cases", nargs="+", metavar="NAME",
+                        help="for two folders of runs: compare only these subfolders (default: every "
+                             "subfolder that is a run in either folder; a name missing in one is FAILED)")
     args = parser.parse_args()
 
     for path in (args.run_a, args.run_b):
@@ -264,9 +268,15 @@ def main() -> int:
             return 2
 
     if is_run(args.run_a) or is_run(args.run_b):
+        if args.cases:
+            print("--cases is only for two folders of runs.", file=sys.stderr)
+            return 2
         results = [compare_pair(f"{args.run_a.name} vs {args.run_b.name}", args.run_a, args.run_b, args.tol)]
     else:
-        names = sorted({p.name for folder in (args.run_a, args.run_b) for p in folder.iterdir() if is_run(p)})
+        if args.cases:
+            names = sorted(set(args.cases))
+        else:
+            names = sorted({p.name for folder in (args.run_a, args.run_b) for p in folder.iterdir() if is_run(p)})
         if not names:
             print(f"Neither {args.run_a} nor {args.run_b} is a run folder or contains run folders.", file=sys.stderr)
             return 2

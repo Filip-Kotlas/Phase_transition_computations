@@ -20,6 +20,10 @@
 #                                                              regression test: your working tree
 #                                                              (or --new COMMIT) against COMMIT
 #                                                              (default HEAD)
+#   slurm/cluster.sh test MyTest --range A..B [--force] [--gpu TYPE]
+#                                                              every commit after A up to B
+#                                                              against its parent, in one job
+#                                                              (A.. = up to HEAD)
 #   slurm/cluster.sh bench MyBench [--against COMMIT] [--new COMMIT] [--repeat N] [--long] [--force] [--gpu TYPE]
 #                                                              benchmark: computation times of your
 #                                                              working tree (or --new COMMIT)
@@ -82,6 +86,11 @@
 # The configs of test and bench come from your working tree, but each version gets the ones in
 # the layout it reads: the working tree the current configs (tests/configs, ...), a commit the
 # config set of its time from tests/config_sets/ (config_set_of).
+# test --range A..B finds the commits that changed the results: one job builds every commit of
+# the first-parent chain from A to B and compares each commit after A with its parent
+# (tests/range.sh; every version runs the cases once, and a commit with the same binary as its
+# parent is not run again). Your working tree is uploaded as the harness, as with --new; it is not
+# tested itself. results/MyTest/report.txt has one entry per commit, then the comparisons.
 # list shows each run in results/ and jobs/ with its state: queued, running (with progress),
 # finished (computation time; warns when the animations are missing), failed (the solver stopped
 # because of NaN or inf, got stuck or could not write a frame, and wrote the reason into
@@ -271,7 +280,8 @@ config_set_of() {
 }
 
 # sbatch for run $1, whose archives are already uploaded. Reads the settings from the caller:
-# gres, extra, mode, delete, commit, base_short, new_short, base_set, new_set, repeat, bench_set.
+# gres, extra, mode, delete, commit, base_short, new_short, base_set, new_set, repeat, bench_set,
+# range_list, range_set_list.
 # The batch script comes from the uploaded archive too (sbatch reads it from stdin), so the
 # job script always matches the code. The job name is the run name, which `status` shows
 # and `cancel` and `clean` rely on. If sbatch fails, the upload is deleted so the name stays free.
@@ -286,7 +296,7 @@ sbatch_run() {
 sbatch_cmd() {
     local job_mode=$mode
     [ "$job_mode" = submit ] && job_mode=run
-    printf '%s' "tar xzOf 'jobs/$1/sources.tar.gz' slurm/run.sbatch | sbatch --job-name='$1' ${gres[*]:-} ${extra[*]:-} --export=ALL,FOLDER='$1',DELETE_CALCS=$delete,GIT_COMMIT='$commit',MODE=$job_mode,BASELINE_COMMIT='${base_short:-}',NEW_COMMIT='${new_short:-}',BASE_CONFIG_SET='${base_set:-}',NEW_CONFIG_SET='${new_set:-}',REPEAT=${repeat:-},BENCH_SET='${bench_set:-}'"
+    printf '%s' "tar xzOf 'jobs/$1/sources.tar.gz' slurm/run.sbatch | sbatch --job-name='$1' ${gres[*]:-} ${extra[*]:-} --export=ALL,FOLDER='$1',DELETE_CALCS=$delete,GIT_COMMIT='$commit',MODE=$job_mode,BASELINE_COMMIT='${base_short:-}',NEW_COMMIT='${new_short:-}',BASE_CONFIG_SET='${base_set:-}',NEW_CONFIG_SET='${new_set:-}',REPEAT=${repeat:-},BENCH_SET='${bench_set:-}',RANGE_COMMITS='${range_list:-}',RANGE_CONFIG_SETS='${range_set_list:-}'"
 }
 
 # For gpus: reads [--mem SIZE] and sets need_cpu and mem to what a job of ours asks
@@ -314,7 +324,7 @@ submit|test|bench)
     # test and bench are submit with a second archive (the baseline) and MODE=test or MODE=bench
     # for run.sbatch.
     mode=$cmd
-    folder=""; delete=0; force=0; gpu=""; mem=""; against=""; new=""; repeat=""; long=0; config=""; model=""
+    folder=""; delete=0; force=0; gpu=""; mem=""; against=""; new=""; repeat=""; long=0; config=""; model=""; range=""
     while [ $# -gt 0 ]; do
         case "$1" in
             --delete-calcs)
@@ -344,6 +354,10 @@ submit|test|bench)
                 [ "$mode" != submit ] || { echo "--new is only for test and bench." >&2; exit 1; }
                 [ $# -ge 2 ] || { echo "--new needs a commit, e.g. --new HEAD" >&2; exit 1; }
                 new="$2"; shift ;;
+            --range)
+                [ "$mode" = test ] || { echo "--range is only for test." >&2; exit 1; }
+                [ $# -ge 2 ] || { echo "--range needs two commits A..B, e.g. --range HEAD~5..HEAD" >&2; exit 1; }
+                range="$2"; shift ;;
             --repeat)
                 [ "$mode" = bench ] || { echo "--repeat is only for bench." >&2; exit 1; }
                 [ $# -ge 2 ] || { echo "--repeat needs a number of runs, e.g. --repeat 5" >&2; exit 1; }
@@ -359,7 +373,8 @@ submit|test|bench)
     done
     if [ -z "$folder" ]; then
         case "$mode" in
-            test)  echo "Usage: cluster.sh test NAME [--against COMMIT] [--new COMMIT] [--force] [--gpu TYPE] [--mem SIZE]" >&2 ;;
+            test)  echo "Usage: cluster.sh test NAME [--against COMMIT] [--new COMMIT] [--force] [--gpu TYPE] [--mem SIZE]" >&2
+                   echo "       cluster.sh test NAME --range A..B [--force] [--gpu TYPE] [--mem SIZE]" >&2 ;;
             bench) echo "Usage: cluster.sh bench NAME [--against COMMIT] [--new COMMIT] [--repeat N] [--long] [--force] [--gpu TYPE] [--mem SIZE]" >&2 ;;
             *)     echo "Usage: cluster.sh submit FOLDER (--model NAME | --config FILE) [--delete-calcs] [--force] [--gpu TYPE] [--mem SIZE]" >&2
                    echo "Models: $(model_names)" >&2 ;;
@@ -386,6 +401,56 @@ submit|test|bench)
         configs_dir=tests/configs
         [ "$mode" = bench ] && configs_dir=tests/benchmark_configs${bench_set:+_$bench_set}
         [ -n "$(ls $configs_dir/*.json 2>/dev/null)" ] || { echo "There are no $configs_dir/*.json, nothing to run." >&2; exit 1; }
+    fi
+    if [ -n "$range" ]; then
+        # The chain of commits A, C1, ..., B along the first parents; each Ci is tested against
+        # the one before it. range_commits, range_shorts and range_sets hold A too (only a baseline).
+        [ -z "$against$new" ] || { echo "--range cannot be combined with --against or --new: each commit is tested against its parent." >&2; exit 1; }
+        case "$range" in
+            *...*|..*|*..*..*) range_ok=0 ;;
+            *..*)              range_ok=1 ;;
+            *)                 range_ok=0 ;;
+        esac
+        [ "$range_ok" = 1 ] || { echo "--range needs two commits A..B (or A.. for A..HEAD), not '$range'." >&2; exit 1; }
+        range_from=${range%%..*}; range_to=${range#*..}; range_to=${range_to:-HEAD}
+        first=$(git rev-parse --verify --quiet "$range_from^{commit}") || { echo "'$range_from' is not a commit." >&2; exit 1; }
+        last=$(git rev-parse --verify --quiet "$range_to^{commit}") || { echo "'$range_to' is not a commit." >&2; exit 1; }
+        if [ "$first" = "$last" ] || ! git merge-base --is-ancestor "$first" "$last"; then
+            echo "$range_from must be an older commit than $range_to (an ancestor of it)." >&2; exit 1
+        fi
+        # The oldest commit the harness can run: the earlier ones do not accept
+        # `Phase-field RESULT_FOLDER CONFIG` and write parameters.txt elsewhere.
+        oldest=$(git rev-parse --verify --quiet "98e885c^{commit}" || true)
+        if [ -n "$oldest" ] && ! git merge-base --is-ancestor "$oldest" "$first"; then
+            echo "The test can run the commits from 98e885c on; $range_from is older." >&2; exit 1
+        fi
+        mapfile -t range_commits < <(git rev-list --reverse --first-parent "$first..$last")
+        prev=$first
+        for c in "${range_commits[@]}"; do
+            if [ "$(git rev-parse "$c^1")" != "$prev" ]; then
+                echo "$range_from is not on the first-parent line of $range_to, so the range is not one chain of commits." >&2
+                exit 1
+            fi
+            prev=$c
+        done
+        # Every version needs a build (or a cache hit) and a run of every case.
+        max_range=50
+        [ ${#range_commits[@]} -le $max_range ] \
+            || { echo "The range has ${#range_commits[@]} commits; test at most $max_range at once (split the range)." >&2; exit 1; }
+        range_commits=("$first" "${range_commits[@]}")
+        range_shorts=(); range_sets=()
+        for c in "${range_commits[@]}"; do
+            range_shorts+=("$(git rev-parse --short "$c")")
+            set_name=$(config_set_of "$c") || exit 1
+            range_sets+=("${set_name:--}")          # "-": the current configs
+        done
+        echo ">> Range test: $(( ${#range_commits[@]} - 1 )) commit(s), each against its parent:"
+        for i in "${!range_commits[@]}"; do
+            note=""; [ "$i" = 0 ] && note="   (only the baseline)"
+            [ "${range_sets[$i]}" = - ] || note="$note   [configs: tests/config_sets/${range_sets[$i]}]"
+            printf '    %s  %s%s\n' "${range_shorts[$i]}" "$(git log -1 --format=%s "${range_commits[$i]}")" "$note"
+        done
+    elif [ "$mode" != submit ]; then
         against="${against:-HEAD}"
         base_commit=$(git rev-parse --verify --quiet "$against^{commit}") \
             || { echo "'$against' is not a commit." >&2; exit 1; }
@@ -439,6 +504,36 @@ submit|test|bench)
             echo "Pick another name, or use --force to delete the old run and start again." >&2
             exit 1
         fi
+    fi
+
+    if [ -n "$range" ]; then
+        # Everything goes over ONE ssh connection (see cssh and submit-many): the working tree
+        # (the harness), every commit as range/<short hash>.tar.gz (git archive, with
+        # core.autocrlf=false as for the baseline below), range/commits.txt with the subjects for
+        # the report, and the sbatch. If sbatch fails, the upload is deleted, so the name stays free.
+        stage=$(mktemp -d)
+        mkdir -p "$stage/range"
+        pack_sources > "$stage/sources.tar.gz"
+        for i in "${!range_commits[@]}"; do
+            git -c core.autocrlf=false archive --format=tar.gz "${range_commits[$i]}" > "$stage/range/${range_shorts[$i]}.tar.gz"
+            printf '%s %s\n' "${range_shorts[$i]}" "$(git log -1 --format=%s "${range_commits[$i]}")" >> "$stage/range/commits.txt"
+        done
+        # The settings sbatch_cmd reads.
+        mode=range; delete=0; base_short=""; new_short=""; base_set=""; new_set=""; repeat=""; bench_set=""
+        commit="${range_shorts[0]}..${range_shorts[${#range_shorts[@]} - 1]}"
+        range_list=$(IFS=:; echo "${range_shorts[*]}")
+        range_set_list=$(IFS=:; echo "${range_sets[*]}")
+        # Per version a build (about 1.5 min when the cache has none) and the cases (about a
+        # minute), with a wide margin; a stuck case is killed after 10 min (CASE_TIMEOUT).
+        extra=(--time=$(( 30 + 10 * ${#range_commits[@]} )))
+        [ -z "$mem" ] || extra+=(--mem="$mem")
+        echo ">> Uploading the working tree and ${#range_commits[@]} commits to $CLUSTER_HOST:$REMOTE_DIR/$job_dir and submitting the range test (GPU ${gpu:-any}${mem:+, host RAM $mem})"
+        rc=0
+        tar -C "$stage" -cf - sources.tar.gz range \
+            | cssh "mkdir -p '$REMOTE_DIR/$job_dir' && cd '$REMOTE_DIR' && tar xf - -C '$job_dir' && { $(sbatch_cmd "$folder") || { rm -rf '$job_dir'; exit 1; }; }" \
+            || rc=$?
+        rm -rf "$stage"
+        exit $rc
     fi
 
     # The archive belongs to this run only: the job unpacks it into its own folder and builds
@@ -653,7 +748,10 @@ duration() {
 # left: the cases take very different times.
 test_progress() {
     local phase a b c d e kind="regression test"
-    [ "$(cat "results/$2/info/setup/mode.txt" 2>/dev/null)" = bench ] && kind=benchmark
+    case "$(cat "results/$2/info/setup/mode.txt" 2>/dev/null)" in
+        bench) kind=benchmark ;;
+        range) kind="range test" ;;
+    esac
     phase=""
     [ -f "results/$2/progress" ] && read -r phase a b c d e < "results/$2/progress"
     case "$phase" in
@@ -670,7 +768,7 @@ test_progress() {
 squeue -u "$USER"
 squeue -u "$USER" -h -t RUNNING -o '%i %j' | while read -r id name; do
     # A regression test or benchmark runs many short cases, so it reports which run it is at.
-    if [ -f "results/$name/info/setup/baseline.tar.gz" ]; then
+    if [ -f "results/$name/info/setup/baseline.tar.gz" ] || [ "$(cat "results/$name/info/setup/mode.txt" 2>/dev/null)" = range ]; then
         test_progress "$id" "$name"
         continue
     fi
@@ -767,7 +865,10 @@ for name in $names; do
     # written at its end. mode.txt tells the two apart.
     is_test=0; kind="regression test"
     [ -f "$r/info/setup/baseline.tar.gz" ] && is_test=1
-    [ "$(cat "$r/info/setup/mode.txt" 2>/dev/null)" = bench ] && kind=benchmark
+    case "$(cat "$r/info/setup/mode.txt" 2>/dev/null)" in
+        bench) kind=benchmark ;;
+        range) kind="range test"; is_test=1 ;;
+    esac
 
     case "$jstate" in
         PENDING) state=queued;  details="job $jid" ;;
