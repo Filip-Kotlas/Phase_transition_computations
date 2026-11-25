@@ -102,6 +102,15 @@ struct Parameters {
     // load from a JSON file
     static Parameters load(const std::filesystem::path& filename);
 
+    // The text values of the model's parameters section (e.g. the thermodynamic database and its phases),
+    // one entry per key. A model's entries() list only its numbers: its Params go to the GPU, so they hold
+    // no strings. Written after them by save_human_readable and save_for_latex.
+    std::vector<ParameterEntry> model_text_entries() const;
+
+    // The thermodynamic database of the model (the text value parameters.database), or an empty path
+    // when the model has none. RunFolder::save_setup copies it into info/setup/.
+    std::filesystem::path model_database() const;
+
     // save to a text file (for info/setup/parameters.txt), with the parameters of the model
     void save_human_readable(const std::filesystem::path& filename,
                              const std::vector<ParameterEntry>& model_entries) const;

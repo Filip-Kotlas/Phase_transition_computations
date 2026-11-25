@@ -1,0 +1,44 @@
+{
+    "solver": {
+        "initial_time": 0.0,
+        "final_time": 0.02,
+        "domain": {
+            "x_left": 0,
+            "x_right": 1.5,
+            "y_left": 0,
+            "y_right": 1
+        },
+        "custom_integration_time_step": false,
+        "integration_time_step": 5e-06,
+        "adaptivity": 1e-05,
+        "sizeX": 120,
+        "sizeY": 100,
+        "frame_num": 5
+    },
+    "init_cond": {
+        "init_cond_from_file": false,
+        "init_cond_file_path": "",
+        "initial_condition": "Circle",
+        "radius_proportion": 0.3,
+        "slope_width": 0.05,
+        "scaling": false
+    },
+    "bound_cond": {
+        "x_phase": "neumann",
+        "y_phase": "neumann",
+        "x_conc": "neumann",
+        "y_conc": "neumann"
+    },
+    "model": "allen_cahn",
+    "parameters": {
+        "alpha": 1,
+        "a": 1,
+        "b": 1,
+        "ksi": 0.05,
+        "A": 0.0,
+        "m": 4,
+        "theta_0": 0.0,
+        "force_term": "constant",
+        "force_size": 1.0
+    }
+}

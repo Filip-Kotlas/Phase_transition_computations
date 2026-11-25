@@ -39,6 +39,9 @@
         "m": 4,
         "theta_0": -0.392699,
         "d": 1600000000000000.0,
-        "T": 1000
+        "T": 1000,
+        "database": "databases/NbZr-91Fer-LB.tdb",
+        "alpha_phase": "HCP_A3",
+        "beta_phase": "BCC_A2"
     }
 }

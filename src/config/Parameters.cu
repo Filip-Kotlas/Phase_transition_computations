@@ -158,6 +158,39 @@ void Parameters::save_human_readable(const std::filesystem::path& filename,
     file << std::left << std::setw(max_label_length) << "Model:"   << std::right << std::setw(max_value_length) << model_type << std::endl;
     for (const ParameterEntry& entry : model_entries)
         file << std::left << std::setw(max_label_length) << entry.label + ":" << std::right << std::setw(max_value_length) << entry.value << std::endl;
+    for (const ParameterEntry& entry : model_text_entries())
+        file << std::left << std::setw(max_label_length) << entry.label + ":" << std::right << std::setw(max_value_length) << entry.value << std::endl;
+}
+
+namespace {
+// Text for LaTeX outside math mode: a bare _ is an error there.
+std::string latex_text(const std::string& text)
+{
+    std::string result;
+    for (const char ch : text) {
+        if (ch == '_')
+            result += '\\';
+        result += ch;
+    }
+    return result;
+}
+}
+
+std::vector<ParameterEntry> Parameters::model_text_entries() const
+{
+    std::vector<ParameterEntry> result;
+    for (const auto& item : model_config.items()) {
+        if (item.value().is_string())
+            result.push_back({item.key(), latex_text(item.key()), latex_text(item.value().get<std::string>())});
+    }
+    return result;
+}
+
+std::filesystem::path Parameters::model_database() const
+{
+    if (model_config.contains("database") && model_config.at("database").is_string())
+        return model_config.at("database").get<std::string>();
+    return {};
 }
 
 void Parameters::save_for_latex(const std::filesystem::path& filename,
@@ -218,6 +251,8 @@ void Parameters::save_for_latex(const std::filesystem::path& filename,
     file << "\\textbf{Model parameters (" << latex_model_type << "):}" << std::endl << std::endl;
     file << "\\begin{tabular}{ll}" << std::endl;
     for (const ParameterEntry& entry : model_entries)
+        file << entry.latex << " & " << entry.value << " \\\\" << std::endl;
+    for (const ParameterEntry& entry : model_text_entries())
         file << entry.latex << " & " << entry.value << " \\\\" << std::endl;
     file << "\\end{tabular}" << std::endl;
 }

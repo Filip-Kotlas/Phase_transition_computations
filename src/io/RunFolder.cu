@@ -67,6 +67,11 @@ void RunFolder::save_setup(const Parameters& parameters, const std::vector<Param
     parameters.save_human_readable(parameters_file, model_entries);
     parameters.save_copy_of_config(input_config, setup_dir / "config.json");
     parameters.save_for_latex(setup_dir / "parameters.tex", model_entries);
+    // The thermodynamic database the model read (already read, so it exists), under its own name.
+    const std::filesystem::path database = parameters.model_database();
+    if (!database.empty())
+        std::filesystem::copy_file(database, setup_dir / database.filename(),
+                                   std::filesystem::copy_options::overwrite_existing);
 }
 
 void RunFolder::write_run_start_info(std::time_t run_start) const

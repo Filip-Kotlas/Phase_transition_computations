@@ -14,7 +14,7 @@
 # over NFS, tested 2026-11-20, while a new file renamed into place does). KEY is a hash of
 # everything the binary depends on:
 #   - every file of SRC_DIR except the ones that cannot affect the build (config/, python/,
-#     tests/, slurm/, results, build/, comp_configurations/, *.md, .git*, requirements.txt).
+#     tests/, slurm/, results, build/, comp_configurations/, databases/, *.md, .git*, requirements.txt).
 #     The rest counts even if the Makefile does not use it (old commits had their sources in the
 #     top folder), so an unknown file can only cause a needless build, never a wrong binary;
 #   - the GPU's compute capability (the Makefile compiles with -arch=native);
@@ -55,7 +55,7 @@ fi
 code_files() {
     cd "$src"
     find . \( -path ./config -o -path ./python -o -path ./tests -o -path ./slurm -o -path ./results \
-              -o -path ./build -o -path ./comp_configurations \) -prune \
+              -o -path ./build -o -path ./comp_configurations -o -path ./databases \) -prune \
          -o -type f ! -name '*.md' ! -name '.git*' ! -name requirements.txt -print0 \
         | LC_ALL=C sort -z | xargs -0 -r sha256sum
 }

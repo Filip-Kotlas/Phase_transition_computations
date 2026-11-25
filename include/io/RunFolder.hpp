@@ -28,9 +28,11 @@ public:
     // stops that way. Kept out of calculations/, where it would be taken for a frame.
     const std::filesystem::path& stuck_state() const { return stuck_state_file; }
 
-    // Writes parameters.txt, a copy of the config (config.json) and parameters.tex into info/setup/;
+    // Writes parameters.txt, a copy of the config (config.json) and parameters.tex into info/setup/,
+    // and copies the model's thermodynamic database there (Parameters::model_database), if it has one;
     // model_entries are the parameters of the model (ModelT::Params::entries()).
-    // Throws std::runtime_error when a file cannot be opened (from the Parameters::save_* methods).
+    // Throws std::runtime_error when a file cannot be opened (from the Parameters::save_* methods) and
+    // std::filesystem::filesystem_error when the database cannot be copied.
     void save_setup(const Parameters& parameters, const std::vector<ParameterEntry>& model_entries,
                     const std::filesystem::path& input_config) const;
 
