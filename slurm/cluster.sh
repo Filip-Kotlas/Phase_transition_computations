@@ -29,19 +29,17 @@
 #   slurm/cluster.sh list                                      all runs on the cluster and their state
 #   slurm/cluster.sh log                                       tail the newest slurm-*.out
 #   slurm/cluster.sh gpus [--mem SIZE]                         before submitting: free and usable GPUs
-#                                                              per type, what blocks the free ones,
-#                                                              your jobs, and whether a job starts now
-#   slurm/cluster.sh nodes [--mem SIZE]                        every node: free GPUs, CPUs and RAM,
-#                                                              its running jobs, and whether our
-#                                                              job would fit there now
+#                                                              per type and what blocks the free ones
+#   slurm/cluster.sh jobs                                      all running jobs of all users: node,
+#                                                              resources, time used and time left
 #   slurm/cluster.sh fetch [MyRun] [--no-calcs] [--force]      download results/MyRun, or all runs
-#   slurm/cluster.sh cancel JOBID
+#   slurm/cluster.sh cancel (JOBID | NAME)                     cancel your queued or running job
 #   slurm/cluster.sh clean                                     delete leftover upload folders jobs/*
 #   slurm/cluster.sh cache [prune [--days N]]                  list the build cache; prune deletes
 #                                                              the binaries unused for N days
 #                                                              (default 30; 0 = all of them)
 #   slurm/cluster.sh delete-results [--yes]                    delete ALL results on the cluster
-#
+
 # Every model has its own complete config, config/<model>.json; submit needs the one to run,
 # --model NAME (config/NAME.json) or --config FILE (any file, e.g. from comp_configurations/).
 # Every run gets its own copy of the code: submit uploads the sources (with the chosen config
@@ -291,8 +289,8 @@ sbatch_cmd() {
     printf '%s' "tar xzOf 'jobs/$1/sources.tar.gz' slurm/run.sbatch | sbatch --job-name='$1' ${gres[*]:-} ${extra[*]:-} --export=ALL,FOLDER='$1',DELETE_CALCS=$delete,GIT_COMMIT='$commit',MODE=$job_mode,BASELINE_COMMIT='${base_short:-}',NEW_COMMIT='${new_short:-}',BASE_CONFIG_SET='${base_set:-}',NEW_CONFIG_SET='${new_set:-}',REPEAT=${repeat:-},BENCH_SET='${bench_set:-}'"
 }
 
-# For gpus and nodes: reads [--mem SIZE] and sets need_cpu and mem to what a job of ours asks
-# for (run.sbatch, or --mem SIZE as with submit), and prints it.
+# For gpus: reads [--mem SIZE] and sets need_cpu and mem to what a job of ours asks
+# for (run.sbatch, or --mem SIZE as with submit).
 our_job_request() {
     mem=""
     while [ $# -gt 0 ]; do
@@ -307,8 +305,6 @@ our_job_request() {
     need_cpu=$(sed -nE 's/^#SBATCH --cpus-per-task=([0-9]+).*/\1/p' slurm/run.sbatch)
     need_cpu=${need_cpu:-1}
     [ -n "$mem" ] || mem=$(sed -nE 's/^#SBATCH --mem=([0-9]+[KMGT]?).*/\1/p' slurm/run.sbatch)
-    echo "Our job: 1 GPU, $need_cpu CPU(s), $mem RAM (change the RAM with --mem SIZE)"
-    echo
 }
 
 cmd="${1:-}"; shift || true
@@ -365,7 +361,8 @@ submit|test|bench)
         case "$mode" in
             test)  echo "Usage: cluster.sh test NAME [--against COMMIT] [--new COMMIT] [--force] [--gpu TYPE] [--mem SIZE]" >&2 ;;
             bench) echo "Usage: cluster.sh bench NAME [--against COMMIT] [--new COMMIT] [--repeat N] [--long] [--force] [--gpu TYPE] [--mem SIZE]" >&2 ;;
-            *)     echo "Usage: cluster.sh submit FOLDER (--model NAME | --config FILE) [--delete-calcs] [--force] [--gpu TYPE] [--mem SIZE]" >&2 ;;
+            *)     echo "Usage: cluster.sh submit FOLDER (--model NAME | --config FILE) [--delete-calcs] [--force] [--gpu TYPE] [--mem SIZE]" >&2
+                   echo "Models: $(model_names)" >&2 ;;
         esac
         exit 1
     fi
@@ -487,7 +484,7 @@ submit|test|bench)
     esac
     # --mem SIZE overrides the host RAM in run.sbatch. Slurm starts a job only on a node where
     # that much RAM is not yet reserved by other jobs, so a smaller request can start sooner
-    # (see `nodes`).
+    # (see `gpus`).
     if [ -n "$mem" ]; then
         extra+=(--mem="$mem")
         echo ">> Host RAM: $mem"
@@ -821,8 +818,11 @@ log)
 gpus)
     # Everything needed to decide how to submit: per GPU type the cards that are free and the ones
     # a job of ours could really get now (its node also has the CPUs and RAM free), the GPUs that
-    # pending jobs of all users wait for, each free card with what blocks it, your own jobs, and
-    # a verdict. "Our job" is what run.sbatch asks for, or --mem SIZE as with submit.
+    # pending jobs of all users wait for, and each free card with what blocks it. "Our job" is
+    # what run.sbatch asks for, or --mem SIZE as with submit.
+    # Columns: DOWN = idle cards on drained or down nodes, FREE = idle cards on working nodes,
+    # USABLE = free cards whose node also has the CPUs and RAM our job needs, WAITING = GPUs
+    # wanted by the pending jobs of all users (array tasks counted one by one).
     # The remote script is sent on stdin; its arguments are the CPUs and MB of RAM we need.
     our_job_request "$@"
     cssh bash -s -- "$need_cpu" "$(mem_to_mb "$mem")" <<'REMOTE_SCRIPT'
@@ -831,8 +831,6 @@ gpus)
     sinfo -N -h -p gp -O "NodeList:20,StateLong:20,CPUsState:30,Memory:20,AllocMem:20,Gres:80,GresUsed:80" | sed 's/^/node /'
     # Every pending array task on its own line (-r): "pending USER gres/gpu:TYPE:N", "gres/gpu:N" or "N/A"
     squeue -r -h -t PENDING -O "UserName:40,tres-per-node:80" | sed 's/^/pending /'
-    # Our own jobs: "mine ID|NAME|STATE|REASON|START|ELAPSED|NODES"
-    squeue -h -u "$USER" -o "%i|%j|%T|%r|%S|%M|%N" | sed 's/^/mine /'
 } | awk -v need_cpu="$1" -v need_mem="$2" '
 $1 == "node" && $7 ~ /^gpu:/ {
     n = $2; state = $3
@@ -851,11 +849,11 @@ $1 == "node" && $7 ~ /^gpu:/ {
     if (mfree < need_mem) why = why ", too little RAM"
     line = sprintf("  %-5s %-8s %d card(s)   CPU %2d free   RAM %5.1f GB free   -> ", n, t, free, cfree, mfree / 1024)
     if (why == "") {
-        line = line "FITS"; usable[t] += free; fits = fits " " n "(" t ")"
+        line = line "FITS"; usable[t] += free
     } else {
         line = line "no" why
         if (cfree >= need_cpu && mfree >= 2048) {     # less would not be enough for our jobs
-            line = line sprintf(" (fits with --mem %dG)", int(mfree / 1024)); smaller = 1
+            line = line sprintf(" (fits with --mem %dG)", int(mfree / 1024))
         }
     }
     if (state ~ /-$/) line = line ", planned for a waiting job"
@@ -864,112 +862,90 @@ $1 == "node" && $7 ~ /^gpu:/ {
 $1 == "pending" && $3 ~ /gpu/ {
     k = split($3, p, ":"); cards = p[k] + 0; if (cards < 1) cards = 1
     if (k >= 3) wait[p[2]] += cards; else wait_any += cards
-    waiting += cards
-}
-$1 == "mine" {
-    split(substr($0, 6), m, "|")
-    if (m[3] == "PENDING") s = sprintf("PENDING (%s), Slurm estimates the start at %s", m[4], m[5])
-    else                   s = sprintf("%s on %s for %s", m[3], m[7], m[6])
-    mine[++nm] = sprintf("  %-8s %-20s %s", m[1], m[2], s)
 }
 END {
     printf "%-9s %5s %7s %5s %5s %7s %8s   %s\n", "TYPE", "CARDS", "IN USE", "DOWN", "FREE", "USABLE", "WAITING", "NODES"
     cmd = "sort"
-    for (t in tot) {
+    for (t in tot)
         printf "%-9s %5d %7d %5d %5d %7d %8d   %s\n", t, tot[t], usd[t], down[t], fre[t], usable[t], wait[t], nodes[t] | cmd
-        all_usable += usable[t]
-    }
     close(cmd)
     printf "%-9s %5s %7s %5s %5s %7s %8d\n", "any type", "", "", "", "", "", wait_any
-    print "DOWN = idle cards on drained or down nodes. FREE = idle cards on working nodes."
-    print "USABLE = free cards whose node also has the CPUs and RAM our job needs."
-    print "WAITING = GPUs wanted by the pending jobs of all users (array tasks counted one by one)."
     print ""
     print "Free cards:"
     if (nf == 0) print "  none"
     for (i = 1; i <= nf; i++) print freelines[i]
-    print ""
-    print "Your jobs:"
-    if (nm == 0) print "  none queued or running"
-    for (i = 1; i <= nm; i++) print mine[i]
-    print ""
-    if (all_usable > 0) {
-        print "-> A job submitted now can start at once on:" fits
-        if (waiting > 0) printf "   (%d GPU(s) are wanted by waiting jobs; one with a higher priority may get it first.)\n", waiting
-        print "   Any type: cluster.cmd submit NAME. Only one type: add --gpu TYPE."
-    } else {
-        print "-> No free card is usable now: a job submitted now has to wait."
-        if (smaller) print "   A smaller RAM request would fit somewhere (see above); our jobs have peaked at 1.7 GB."
-        print "   After submitting, cluster.cmd status shows why it waits and Slurm'"'"'s estimate of the start."
-    }
-    print "   Who holds the nodes: cluster.cmd nodes."
 }'
 REMOTE_SCRIPT
     ;;
-nodes)
-    # Every node of the gp partition: free GPUs, CPUs and RAM, the running jobs grouped by user
-    # and job name, and whether a job of ours would fit there now. Free RAM is RAM that no job
-    # has reserved (Slurm schedules by the reservations, not by what is really in use).
-    # "Our job" is what run.sbatch asks for (1 GPU, its CPUs and RAM), or --mem SIZE as with submit.
-    our_job_request "$@"
-    cssh bash -s -- "$need_cpu" "$(mem_to_mb "$mem")" <<'REMOTE_SCRIPT'
+jobs)
+    # Every running job on the cluster, one line each: its node and GPU type, job ID, user,
+    # the GPUs, CPUs and RAM it holds, how long it has run and how much of its time limit is left
+    # (so when its resources become free at the latest). Sorted by GPU type, node and time left.
+    # Which cards are free now and whether a job of ours fits is what `gpus` shows.
+    [ $# -eq 0 ] || { echo "Usage: cluster.sh jobs" >&2; exit 1; }
+    cssh bash -s <<'REMOTE_SCRIPT'
 {
-    # "node NAME STATE CPUS(A/I/O/T) MEMORY_MB ALLOCMEM_MB GRES GRES_USED"
-    sinfo -N -h -p gp -O "NodeList:20,StateLong:20,CPUsState:30,Memory:20,AllocMem:20,Gres:80,GresUsed:80" | sed 's/^/node /'
-    # "job NODELIST USER cpu=2,mem=8G,node=1,billing=8,gres/gpu=1 NAME" (the name last: it may contain spaces)
-    squeue -h -t RUNNING -O "NodeList:40,UserName:30,tres-alloc:200,Name:200" | sed 's/^/job /'
-} | awk -v need_cpu="$1" -v need_mem="$2" '
+    # "node NAME GRES", e.g. "node gp4 gpu:rtx3060:2(S:0)", for the GPU type of each node
+    sinfo -N -h -p gp -O "NodeList:20,Gres:80" | sed 's/^/node /'
+    # "job ID NODELIST USER cpu=2,mem=8G,node=1,billing=8,gres/gpu=1 ELAPSED LEFT NAME"
+    # (the name last: it may contain spaces). All partitions: gp_turing, gp_ampere and
+    # gp_blackwell (one per GPU generation) share the nodes of gp, and many jobs run in them.
+    squeue -h -t RUNNING -O "JobID:20,NodeList:40,UserName:30,tres-alloc:200,TimeUsed:20,TimeLeft:20,Name:200" \
+        | sed 's/^/job /'
+} | awk '
 function mb(s,   v) {                                     # "8G" -> 8192, "1500M" -> 1500
     v = s + 0
     if (s ~ /T$/) v *= 1048576; else if (s ~ /G$/) v *= 1024; else if (s ~ /K$/) v /= 1024
     return v
 }
+function seconds(s,   d, k, p, i, v) {                    # "1-02:03:04", "02:03:04", "03:04" -> s
+    d = 0
+    if (s ~ /-/) { d = substr(s, 1, index(s, "-") - 1); s = substr(s, index(s, "-") + 1) }
+    if (s !~ /^[0-9:]+$/) return 1e12                     # UNLIMITED, NOT_SET, ...: last
+    k = split(s, p, ":"); v = 0
+    for (i = 1; i <= k; i++) v = v * 60 + p[i]
+    return d * 86400 + v
+}
+# Sorting order: GPU type, node number (gp2 before gp11), time left.
+function before(a, b) {
+    if (typ[a] != typ[b]) return typ[a] < typ[b]
+    if (num[a] != num[b]) return num[a] < num[b]
+    return left_s[a] < left_s[b]
+}
 $1 == "node" {
-    n = $2; order[++nn] = n; state[n] = $3
-    split($4, c, "/"); cfree[n] = c[2]; ctot[n] = c[4]
-    mtot[n] = $5; mfree[n] = $5 - $6
-    gtot[n] = 0; gfree[n] = 0; gtype[n] = "none"
-    if ($7 ~ /^gpu:/) {
-        split($7, g, ":"); gtype[n] = g[2]; gtot[n] = g[3] + 0      # "gpu:rtx3060:2(S:0)"   -> 2
-        split($8, u, ":"); gfree[n] = gtot[n] - (u[3] + 0)          # "gpu:rtx3060:1(IDX:0)" -> 1 used
-    }
+    gtype[$2] = "-"
+    if ($3 ~ /^gpu:/) { split($3, g, ":"); gtype[$2] = g[2] }   # "gpu:rtx3060:2(S:0)" -> rtx3060
 }
 $1 == "job" {
-    name = $5; for (i = 6; i <= NF; i++) name = name " " $i
-    cpu = 0; mem = 0; gpu = 0
-    k = split($4, t, ",")
+    j = ++nj
+    id[j] = $2; node[j] = $3; user[j] = $4; elapsed[j] = $6; left[j] = $7
+    name[j] = $8; for (i = 9; i <= NF; i++) name[j] = name[j] " " $i
+    cpu[j] = 0; mem[j] = 0; gpu[j] = 0
+    k = split($5, t, ",")
     for (i = 1; i <= k; i++) {
         split(t[i], kv, "=")
-        if (kv[1] == "cpu") cpu = kv[2]
-        else if (kv[1] == "mem") mem = mb(kv[2])
-        else if (kv[1] == "gres/gpu") gpu = kv[2]
+        if (kv[1] == "cpu") cpu[j] = kv[2]
+        else if (kv[1] == "mem") mem[j] = mb(kv[2])
+        else if (kv[1] == "gres/gpu") gpu[j] = kv[2]
     }
-    key = $2 SUBSEP $3 SUBSEP name
-    if (!(key in cnt)) { nk[$2]++; keys[$2, nk[$2]] = key }
-    cnt[key]++; kcpu[key] += cpu; kmem[key] += mem; kgpu[key] += gpu
+    typ[j] = ($3 in gtype) ? gtype[$3] : "?"              # "?" for a job on several nodes
+    num[j] = substr($3, 3) + 0; left_s[j] = seconds($7)
 }
 END {
-    for (i = 1; i <= nn; i++) {
-        n = order[i]
-        why = ""
-        if (state[n] ~ /drain|down|fail|maint|not_resp|unk/) why = why ", node " state[n]
-        if (gfree[n] < 1)          why = why ", no free GPU"
-        if (cfree[n] < need_cpu)   why = why ", too few free CPUs"
-        if (mfree[n] < need_mem)   why = why ", too little free RAM"
-        fits = (why == "") ? "FITS" : "no" why
-        printf "%-5s %-10s GPU %d/%d free (%s)  CPU %d/%d free  RAM %.1f/%.0f GB free  -> %s\n", \
-            n, state[n], gfree[n], gtot[n], gtype[n], cfree[n], ctot[n], mfree[n] / 1024, mtot[n] / 1024, fits
-        for (j = 1; j <= nk[n]; j++) {
-            key = keys[n, j]; split(key, f, SUBSEP)
-            printf "      %-10s %3d job(s) %4d CPU %6.1f GB %2d GPU   %s\n", \
-                f[2], cnt[key], kcpu[key], kmem[key] / 1024, kgpu[key], f[3]
+    if (nj == 0) { print "No running jobs."; exit }
+    for (i = 1; i <= nj; i++) order[i] = i
+    for (i = 2; i <= nj; i++)                             # insertion sort; a few dozen jobs
+        for (k = i; k > 1 && before(order[k], order[k - 1]); k--) {
+            x = order[k]; order[k] = order[k - 1]; order[k - 1] = x
         }
+    fmt = "%-5s %-8s %-8s %-10s %4s %4s %6s %11s %11s   %s\n"
+    printf fmt, "NODE", "GPU", "JOBID", "USER", "GPUS", "CPUS", "RAM GB", "ELAPSED", "TIME LEFT", "NAME"
+    for (i = 1; i <= nj; i++) {
+        j = order[i]
+        if (i > 1 && typ[j] != typ[order[i - 1]]) print ""          # a blank line between GPU types
+        printf fmt, node[j], typ[j], id[j], user[j], gpu[j], cpu[j], sprintf("%.1f", mem[j] / 1024), \
+            elapsed[j], left[j], name[j]
     }
-    print ""
-    print "Free RAM = RAM that no job has reserved; Slurm schedules by the reservations, not by real use."
-    print "A state ending in \"-\" (e.g. mixed-) means the node is planned for a pending job with a higher"
-    print "priority; a job of ours can still start there if its time limit ends before that job is due."
-    print "Your pending jobs and why they wait: cluster.cmd status. Other RAM request: --mem SIZE."
 }'
 REMOTE_SCRIPT
     ;;
@@ -1047,18 +1023,48 @@ fetch)
     echo ">> Fetched $fetched run(s), skipped $skipped"
     ;;
 cancel)
-    id="${1:?Usage: cluster.sh cancel JOBID}"
-    case "$id" in *[!0-9]*) echo "Invalid job ID '$id'." >&2; exit 1 ;; esac
-    # A job that has not started yet still has its upload in jobs/<name> (the job name is the
-    # run name), which would keep the name taken, so delete it. A running job has already moved
-    # its sources to the results and cleans up after itself. The remote script is sent on stdin.
-    cssh bash -s -- "$REMOTE_DIR" "$id" <<'REMOTE_SCRIPT'
-read -r state name <<< "$(squeue -h -j "$2" -o '%T %j' 2>/dev/null)"
-scancel "$2" || exit 1
+    # The job is given by its ID or by its name (= the run name). Only your own queued or running
+    # jobs. scancel only sends the signal, so this waits (up to 30 s) until the job has stopped
+    # and says so. A job that has not started yet still has its upload in
+    # jobs/<name>, which would keep the name taken, so delete it. A running job has already moved
+    # its sources to the results; they stay, so submitting the name again needs --force.
+    # The remote script is sent on stdin.
+    [ $# -eq 1 ] || { echo "Usage: cluster.sh cancel (JOBID | NAME)" >&2; exit 1; }
+    case "$1" in *[!0-9]*) check_name "$1" ;; esac
+    cssh bash -s -- "$REMOTE_DIR" "$1" <<'REMOTE_SCRIPT'
+if [[ $2 =~ ^[0-9]+$ ]]; then
+    jobs=$(squeue -h -u "$USER" -j "$2" -o '%i %T %j %N' 2>/dev/null)
+else
+    jobs=$(squeue -h -u "$USER" -n "$2" -o '%i %T %j %N')
+fi
+if [ -z "$jobs" ]; then
+    echo "You have no queued or running job '$2' (cluster.cmd status lists them)." >&2; exit 1
+fi
+if [ "$(printf '%s\n' "$jobs" | wc -l)" -gt 1 ]; then
+    echo "Several jobs are called '$2'; cancel one by its ID:" >&2
+    printf '  %s\n' "$jobs" >&2; exit 1
+fi
+read -r id state name node <<< "$jobs"
+scancel "$id" || exit 1
+echo ">> Cancelling job $id ($name, $state${node:+ on $node})"
+# COMPLETING counts as cancelled: sacct records the job as CANCELLED at once, and Slurm then
+# kills what did not stop on SIGTERM after KillWait (30 s on this cluster) and cleans up the node.
+for _ in $(seq 30); do
+    now=$(squeue -h -j "$id" -o %T 2>/dev/null)
+    case "$now" in ""|COMPLETING) break ;; esac
+    sleep 1
+done
+case "$now" in
+    "")         echo ">> Job $id has ended." ;;
+    COMPLETING) echo ">> Job $id is cancelled; Slurm is cleaning up the node (up to a minute in status)." ;;
+    *)          echo ">> The job is still $now after 30 s; check it with cluster.cmd status." ;;
+esac
 case "$name" in ""|.|..|*[!A-Za-z0-9._-]*) exit 0 ;; esac
 if [ "$state" = PENDING ] && [ -d "$1/jobs/$name" ]; then
     rm -rf "$1/jobs/$name"
-    echo ">> Deleted the upload jobs/$name of the cancelled job"
+    echo ">> Deleted the upload jobs/$name of the cancelled job, so the name '$name' is free again."
+elif [ "$state" != PENDING ] && [ -d "$1/results/$name" ]; then
+    echo ">> results/$name keeps what the job wrote; to use the name again, submit with --force."
 fi
 REMOTE_SCRIPT
     ;;
@@ -1175,6 +1181,7 @@ delete-results)
     ;;
 *)
     sed -n '2,/^$/p' "$0"                 # the comment at the top, up to the first empty line
+    echo "Models for --model: $(model_names)"
     exit 1
     ;;
 esac
