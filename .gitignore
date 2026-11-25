@@ -56,3 +56,4 @@ Measurement
 
 # LaTeX log of the computations (its own repo, github computations_log)
 computations_log/
+.claude/settings.local.json
